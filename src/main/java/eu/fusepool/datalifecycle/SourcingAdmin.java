@@ -77,7 +77,7 @@ public class SourcingAdmin {
     /**
      * Name of the data life cycle graph. It is used as a register of other graphs to manage their life cycle 
      */
-    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/datalifecycle.graph");
+    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/datalifecycle1.graph");
     
     /**
      * Register graph referencing graphs for life cycle monitoring;
@@ -89,6 +89,7 @@ public class SourcingAdmin {
         
     	log.info("The Data Life Cycle service is being activated");
         try {
+        	/*
             tcManager.createMGraph(REQUEST_LOG_GRAPH_NAME);
             //now make sure everybody can read from the graph
             //or more precisly, anybody who can read the content-graph
@@ -96,7 +97,8 @@ public class SourcingAdmin {
             tca.setRequiredReadPermissions(REQUEST_LOG_GRAPH_NAME, 
                     Collections.singleton((Permission)new TcPermission(
                     "urn:x-localinstance:/content.graph", "read")));
-            
+            */
+        	
             // creates the data lifecycle register graph if it doesn't exists
             if( ! graphExists(DATA_LIFECYCLE_GRAPH_REFERENCE) ) {            	
             	dlcRegisterGraph = createDlcGraph();
