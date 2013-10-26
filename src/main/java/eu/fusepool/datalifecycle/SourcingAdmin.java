@@ -284,7 +284,7 @@ public class SourcingAdmin {
         MGraph graph = tcManager.getMGraph(new UriRef(graphName));
         parser.parse(graph, data, mediaType);
 
-        return "The graph now contains " + graph.size() + " triples";
+        return "The graph " + graphName + " now contains " + graph.size() + " triples";
     }
     
     /**
