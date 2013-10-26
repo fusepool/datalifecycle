@@ -33,7 +33,7 @@
     </form>
     </div>
     
-    <h2>Create a new RDF graph RDF</h2>
+    <h2>Create a new RDF graph</h2>
     <div>
     <form action="addgraph">
         <input type="text" name="graph" value="" size="80"><br/>
