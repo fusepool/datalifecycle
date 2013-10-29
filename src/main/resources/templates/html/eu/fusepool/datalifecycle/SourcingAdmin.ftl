@@ -35,7 +35,7 @@
     
     <h2>Create a new RDF graph</h2>
     <div>
-    <form action="addgraph">
+    <form action="addgraph" method="post">
         <input type="text" name="graph" value="" size="80"><br/>
         <input type="submit" value="Create" />
         

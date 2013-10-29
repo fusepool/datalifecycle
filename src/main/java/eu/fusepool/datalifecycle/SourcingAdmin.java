@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
+import javax.ws.rs.FormParam;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
@@ -72,6 +73,9 @@ public class SourcingAdmin {
      */
     @Reference
     private TcManager tcManager;
+    
+    @Reference
+    private Interlinker interlinker;
     
     /**
      * This is the name of the graph in which we "log" the requests
@@ -214,13 +218,12 @@ public class SourcingAdmin {
         }
         return dlcGraphsList;
     }
-    
-    
- @GET
+   
+    @POST
     @Path("addgraph")
     @Produces("text/plain")
     public Response createGraphCommand(@Context final UriInfo uriInfo,
-            @QueryParam("graph") final String graphName) throws Exception {
+            @FormParam("graph") final String graphName) throws Exception {
         //some simplicistic (and too restrictive) validation
         try {
             new URI(graphName);
