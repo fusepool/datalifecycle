@@ -2,6 +2,8 @@ package eu.fusepool.datalifecycle;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.security.AccessController;
 import java.security.AllPermission;
@@ -18,7 +20,9 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
+import org.apache.clerezza.jaxrs.utils.RedirectUtil;
 import org.apache.clerezza.jaxrs.utils.TrailingSlash;
 import org.apache.clerezza.rdf.core.MGraph;
 import org.apache.clerezza.rdf.core.Triple;
@@ -212,22 +216,31 @@ public class SourcingAdmin {
     }
     
     
-    @GET
+ @GET
     @Path("addgraph")
     @Produces("text/plain")
-    public String createGraphCommand(@Context final UriInfo uriInfo,
+    public Response createGraphCommand(@Context final UriInfo uriInfo,
             @QueryParam("graph") final String graphName) throws Exception {
+        //some simplicistic (and too restrictive) validation
+        try {
+            new URI(graphName);
+        } catch (URISyntaxException e) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Graphname is not a valid URI: "+e.getReason()).build();
+        }
+        if (!graphName.contains(":")) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Graphname is not a valid URI: No colon separating scheme").build();
+        }
         AccessController.checkPermission(new AllPermission());
-        String uriInfoStr = uriInfo.getRequestUri().toString();
-        String response = "";
         if(createGraph(graphName)) {
-        	response += "Graph " + graphName + " already exists.";
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Graph " + graphName + " already exists.").build();
         }
         else {
-        	response += "Created new graph " + graphName;
+            return RedirectUtil.createSeeOtherResponse("./", uriInfo);
         }
         
-        return "Datalifecycle service. " + response;
     }
     
     /**
