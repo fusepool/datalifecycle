@@ -27,6 +27,7 @@ import org.apache.clerezza.jaxrs.utils.RedirectUtil;
 import org.apache.clerezza.jaxrs.utils.TrailingSlash;
 import org.apache.clerezza.rdf.core.MGraph;
 import org.apache.clerezza.rdf.core.Triple;
+import org.apache.clerezza.rdf.core.TripleCollection;
 import org.apache.clerezza.rdf.core.UriRef;
 import org.apache.clerezza.rdf.core.access.EntityAlreadyExistsException;
 import org.apache.clerezza.rdf.core.access.TcManager;
@@ -91,6 +92,7 @@ public class SourcingAdmin {
      * Register graph referencing graphs for life cycle monitoring;
      */
     private MGraph dlcRegisterGraph = null;
+    private UriRef CONTENT_GRAPH_NAME = new UriRef("urn:x-localinstance:/content.graph");
     
     @Activate
     protected void activate(ComponentContext context) {
@@ -275,35 +277,31 @@ public class SourcingAdmin {
      * Load RDF data from a URI (schemes: "file://" or "http://")
      *
      */
+    //FIXME use post
     @GET
     @Path("upload")
     @Produces("text/plain")
     public String uploadRdfDataCommand(@Context final UriInfo uriInfo,
             @QueryParam("url") final URL url,
             @QueryParam("graph") final String graphName) throws Exception {
+        //TODO be a bit more specific
         AccessController.checkPermission(new AllPermission());
        
         HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
         urlConnection.addRequestProperty("Accept", "application/rdf+xml; q=.9, text/turte;q=1");
         final String mediaType = urlConnection.getContentType();
         final InputStream data = urlConnection.getInputStream();
-        return uploadRdfData(uriInfo, mediaType, graphName, data);
+        final UriRef tempGraphName = new UriRef(graphName+"-upload-"+System.currentTimeMillis());
+        MGraph tempGraph = tcManager.createMGraph(tempGraphName);
+        parser.parse(tempGraph, data, mediaType);
+        TripleCollection sameAsTriples = interlinker.interlink(tempGraph, CONTENT_GRAPH_NAME);
+        MGraph targetGraph = tcManager.getMGraph(new UriRef(graphName));
+        targetGraph.addAll(tempGraph);
+        int addedTriples = tempGraph.size();
+        tcManager.deleteTripleCollection(tempGraphName);
+        return "Iploaded "+addedTriples+" triples and created "+sameAsTriples.size()+" owl:sameAs Statements";
     }
-    
-    /**
-     * Load RDF data
-     */
-    private String uploadRdfData(@Context final UriInfo uriInfo,
-            @HeaderParam("Content-Type") final String mediaType,
-            String graphName,
-            final InputStream data) throws Exception {
-    	
-        AccessController.checkPermission(new AllPermission());
-        MGraph graph = tcManager.getMGraph(new UriRef(graphName));
-        parser.parse(graph, data, mediaType);
 
-        return "The graph " + graphName + " now contains " + graph.size() + " triples";
-    }
     
     /**
      * Returns the data life cycle graph containing all the monitored graphs. It creates it if doesn't exit yet.
