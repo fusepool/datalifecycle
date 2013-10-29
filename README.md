@@ -1,7 +1,8 @@
 DataLifeCycle
 ============
 
-Implements the processing chain from the RDF imports to providing the interlinked and smushed data into the content graph
+Implements the processing chain from the RDF imports to providing the interlinked and smushed data 
+into the content graph
 
 
 To compile the bundle run
@@ -15,8 +16,9 @@ To deploy the bundle to a stanbol instance running on localhost port 8080 run
 
 After installing a new menu item pointing you to /datalifecycle will appear.
 
-The example service allows to look up resources using the site-manager. The 
-service can be accessed via browser as HTML or as RDF for machine clients.
+Steps of Data LifeCycle
+-----
 
-
-
+ * A Graph for a category of data gets created
+ * Data is uploaded to that graph, on uploading the interlinker adds triple to an owl:sameAs Graph
+ * Every night the data graphs are smushed to the content graph
