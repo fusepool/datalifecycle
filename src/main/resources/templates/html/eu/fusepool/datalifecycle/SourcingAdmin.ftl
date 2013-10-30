@@ -13,7 +13,7 @@
     <h1>RDF Data Lifecycle Manager</h1>
     <h2>Add RDF data to a graph</h2>
     <div>
-    <form action="upload">
+    <form action="upload" method="post">
         <div>
         	<label for="url">Deferenceable URL for RDF data to upload:</label>
         	<input type="text" name="url" value="" size="80"><br/>
