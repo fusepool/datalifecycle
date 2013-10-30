@@ -1,10 +1,17 @@
 package eu.fusepool.datalifecycle;
 
+import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.security.AccessController;
 import java.security.AllPermission;
 import java.security.Permission;
@@ -37,6 +44,7 @@ import org.apache.clerezza.rdf.core.impl.SimpleMGraph;
 import org.apache.clerezza.rdf.core.serializedform.Parser;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.utils.GraphNode;
+import org.apache.commons.io.IOUtils;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -86,13 +94,14 @@ public class SourcingAdmin {
     /**
      * Name of the data life cycle graph. It is used as a register of other graphs to manage their life cycle 
      */
-    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/datalifecycle1.graph");
+    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/datalifecycle.graph");
     
     /**
      * Register graph referencing graphs for life cycle monitoring;
      */
     private MGraph dlcRegisterGraph = null;
-    private UriRef CONTENT_GRAPH_NAME = new UriRef("urn:x-localinstance:/content.graph");
+    private final String CONTENT_GRAPH_NAME = "urn:x-localinstance:/content.graph";
+    private UriRef CONTENT_GRAPH_REF = new UriRef(CONTENT_GRAPH_NAME);
     
     @Activate
     protected void activate(ComponentContext context) {
@@ -277,31 +286,70 @@ public class SourcingAdmin {
      * Load RDF data from a URI (schemes: "file://" or "http://")
      *
      */
-    //FIXME use post
-    @GET
+    @POST
     @Path("upload")
     @Produces("text/plain")
     public String uploadRdfDataCommand(@Context final UriInfo uriInfo,
-            @QueryParam("url") final URL url,
-            @QueryParam("graph") final String graphName) throws Exception {
-        //TODO be a bit more specific
+            @FormParam("url") final URL url,
+            @FormParam("graph") final String sourceGraphName,
+            @HeaderParam("Content-Type") String mediaType) throws Exception {
         AccessController.checkPermission(new AllPermission());
        
-        HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
-        urlConnection.addRequestProperty("Accept", "application/rdf+xml; q=.9, text/turte;q=1");
-        final String mediaType = urlConnection.getContentType();
-        final InputStream data = urlConnection.getInputStream();
-        final UriRef tempGraphName = new UriRef(graphName+"-upload-"+System.currentTimeMillis());
-        MGraph tempGraph = tcManager.createMGraph(tempGraphName);
+        URLConnection connection =  url.openConnection();
+        connection.addRequestProperty("Accept", "application/rdf+xml; q=.9, text/turte;q=1");
+        //final String MEDIA_TYPE = "application/rdf+xml";
+        final InputStream data = connection.getInputStream();
+        String currentTime = String.valueOf(System.currentTimeMillis());
+        String tempGraphName = sourceGraphName + "-upload-" + currentTime;
+        final UriRef tempGraphRef = new UriRef(tempGraphName);
+        MGraph tempGraph = tcManager.createMGraph(tempGraphRef);
+        if(mediaType.equals("application/x-www-form-urlencoded")) {
+        	mediaType = getContentTypeFromUrl(url);
+        } 
         parser.parse(tempGraph, data, mediaType);
-        TripleCollection sameAsTriples = interlinker.interlink(tempGraph, CONTENT_GRAPH_NAME);
-        MGraph targetGraph = tcManager.getMGraph(new UriRef(graphName));
-        targetGraph.addAll(tempGraph);
-        int addedTriples = tempGraph.size();
-        tcManager.deleteTripleCollection(tempGraphName);
-        return "Iploaded "+addedTriples+" triples and created "+sameAsTriples.size()+" owl:sameAs Statements";
+        int numSourceGraphTriples = tempGraph.size();
+        
+        TripleCollection sameAsTriples = interlinker.interlink(tempGraph, CONTENT_GRAPH_REF);
+        String sameAsGraphname = sourceGraphName + "-owl-sameas-" + currentTime + ".graph";
+        MGraph sameAsGraph = tcManager.createMGraph(new UriRef(sameAsGraphname));
+        
+        sameAsGraph.addAll(sameAsTriples);
+        tcManager.deleteTripleCollection(tempGraphRef);
+        
+        String message = "Created graph " + sameAsGraphname + " for intelinking between " + sourceGraphName + " and " + CONTENT_GRAPH_NAME + ".\n" + 
+        		"Uploaded " + numSourceGraphTriples + " triples and created "+ sameAsTriples.size() + " owl:sameAs statements."; 
+        log.info(message);
+        return message;
     }
-
+    
+    /**
+     * Extracts the content type from the file extension
+     * @param url
+     * @return
+     */
+    private String getContentTypeFromUrl(URL url) {
+    	
+    	String contentType = null;
+    	
+    	if(url.getFile().endsWith("ttl")) {
+    		
+    		contentType = "text/turtle";
+    	
+    	}
+    	else if (url.getFile().endsWith("nt")) {
+    		
+    		contentType = "text/turtle";
+    	
+    	}
+    	else {
+    		
+    		contentType = "application/rdf+xml";
+    		
+    	}
+    	
+    	return contentType; 
+    }
+    
     
     /**
      * Returns the data life cycle graph containing all the monitored graphs. It creates it if doesn't exit yet.
