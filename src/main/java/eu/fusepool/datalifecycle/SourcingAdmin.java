@@ -40,8 +40,11 @@ import org.apache.clerezza.rdf.core.access.EntityAlreadyExistsException;
 import org.apache.clerezza.rdf.core.access.TcManager;
 import org.apache.clerezza.rdf.core.access.security.TcAccessController;
 import org.apache.clerezza.rdf.core.access.security.TcPermission;
+import org.apache.clerezza.rdf.core.impl.PlainLiteralImpl;
 import org.apache.clerezza.rdf.core.impl.SimpleMGraph;
+import org.apache.clerezza.rdf.core.impl.TripleImpl;
 import org.apache.clerezza.rdf.core.serializedform.Parser;
+import org.apache.clerezza.rdf.ontologies.DCTERMS;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.utils.GraphNode;
 import org.apache.commons.io.IOUtils;
@@ -64,8 +67,8 @@ import org.slf4j.LoggerFactory;
  * and sees all previous requests for that resource.
  */
 @Component
-@Service(Object.class)
 @Property(name="javax.ws.rs", boolValue=true)
+@Service(Object.class)
 @Path("sourcing")
 public class SourcingAdmin {
     
@@ -89,19 +92,27 @@ public class SourcingAdmin {
     /**
      * This is the name of the graph in which we "log" the requests
      */
-    private UriRef REQUEST_LOG_GRAPH_NAME = new UriRef("http://example.org/resource-resolver-log.graph");
+    //private UriRef REQUEST_LOG_GRAPH_NAME = new UriRef("http://example.org/resource-resolver-log.graph");
     
     /**
      * Name of the data life cycle graph. It is used as a register of other graphs to manage their life cycle 
      */
-    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/datalifecycle.graph");
+    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/datalifecycle1.graph");
     
     /**
      * Register graph referencing graphs for life cycle monitoring;
      */
     private MGraph dlcRegisterGraph = null;
+    
     private final String CONTENT_GRAPH_NAME = "urn:x-localinstance:/content.graph";
+    
     private UriRef CONTENT_GRAPH_REF = new UriRef(CONTENT_GRAPH_NAME);
+    
+    private final int ADD_TRIPLES_OPERATION = 1;
+    private final int REMOVE_ALL_TRIPLES_OPERATION = 2;
+    private final int DELETE_GRAPH_OPERATION = 3;
+    private final int RECONCILE_GRAPH_OPERATION = 4;
+    private final int SMUSH_GRAPH_OPERATION = 5;
     
     @Activate
     protected void activate(ComponentContext context) {
@@ -117,8 +128,13 @@ public class SourcingAdmin {
                     Collections.singleton((Permission)new TcPermission(
                     "urn:x-localinstance:/content.graph", "read")));
             */
-        	
-            // creates the data lifecycle register graph if it doesn't exists
+        	if(interlinker != null) {
+        		log.info("interlinker service available");
+        	}
+        	else {
+        		log.info("interlinker service NOT available");
+        	}
+            // Creates the data lifecycle graph if it doesn't exists. This graph contains references to  
             if( ! graphExists(DATA_LIFECYCLE_GRAPH_REFERENCE) ) {            	
             	dlcRegisterGraph = createDlcGraph();
             	log.info("Created Data Lifecycle Register Graph. This graph will reference all graphs during their lifecycle");
@@ -167,74 +183,21 @@ public class SourcingAdmin {
         
         return new RdfViewable("SourcingAdmin", node, SourcingAdmin.class);
     }
-    
-    
-    @GET
-    @Path("graphexists")
-    @Produces("text/plain")
-    public String graphExistsCommand(@Context final UriInfo uriInfo,
-            @QueryParam("graph") final String graphName) throws Exception {
-        AccessController.checkPermission(new AllPermission());
-        String uriInfoStr = uriInfo.getRequestUri().toString();
-        String response = "";
-        if(graphExists( new UriRef(graphName) )) {
-        	response = "Graph: " + graphName + " already exists.";
-        }
-        else {
-        	response = "Graph " + graphName + " doesn't exist.";
-        }
-        
-        return "Datalifecycle service. " + response;
-    }
-    
-    
-    @GET
-    @Path("listgraphs")
-    @Produces("text/plain")
-    public String getGraphsCommand(@Context final UriInfo uriInfo,
-            @QueryParam("graph") final String query) throws Exception {
-        AccessController.checkPermission(new AllPermission());
-        String uriInfoStr = uriInfo.getRequestUri().toString();
-        
-        ArrayList<UriRef> graphs = getGraphs();
-        String graphListTxt = "";
-        if(graphs.size() > 0) {
-	        Iterator<UriRef> i = graphs.iterator();
-	        while(i.hasNext()) {
-	        	UriRef graph = i.next();
-	        	graphListTxt += graph.toString() + "\n";
-	        	log.info(graph.toString());
-	        }
-        }
-        else {
-        	graphListTxt += "No Dlc graphs";
-        }
-        
-        return "Datalifecycle service. Graphs: " + graphListTxt;
-    }
-    
-   /**
-    * Returns a list of graphs referred in the data life cycle graph 
-    * @return
-    */
    
-    private ArrayList<UriRef> getGraphs() {
-        MGraph dlcRegister = getDlcGraph();
-        ArrayList<UriRef> dlcGraphsList = new ArrayList<UriRef>();
-        Iterator<Triple> idlcGraphs = dlcRegister.filter(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.graph, null);
-        while(idlcGraphs.hasNext()) {
-        	Triple graphTriple = idlcGraphs.next();
-        	UriRef dlcGraphRef = (UriRef) graphTriple.getObject(); 
-        	dlcGraphsList.add(dlcGraphRef);
-        }
-        return dlcGraphsList;
-    }
-   
+    /**
+     * Creates a new empty graph
+     * @param uriInfo
+     * @param graphName
+     * @return
+     * @throws Exception
+     */
     @POST
-    @Path("addgraph")
+    @Path("create_graph")
     @Produces("text/plain")
     public Response createGraphCommand(@Context final UriInfo uriInfo,
-            @FormParam("graph") final String graphName) throws Exception {
+            @FormParam("graph") final String graphName,
+            @FormParam("graph_label") final String graphLabel) throws Exception {
+    	AccessController.checkPermission(new AllPermission());
         //some simplicistic (and too restrictive) validation
         try {
             new URI(graphName);
@@ -247,32 +210,39 @@ public class SourcingAdmin {
                     .entity("Graphname is not a valid URI: No colon separating scheme").build();
         }
         AccessController.checkPermission(new AllPermission());
-        if(createGraph(graphName)) {
+        if(createGraph(graphName,graphLabel)) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity("Graph " + graphName + " already exists.").build();
         }
         else {
             return RedirectUtil.createSeeOtherResponse("./", uriInfo);
+            
         }
         
     }
     
+    
     /**
-     * Creates a new graph and adds its uri to the data life cycle graph
-     * @param dlc_graph_name
+     * Creates a new graph and adds its uri and label to the data life cycle graph
+     * 
      * @return
      */
-    private boolean createGraph(String graph_name) {
+    private boolean createGraph(String graphName, String graphLabel) {
     	boolean graphExists = false;
-    	UriRef graphRef = new UriRef(graph_name); 
+    	String label = "";
+    	if(graphLabel != null){
+    		label = graphLabel; 
+    	}
+    	UriRef graphRef = new UriRef(graphName); 
     	try {
-	    	if( graphExists(new UriRef(graph_name)) ) {
+	    	if( graphExists(new UriRef(graphName)) ) {
 	    		graphExists = true;
 	    	}
 	    	else { 
-	    		MGraph graph = tcManager.createMGraph(graphRef);
+	    		tcManager.createMGraph(graphRef);
 	    		GraphNode dlcGraphNode = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
-	    		dlcGraphNode.addProperty(Ontology.graph, graphRef);
+	    		dlcGraphNode.addProperty(DCTERMS.hasPart, graphRef);
+	    		getDlcGraph().add(new TripleImpl(graphRef,RDFS.label, new PlainLiteralImpl(label)));
 	    	}
     	}
     	catch(UnsupportedOperationException uoe) {
@@ -282,71 +252,197 @@ public class SourcingAdmin {
     	return graphExists;
     }
     
+    
+        
     /**
-     * Load RDF data from a URI (schemes: "file://" or "http://")
-     *
+     * Applies one of the following operations to a graph:
+     * - add triples (operation code: 1) 
+     * - remove all triples (operation code: 2)
+     * - delete graph (operation code: 3)
+     * - reconcile (operation code: 4)
+     * - smush (operation code: 5)
      */
     @POST
-    @Path("upload")
+    @Path("operate")
     @Produces("text/plain")
-    public String uploadRdfDataCommand(@Context final UriInfo uriInfo,
-            @FormParam("url") final URL url,
-            @FormParam("graph") final String sourceGraphName,
+    public String operateOnGraphCommand(@Context final UriInfo uriInfo,
+            @FormParam("graph") final UriRef graphRef,
+            @FormParam("operation_code") final int operationCode,
+            @FormParam("data_url") final URL dataUrl,
             @HeaderParam("Content-Type") String mediaType) throws Exception {
         AccessController.checkPermission(new AllPermission());
        
-        URLConnection connection =  url.openConnection();
+        // validate arguments and handle all the connection exceptions
+        
+        return operateOnGraph(graphRef, operationCode, dataUrl, mediaType);
+        
+    }
+        
+    private String operateOnGraph(UriRef graphRef, int operationCode, URL dataUrl, String mediaType) throws Exception {
+    	String message = "";
+    	if(graphExists(graphRef)) {	 
+	        MGraph graph = tcManager.getMGraph(graphRef);
+	        switch(operationCode) {
+	        	case ADD_TRIPLES_OPERATION: 
+	        			message = addTriples(graphRef, dataUrl, mediaType);
+	        			break; 
+	        	case REMOVE_ALL_TRIPLES_OPERATION: 
+	        			message = emptyGraph(graphRef);
+						break; 
+	        	case DELETE_GRAPH_OPERATION: 
+	        			message = deleteGraph(graphRef);
+						break; 
+	        	case RECONCILE_GRAPH_OPERATION: 
+	        			message = reconcile(graphRef);
+						break; 
+	        	case SMUSH_GRAPH_OPERATION: 
+	        			message = smush(graphRef);
+						break; 
+	        }
+    	}
+    	else {
+    		message = "The graph " + graphRef.getUnicodeString() + " does not exist.";
+    	}
+	        
+        return message;
+    	
+    }
+    
+    /**
+     * Load RDF data into an existing graph from a URL (schemes: "file://" or "http://"). The arguments to be passed are:
+     * url of the dataset
+     * name of the graph in which the RDF data must be stored 
+     */
+    private String addTriples(UriRef graphRef, URL dataUrl, String mediaType) throws Exception { 
+        String message = "";
+        URLConnection connection =  dataUrl.openConnection();
         connection.addRequestProperty("Accept", "application/rdf+xml; q=.9, text/turte;q=1");
-        //final String MEDIA_TYPE = "application/rdf+xml";
-        final InputStream data = connection.getInputStream();
         String currentTime = String.valueOf(System.currentTimeMillis());
-        String tempGraphName = sourceGraphName + "-upload-" + currentTime;
-        final UriRef tempGraphRef = new UriRef(tempGraphName);
+        
+        // create a temporary graph to store the data
+        String tempGraphName =  graphRef.getUnicodeString() + "-temp-" + currentTime;
+        UriRef tempGraphRef = new UriRef(tempGraphName);
         MGraph tempGraph = tcManager.createMGraph(tempGraphRef);
-        if(mediaType.equals("application/x-www-form-urlencoded")) {
-        	mediaType = getContentTypeFromUrl(url);
-        } 
-        parser.parse(tempGraph, data, mediaType);
-        int numSourceGraphTriples = tempGraph.size();
+       
+        InputStream data = connection.getInputStream();
+        if(data != null) {
+	        if(mediaType.equals("application/x-www-form-urlencoded")) {
+	        	mediaType = getContentTypeFromUrl(dataUrl);
+	        }
+	        parser.parse(tempGraph, data, mediaType);
+	        
+	        // add the triples of the temporary graph into the graph selected by the user
+	        if(graphExists(graphRef)){
+		        MGraph graph = tcManager.getMGraph(graphRef);
+		        graph.addAll(tempGraph);
+		        message = "Added " + tempGraph.size() + " triples to " + graphRef.getUnicodeString() + "\n";
+		        
+	        }
+	        else {
+	        	message = "The graph " + graphRef.getUnicodeString() + " does not exist. It must be created before adding triples.\n";
+	        }
+        }
+        else {
+        	message = "The source data is empty.\n";
+        }
         
-        TripleCollection sameAsTriples = interlinker.interlink(tempGraph, CONTENT_GRAPH_REF);
-        String sameAsGraphname = sourceGraphName + "-owl-sameas-" + currentTime + ".graph";
-        MGraph sameAsGraph = tcManager.createMGraph(new UriRef(sameAsGraphname));
         
-        sameAsGraph.addAll(sameAsTriples);
+        // delete the temporary graph
         tcManager.deleteTripleCollection(tempGraphRef);
-        
-        String message = "Created graph " + sameAsGraphname + " for intelinking between " + sourceGraphName + " and " + CONTENT_GRAPH_NAME + ".\n" + 
-        		"Uploaded " + numSourceGraphTriples + " triples and created "+ sameAsTriples.size() + " owl:sameAs statements."; 
+       
         log.info(message);
         return message;
     }
+    
+    /**
+     * Removes all the triples from the graph
+     *
+     */
+    private String emptyGraph(UriRef graphRef) {
+    	// removes all the triples from the graph
+        MGraph graph = tcManager.getMGraph(graphRef);
+        graph.clear();
+        return "Graph " + graphRef.getUnicodeString() + " is now empty.";
+    }
+    
+    /**
+     * Deletes a graph
+     * @param graphRef
+     * @return
+     */
+    private String deleteGraph(UriRef graphRef) {
+        tcManager.deleteTripleCollection(graphRef);
+        GraphNode dlcGraphNode = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
+        //remove relation with the data lifecycle graph
+		dlcGraphNode.deleteProperty(DCTERMS.hasPart, graphRef);
+        return "Graph " + graphRef.getUnicodeString() + " has been deleted.";
+    }
+    /**
+     * Reconciles a source graph with the target graph (content-graph). The result of the reconciliation is stored in a new graph which is related
+     * to the source graph with the dcterms:source property. 
+     * @param graphRef
+     * @return
+     */
+    private String reconcile(UriRef graphRef) {
+    	String message = "";
+    	if(graphExists(graphRef)) {
+	        String currentTime = String.valueOf(System.currentTimeMillis());
+	                
+	        MGraph sourceGraph = tcManager.getMGraph(graphRef);
+	        
+	        // reconcile the source graph with the target graph (content graph)
+	        TripleCollection sameAsTriples = interlinker.interlink(sourceGraph, CONTENT_GRAPH_REF);
+	        
+	        if(sameAsTriples.size() > 0) {
+	        
+		        // create a graph (linkset) to store the result of the reconciliation task
+		        String sameAsGraphName = graphRef.getUnicodeString() + "-owl-same-as-" + currentTime + ".graph";
+		        UriRef sameAsGraphRef = new UriRef(sameAsGraphName);
+		        MGraph sameAsGraph = tcManager.createMGraph(sameAsGraphRef);
+		        
+		        // add a reference property to the linkset to state from which source it is derived 
+		        GraphNode sameAsGraphNode = new GraphNode(sameAsGraphRef, sameAsGraph);
+	    		sameAsGraphNode.addProperty(DCTERMS.source, graphRef);
+		       	        
+		        message = "A reconciliation task has been done between " + graphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + ".\n" + 
+		        		sameAsTriples.size() + " owl:sameAs statements have been created and stored in " + sameAsGraphName; 
+	        }
+	        else {
+	        	message = "A reconciliation task has been done between " + graphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + ".\n" + 
+		        		"No duplicates have been found."; 
+	        }
+    	}
+    	else {
+    		message = "The source graph does not exist.";
+    	}
+        log.info(message);
+        return message;
+    	
+    }
+    
+    private String smush(UriRef graphRef){
+    	String message = "";
+    	
+    	return message;
+    }
+    
     
     /**
      * Extracts the content type from the file extension
      * @param url
      * @return
      */
-    private String getContentTypeFromUrl(URL url) {
-    	
+    private String getContentTypeFromUrl(URL url) {    	
     	String contentType = null;
-    	
     	if(url.getFile().endsWith("ttl")) {
-    		
-    		contentType = "text/turtle";
-    	
+    		contentType = "text/turtle";    	
     	}
-    	else if (url.getFile().endsWith("nt")) {
-    		
-    		contentType = "text/turtle";
-    	
+    	else if (url.getFile().endsWith("nt")) {    		
+    		contentType = "text/turtle";    	
     	}
-    	else {
-    		
-    		contentType = "application/rdf+xml";
-    		
-    	}
-    	
+    	else {    		
+    		contentType = "application/rdf+xml";    		
+    	}    	
     	return contentType; 
     }
     
@@ -355,14 +451,10 @@ public class SourcingAdmin {
      * Returns the data life cycle graph containing all the monitored graphs. It creates it if doesn't exit yet.
      * @return
      */
-    private MGraph getDlcGraph() {
-    	
+    private MGraph getDlcGraph() {    	
     	return tcManager.getMGraph(DATA_LIFECYCLE_GRAPH_REFERENCE);
     }
     
-    private MGraph getRequestGraph() {
-        return tcManager.getMGraph(REQUEST_LOG_GRAPH_NAME);
-    }
     
     /**
      * Checks if a graph exists and returns a boolean value.
@@ -388,7 +480,12 @@ public class SourcingAdmin {
      * Creates the data lifecycle register graph. Must be called at the bundle activation if the graph doesn't exists yet.
      */
     private MGraph createDlcGraph() {
-        return tcManager.createMGraph(DATA_LIFECYCLE_GRAPH_REFERENCE);
+        MGraph dlcGraph = tcManager.createMGraph(DATA_LIFECYCLE_GRAPH_REFERENCE);
+        TcAccessController tca = new TcAccessController(tcManager);
+        tca.setRequiredReadPermissions(DATA_LIFECYCLE_GRAPH_REFERENCE, 
+                Collections.singleton((Permission)new TcPermission(
+                "urn:x-localinstance:/content.graph", "read")));
+        return dlcGraph;
     }
     
 }
