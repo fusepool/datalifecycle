@@ -19,6 +19,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
+
 import javax.ws.rs.FormParam;
 
 import javax.ws.rs.GET;
@@ -37,6 +39,7 @@ import org.apache.clerezza.rdf.core.Triple;
 import org.apache.clerezza.rdf.core.TripleCollection;
 import org.apache.clerezza.rdf.core.UriRef;
 import org.apache.clerezza.rdf.core.access.EntityAlreadyExistsException;
+import org.apache.clerezza.rdf.core.access.LockableMGraph;
 import org.apache.clerezza.rdf.core.access.TcManager;
 import org.apache.clerezza.rdf.core.access.security.TcAccessController;
 import org.apache.clerezza.rdf.core.access.security.TcPermission;
@@ -242,7 +245,9 @@ public class SourcingAdmin {
 	    		tcManager.createMGraph(graphRef);
 	    		GraphNode dlcGraphNode = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
 	    		dlcGraphNode.addProperty(DCTERMS.hasPart, graphRef);
-	    		getDlcGraph().add(new TripleImpl(graphRef,RDFS.label, new PlainLiteralImpl(label)));
+	    		if(!"".equals(label)) {
+	    			getDlcGraph().add(new TripleImpl(graphRef,RDFS.label, new PlainLiteralImpl(label)));
+	    		}
 	    	}
     	}
     	catch(UnsupportedOperationException uoe) {
@@ -279,9 +284,10 @@ public class SourcingAdmin {
     }
         
     private String operateOnGraph(UriRef graphRef, int operationCode, URL dataUrl, String mediaType) throws Exception {
+    	AccessController.checkPermission(new AllPermission());
     	String message = "";
     	if(graphExists(graphRef)) {	 
-	        MGraph graph = tcManager.getMGraph(graphRef);
+	        
 	        switch(operationCode) {
 	        	case ADD_TRIPLES_OPERATION: 
 	        			message = addTriples(graphRef, dataUrl, mediaType);
@@ -314,7 +320,8 @@ public class SourcingAdmin {
      * name of the graph in which the RDF data must be stored 
      */
     private String addTriples(UriRef graphRef, URL dataUrl, String mediaType) throws Exception { 
-        String message = "";
+    	AccessController.checkPermission(new AllPermission());
+    	String message = "";
         URLConnection connection =  dataUrl.openConnection();
         connection.addRequestProperty("Accept", "application/rdf+xml; q=.9, text/turte;q=1");
         String currentTime = String.valueOf(System.currentTimeMillis());
@@ -322,8 +329,8 @@ public class SourcingAdmin {
         // create a temporary graph to store the data
         String tempGraphName =  graphRef.getUnicodeString() + "-temp-" + currentTime;
         UriRef tempGraphRef = new UriRef(tempGraphName);
-        MGraph tempGraph = tcManager.createMGraph(tempGraphRef);
-       
+        SimpleMGraph tempGraph = new SimpleMGraph();
+        
         InputStream data = connection.getInputStream();
         if(data != null) {
 	        if(mediaType.equals("application/x-www-form-urlencoded")) {
@@ -331,10 +338,13 @@ public class SourcingAdmin {
 	        }
 	        parser.parse(tempGraph, data, mediaType);
 	        
+	        
 	        // add the triples of the temporary graph into the graph selected by the user
 	        if(graphExists(graphRef)){
 		        MGraph graph = tcManager.getMGraph(graphRef);
+		        
 		        graph.addAll(tempGraph);
+		        
 		        message = "Added " + tempGraph.size() + " triples to " + graphRef.getUnicodeString() + "\n";
 		        
 	        }
@@ -345,10 +355,6 @@ public class SourcingAdmin {
         else {
         	message = "The source data is empty.\n";
         }
-        
-        
-        // delete the temporary graph
-        tcManager.deleteTripleCollection(tempGraphRef);
        
         log.info(message);
         return message;
@@ -373,8 +379,9 @@ public class SourcingAdmin {
     private String deleteGraph(UriRef graphRef) {
         tcManager.deleteTripleCollection(graphRef);
         GraphNode dlcGraphNode = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
-        //remove relation with the data lifecycle graph
+        //remove the relation with the data lifecycle graph and all the information (triples) about the deleted graph (label).
 		dlcGraphNode.deleteProperty(DCTERMS.hasPart, graphRef);
+		
         return "Graph " + graphRef.getUnicodeString() + " has been deleted.";
     }
     /**
@@ -462,17 +469,16 @@ public class SourcingAdmin {
      * @return
      */
     private boolean graphExists(UriRef graph_ref) {
-    	boolean registerGraphExists = false;
     	Set<UriRef> graphs = tcManager.listMGraphs();
     	Iterator<UriRef> igraphs = graphs.iterator();
     	while(igraphs.hasNext()){
     		UriRef graphRef = igraphs.next();
     		if(graph_ref.toString().equals(graphRef.toString())) {
-    			registerGraphExists = true;
+    			return true;
     		}
     	}
     	
-    	return registerGraphExists;
+    	return false;
     	
     }
     
