@@ -35,6 +35,8 @@ import javax.ws.rs.core.UriInfo;
 import org.apache.clerezza.jaxrs.utils.RedirectUtil;
 import org.apache.clerezza.jaxrs.utils.TrailingSlash;
 import org.apache.clerezza.rdf.core.MGraph;
+import org.apache.clerezza.rdf.core.NonLiteral;
+import org.apache.clerezza.rdf.core.Resource;
 import org.apache.clerezza.rdf.core.Triple;
 import org.apache.clerezza.rdf.core.TripleCollection;
 import org.apache.clerezza.rdf.core.UriRef;
@@ -47,6 +49,8 @@ import org.apache.clerezza.rdf.core.impl.PlainLiteralImpl;
 import org.apache.clerezza.rdf.core.impl.SimpleMGraph;
 import org.apache.clerezza.rdf.core.impl.TripleImpl;
 import org.apache.clerezza.rdf.core.serializedform.Parser;
+import org.apache.clerezza.rdf.core.serializedform.Serializer;
+import org.apache.clerezza.rdf.core.serializedform.SupportedFormat;
 import org.apache.clerezza.rdf.ontologies.DCTERMS;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.utils.GraphNode;
@@ -83,6 +87,9 @@ public class SourcingAdmin {
     @Reference
     private Parser parser;
     
+    @Reference
+    private Serializer serializer;
+    
     /**
      * This service allows accessing and creating persistent triple collections
      */
@@ -105,7 +112,6 @@ public class SourcingAdmin {
     /**
      * Register graph referencing graphs for life cycle monitoring;
      */
-    private MGraph dlcRegisterGraph = null;
     
     private final String CONTENT_GRAPH_NAME = "urn:x-localinstance:/content.graph";
     
@@ -139,7 +145,7 @@ public class SourcingAdmin {
         	}
             // Creates the data lifecycle graph if it doesn't exists. This graph contains references to  
             if( ! graphExists(DATA_LIFECYCLE_GRAPH_REFERENCE) ) {            	
-            	dlcRegisterGraph = createDlcGraph();
+            	createDlcGraph();
             	log.info("Created Data Lifecycle Register Graph. This graph will reference all graphs during their lifecycle");
             }
             
@@ -326,9 +332,7 @@ public class SourcingAdmin {
         connection.addRequestProperty("Accept", "application/rdf+xml; q=.9, text/turte;q=1");
         String currentTime = String.valueOf(System.currentTimeMillis());
         
-        // create a temporary graph to store the data
-        String tempGraphName =  graphRef.getUnicodeString() + "-temp-" + currentTime;
-        UriRef tempGraphRef = new UriRef(tempGraphName);
+        // create a temporary graph to store the data        
         SimpleMGraph tempGraph = new SimpleMGraph();
         
         InputStream data = connection.getInputStream();
@@ -372,7 +376,8 @@ public class SourcingAdmin {
     }
     
     /**
-     * Deletes a graph
+     * Deletes a graph, the reference to it in the DLC graph and deletes all the derived graphs
+     * linked to it by the dcterms:source property.
      * @param graphRef
      * @return
      */
@@ -406,10 +411,19 @@ public class SourcingAdmin {
 		        String sameAsGraphName = graphRef.getUnicodeString() + "-owl-same-as-" + currentTime + ".graph";
 		        UriRef sameAsGraphRef = new UriRef(sameAsGraphName);
 		        MGraph sameAsGraph = tcManager.createMGraph(sameAsGraphRef);
+		        sameAsGraph.addAll(sameAsTriples);
 		        
-		        // add a reference property to the linkset to state from which source it is derived 
-		        GraphNode sameAsGraphNode = new GraphNode(sameAsGraphRef, sameAsGraph);
-	    		sameAsGraphNode.addProperty(DCTERMS.source, graphRef);
+		        Iterator<Triple> isameas = sameAsTriples.iterator();
+		        while(isameas.hasNext()) {
+		        	Triple t = isameas.next();
+		        	NonLiteral s = t.getSubject();
+		        	UriRef p = t.getPredicate();
+		        	Resource o = t.getObject();
+		        	log.info(s.toString() + p.getUnicodeString() + o.toString() + " .");
+		        }
+		        
+		        // add a reference property of the linkset to the source graph in the DLC graph to state from which source it is derived 
+		        getDlcGraph().add(new TripleImpl(sameAsGraphRef,DCTERMS.source,graphRef));		       
 		       	        
 		        message = "A reconciliation task has been done between " + graphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + ".\n" + 
 		        		sameAsTriples.size() + " owl:sameAs statements have been created and stored in " + sameAsGraphName; 
@@ -426,10 +440,48 @@ public class SourcingAdmin {
         return message;
     	
     }
-    
-    private String smush(UriRef graphRef){
-    	String message = "";
+    /**
+     * Looks for all the linkset that have been created from the source graph and smush the source graph using the linksets.
+     * @param sourceGraphRef
+     * @return
+     */
+    private String smush(UriRef graphToSmushRef){
+    	String message = "Reconciliation task.\n";
+    	SimpleMGraph dlcGraphCopy = new SimpleMGraph();
+    	dlcGraphCopy.addAll(getDlcGraph()); //this solves a java.util.ConcurrentModificationException
     	
+    	Iterator<Triple> ilinksets = dlcGraphCopy.filter(null,DCTERMS.source , graphToSmushRef);
+    	if(ilinksets != null) {
+	    	while(ilinksets.hasNext()) {
+	    		UriRef linksetRef = (UriRef) ilinksets.next().getSubject();
+	    		message += smush(graphToSmushRef, linksetRef) + "\n";
+	    	}
+    	}
+    	else {
+    		message = "No linkset available for " + graphToSmushRef.toString() + "\n" +
+    				"Start a reconciliation task before.";
+    	}
+    	
+    	
+    	return message;    	
+    }
+    /**
+     * Smush a graph using a linkset
+     * 
+     */
+    private String smush(UriRef sourceGraphRef, UriRef linksetRef){
+    	String message = "";
+    	MGraph graph = tcManager.getMGraph(sourceGraphRef);
+    	TripleCollection linkset = tcManager.getTriples(linksetRef);
+    	SimpleMGraph tempLinkset = new SimpleMGraph();
+    	tempLinkset.addAll(linkset);
+    	SameAsSmusher smusher = new SameAsSmusher();
+    	SimpleMGraph smushedGraph = smusher.smush(graph, tempLinkset);
+    	serializer.serialize(System.out, smushedGraph, SupportedFormat.RDF_XML);
+    	
+    	message = "Smushing of " + sourceGraphRef.getUnicodeString() + 
+    			" with linkset " + linksetRef.getUnicodeString() + " completed. " + 
+    			"Smushed graph size = " + smushedGraph.size() + "\n";
     	return message;
     }
     
