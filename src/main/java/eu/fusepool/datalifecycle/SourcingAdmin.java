@@ -303,7 +303,7 @@ public class SourcingAdmin {
                     message = deleteGraph(graphRef);
                     break;
                 case RECONCILE_GRAPH_OPERATION:
-                    message = reconcile(graphRef);
+                    message = reconcile(graphRef, null);
                     break;
                 case SMUSH_GRAPH_OPERATION:
                     message = smush(graphRef);
@@ -353,7 +353,7 @@ public class SourcingAdmin {
         } else {
             message = "The source data is empty.\n";
         }
-
+        reconcile(graphRef, tempGraph);
         log.info(message);
         return message;
     }
@@ -390,21 +390,24 @@ public class SourcingAdmin {
      * result of the reconciliation is stored in a new graph which is related to
      * the source graph with the dcterms:source property.
      *
-     * @param graphRef
+     * @param graphRef the URI of the referenced graph, ie. the graph for which the reconciliation should be performed.
+     * @param addition if not null only this addition will be interlinked otherwise the whole reference graph
      * @return
      */
-    private String reconcile(UriRef graphRef) {
+    private String reconcile(UriRef graphRef, TripleCollection addition) {
         String message = "";
         if (graphExists(graphRef)) {
             String currentTime = String.valueOf(System.currentTimeMillis());
 
-            MGraph sourceGraph = tcManager.getMGraph(graphRef);
-
-            // reconcile the source graph with the target graph (content graph)
-            TripleCollection cgGraphOwlSameAs = interlinker.interlink(sourceGraph, CONTENT_GRAPH_REF);
+            TripleCollection interlinkGrah = addition == null ?  tcManager.getMGraph(graphRef) 
+                    : addition;
             
-            TripleCollection selfOwlSameAs = interlinker.interlink(sourceGraph, graphRef);
+            // reconcile the source graph with the target graph (content graph)
+            TripleCollection cgGraphOwlSameAs = interlinker.interlink(interlinkGrah, CONTENT_GRAPH_REF);
+            
+            TripleCollection selfOwlSameAs =  interlinker.interlink(interlinkGrah, graphRef);
 
+            
             TripleCollection unionSameAs = new UnionMGraph(cgGraphOwlSameAs, selfOwlSameAs);
             
             if (unionSameAs.size() > 0) {

@@ -38,7 +38,7 @@
         </div>
         
         <ul>
-        <li><input type="radio" name="operation_code" value="1">Add triples<br>
+        <li><input type="radio" name="operation_code" value="1">Add triples and interlink them<br>
         <div>
         	<label for="url">Deferenceable URL for RDF data to upload:</label>
         	<input type="text" name="data_url" value="" size="70"><br/>
@@ -46,7 +46,7 @@
         </li>
         <li><input type="radio" name="operation_code" value="2">Remove all triples<br></li>
         <li><input type="radio" name="operation_code" value="3">Delete<br></li>
-        <li><input type="radio" name="operation_code" value="4">Reconcile<br></li>
+        <li><input type="radio" name="operation_code" value="4">Re-Run Reconciliation/Interlinking<br></li>
         <li><input type="radio" name="operation_code" value="5">Smush<br></li>
         </div>
         
