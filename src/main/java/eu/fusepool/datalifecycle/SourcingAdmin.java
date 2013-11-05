@@ -55,6 +55,7 @@ import org.apache.clerezza.rdf.core.serializedform.SupportedFormat;
 import org.apache.clerezza.rdf.ontologies.DCTERMS;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.utils.GraphNode;
+import org.apache.clerezza.rdf.utils.UnionMGraph;
 import org.apache.clerezza.rdf.utils.smushing.SameAsSmusher;
 import org.apache.commons.io.IOUtils;
 import org.apache.felix.scr.annotations.Activate;
@@ -443,22 +444,22 @@ public class SourcingAdmin {
         String message = "Smushing task.\n";
     	//SimpleMGraph dlcGraphCopy = new SimpleMGraph();
         //dlcGraphCopy.addAll(getDlcGraph()); //this solves a java.util.ConcurrentModificationException
-        Set<UriRef> sameAsGraphs = new HashSet<UriRef>();
+        Set<LockableMGraph> sameAsGraphs = new HashSet<LockableMGraph>();
         LockableMGraph dlcGraph = getDlcGraph();
         Lock l = dlcGraph.getLock().readLock();
         l.lock();
         try {
             Iterator<Triple> ilinksets = dlcGraph.filter(null, DCTERMS.source, graphToSmushRef);
             while (ilinksets.hasNext()) {
-                sameAsGraphs.add((UriRef) ilinksets.next().getSubject());
+                sameAsGraphs.add(tcManager.getMGraph((UriRef) ilinksets.next().getSubject()));
             }
         } finally {
             l.unlock();
         }
         if (!sameAsGraphs.isEmpty())  {
-            for (UriRef uriRef : sameAsGraphs) {
-                message += smush(graphToSmushRef, uriRef) + "\n";
-            }
+            UnionMGraph sameAsUnionGraph = new UnionMGraph(
+                    sameAsGraphs.toArray(new MGraph[sameAsGraphs.size()]));
+            message += smush(graphToSmushRef, sameAsUnionGraph) + "\n";
         } else {
             message = "No linkset available for " + graphToSmushRef.toString() + "\n"
                     + "Start a reconciliation task before.";
@@ -471,10 +472,9 @@ public class SourcingAdmin {
      * Smush a graph using a linkset
      *
      */
-    private String smush(UriRef sourceGraphRef, UriRef linksetRef) {
+    private String smush(UriRef sourceGraphRef, LockableMGraph linkset) {
         String message = "";
         LockableMGraph graph = tcManager.getMGraph(sourceGraphRef);
-        TripleCollection linkset = tcManager.getTriples(linksetRef);
         SimpleMGraph tempLinkset = new SimpleMGraph();
         tempLinkset.addAll(linkset);
         SameAsSmusher smusher = new SameAsSmusher();
@@ -482,7 +482,7 @@ public class SourcingAdmin {
         serializer.serialize(System.out, graph, SupportedFormat.RDF_XML);
 
         message = "Smushing of " + sourceGraphRef.getUnicodeString()
-                + " with linkset " + linksetRef.getUnicodeString() + " completed. "
+                + " with linkset completed. "
                 + "Smushed graph size = " + graph.size() + "\n";
         return message;
     }
