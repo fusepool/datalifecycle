@@ -401,17 +401,21 @@ public class SourcingAdmin {
             MGraph sourceGraph = tcManager.getMGraph(graphRef);
 
             // reconcile the source graph with the target graph (content graph)
-            TripleCollection sameAsTriples = interlinker.interlink(sourceGraph, CONTENT_GRAPH_REF);
+            TripleCollection cgGraphOwlSameAs = interlinker.interlink(sourceGraph, CONTENT_GRAPH_REF);
+            
+            TripleCollection selfOwlSameAs = interlinker.interlink(sourceGraph, graphRef);
 
-            if (sameAsTriples.size() > 0) {
+            TripleCollection unionSameAs = new UnionMGraph(cgGraphOwlSameAs, selfOwlSameAs);
+            
+            if (unionSameAs.size() > 0) {
 
                 // create a graph (linkset) to store the result of the reconciliation task
                 String sameAsGraphName = graphRef.getUnicodeString() + "-owl-same-as-" + currentTime + ".graph";
                 UriRef sameAsGraphRef = new UriRef(sameAsGraphName);
                 MGraph sameAsGraph = tcManager.createMGraph(sameAsGraphRef);
-                sameAsGraph.addAll(sameAsTriples);
+                sameAsGraph.addAll(unionSameAs);
 
-                Iterator<Triple> isameas = sameAsTriples.iterator();
+                Iterator<Triple> isameas = unionSameAs.iterator();
                 while (isameas.hasNext()) {
                     Triple t = isameas.next();
                     NonLiteral s = t.getSubject();
@@ -424,7 +428,7 @@ public class SourcingAdmin {
                 getDlcGraph().add(new TripleImpl(sameAsGraphRef, DCTERMS.source, graphRef));
 
                 message = "A reconciliation task has been done between " + graphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + ".\n"
-                        + sameAsTriples.size() + " owl:sameAs statements have been created and stored in " + sameAsGraphName;
+                        + unionSameAs.size() + " owl:sameAs statements have been created and stored in " + sameAsGraphName;
             } else {
                 message = "A reconciliation task has been done between " + graphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + ".\n"
                         + "No duplicates have been found.";
