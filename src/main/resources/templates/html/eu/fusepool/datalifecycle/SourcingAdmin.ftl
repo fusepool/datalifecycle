@@ -37,18 +37,20 @@
         </select>
         </div>
         
-        <div>
-        <input type="radio" name="operation_code" value="1">Add triples<br>
-        <input type="radio" name="operation_code" value="2">Remove all triples<br>
-        <input type="radio" name="operation_code" value="3">Delete<br>
-        <input type="radio" name="operation_code" value="4">Reconcile<br>
-        <input type="radio" name="operation_code" value="5">Smush<br>
-        </div>
-        
+        <ul>
+        <li><input type="radio" name="operation_code" value="1">Add triples<br>
         <div>
         	<label for="url">Deferenceable URL for RDF data to upload:</label>
         	<input type="text" name="data_url" value="" size="70"><br/>
         </div>
+        </li>
+        <li><input type="radio" name="operation_code" value="2">Remove all triples<br></li>
+        <li><input type="radio" name="operation_code" value="3">Delete<br></li>
+        <li><input type="radio" name="operation_code" value="4">Reconcile<br></li>
+        <li><input type="radio" name="operation_code" value="5">Smush<br></li>
+        </div>
+        
+        
         <input type="submit" value="Apply" />
         
     </form>
