@@ -53,6 +53,7 @@ import org.apache.clerezza.rdf.core.serializedform.Parser;
 import org.apache.clerezza.rdf.core.serializedform.Serializer;
 import org.apache.clerezza.rdf.core.serializedform.SupportedFormat;
 import org.apache.clerezza.rdf.ontologies.DCTERMS;
+import org.apache.clerezza.rdf.ontologies.OWL;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.utils.GraphNode;
 import org.apache.clerezza.rdf.utils.UnionMGraph;
@@ -101,7 +102,7 @@ public class SourcingAdmin {
 
     @Reference
     private Interlinker interlinker;
-
+    
     /**
      * This is the name of the graph in which we "log" the requests
      */
@@ -110,7 +111,7 @@ public class SourcingAdmin {
      * Name of the data life cycle graph. It is used as a register of other
      * graphs to manage their life cycle
      */
-    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/datalifecycle1.graph");
+    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/datalifecycle/meta.graph");
 
     /**
      * Register graph referencing graphs for life cycle monitoring;
@@ -124,30 +125,33 @@ public class SourcingAdmin {
     private final int DELETE_GRAPH_OPERATION = 3;
     private final int RECONCILE_GRAPH_OPERATION = 4;
     private final int SMUSH_GRAPH_OPERATION = 5;
+    
+    //TODO make this a component parameter
+    private String baseURI = "http://beta.fusepool.com/ecs/content/";
+    private UriRef OWL_SAME_AS_GRAPH = new UriRef("urn:x-localinstance:/datalifecycle/sameas.graph");
 
     @Activate
     protected void activate(ComponentContext context) {
 
         log.info("The Data Life Cycle service is being activated");
         try {
-            /*
-             tcManager.createMGraph(REQUEST_LOG_GRAPH_NAME);
-             //now make sure everybody can read from the graph
-             //or more precisly, anybody who can read the content-graph
-             TcAccessController tca = new TcAccessController(tcManager);
-             tca.setRequiredReadPermissions(REQUEST_LOG_GRAPH_NAME, 
-             Collections.singleton((Permission)new TcPermission(
-             "urn:x-localinstance:/content.graph", "read")));
-             */
             if (interlinker != null) {
                 log.info("interlinker service available");
             } else {
                 log.info("interlinker service NOT available");
             }
             // Creates the data lifecycle graph if it doesn't exists. This graph contains references to  
-            if (!graphExists(DATA_LIFECYCLE_GRAPH_REFERENCE)) {
+            try {
                 createDlcGraph();
                 log.info("Created Data Lifecycle Register Graph. This graph will reference all graphs during their lifecycle");
+            } catch (EntityAlreadyExistsException ex) {
+                log.info("Data Lifecycle Graph already exists.");
+            }
+            try {
+                tcManager.createMGraph(OWL_SAME_AS_GRAPH);
+                log.info("Created OWL Same As Graph. This graphs will contain owl:sameAs statemenets");
+            } catch (EntityAlreadyExistsException ex) {
+                log.info("OWL Same As Graph already exists.");
             }
 
         } catch (EntityAlreadyExistsException ex) {
@@ -442,7 +446,7 @@ public class SourcingAdmin {
      */
     private String smush(UriRef graphToSmushRef) {
         String message = "Smushing task.\n";
-    	//SimpleMGraph dlcGraphCopy = new SimpleMGraph();
+        //SimpleMGraph dlcGraphCopy = new SimpleMGraph();
         //dlcGraphCopy.addAll(getDlcGraph()); //this solves a java.util.ConcurrentModificationException
         Set<LockableMGraph> sameAsGraphs = new HashSet<LockableMGraph>();
         LockableMGraph dlcGraph = getDlcGraph();
@@ -456,7 +460,8 @@ public class SourcingAdmin {
         } finally {
             l.unlock();
         }
-        if (!sameAsGraphs.isEmpty())  {
+        sameAsGraphs.add(getOwlSameAsGraph());
+        if (!sameAsGraphs.isEmpty()) {
             UnionMGraph sameAsUnionGraph = new UnionMGraph(
                     sameAsGraphs.toArray(new MGraph[sameAsGraphs.size()]));
             message += smush(graphToSmushRef, sameAsUnionGraph) + "\n";
@@ -477,8 +482,8 @@ public class SourcingAdmin {
         LockableMGraph graph = tcManager.getMGraph(sourceGraphRef);
         SimpleMGraph tempLinkset = new SimpleMGraph();
         tempLinkset.addAll(linkset);
-        SameAsSmusher smusher = new SameAsSmusher();
-        smusher.smush(graph, tempLinkset, false);
+        SameAsSmusher smusher = new CanonicalizingSameAsSmusher();
+        smusher.smush(graph, tempLinkset, true);
         serializer.serialize(System.out, graph, SupportedFormat.RDF_XML);
 
         message = "Smushing of " + sourceGraphRef.getUnicodeString()
@@ -546,6 +551,59 @@ public class SourcingAdmin {
                 Collections.singleton((Permission) new TcPermission(
                                 "urn:x-localinstance:/content.graph", "read")));
         return dlcGraph;
+    }
+
+    private UriRef generateNewHttpUri(Set<UriRef> uriRefs) {
+        UriRef bestNonHttp = chooseBest(uriRefs);
+        String nonHttpString = bestNonHttp.getUnicodeString();
+        if (!nonHttpString.startsWith("urn:x-temp:")) {
+            throw new RuntimeException("Sorry we current assume all non-http "
+                    + "URIs to be canonicalized to be urn:x-temp");
+        }
+        String httpUriString = nonHttpString.replaceFirst("urn:x-temp:", baseURI);
+        UriRef result = new UriRef(httpUriString);
+        getOwlSameAsGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, result));
+        return result;
+    }
+
+    private UriRef chooseBest(Set<UriRef> httpUri) {
+        Iterator<UriRef> iter = httpUri.iterator();
+        UriRef best = iter.next();
+        while (iter.hasNext()) {
+            UriRef next = iter.next();
+            if (next.getUnicodeString().compareTo(best.getUnicodeString()) < 0) {
+                best = next;
+            }
+        }
+        return best;
+    }
+
+    private LockableMGraph getOwlSameAsGraph() {
+        return tcManager.getMGraph(OWL_SAME_AS_GRAPH);
+    }
+
+    private class CanonicalizingSameAsSmusher extends SameAsSmusher {
+
+        @Override
+        protected UriRef getPreferedIri(Set<UriRef> uriRefs) {
+            Set<UriRef> httpUri = new HashSet<UriRef>();
+            for (UriRef uriRef : uriRefs) {
+                if (uriRef.getUnicodeString().equals("http")) {
+                    httpUri.add(uriRef);
+                }
+            }
+            if (httpUri.size() == 1) {
+                return httpUri.iterator().next();
+            }
+            if (httpUri.size() == 0) {
+                return generateNewHttpUri(uriRefs);
+            }
+            if (httpUri.size() > 1) {
+                return chooseBest(httpUri);
+            }
+            throw new Error("Negative size set.");
+        }
+
     }
 
 }
