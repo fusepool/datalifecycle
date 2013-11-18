@@ -54,10 +54,11 @@ import org.apache.clerezza.rdf.core.serializedform.Serializer;
 import org.apache.clerezza.rdf.core.serializedform.SupportedFormat;
 import org.apache.clerezza.rdf.ontologies.DCTERMS;
 import org.apache.clerezza.rdf.ontologies.OWL;
+import org.apache.clerezza.rdf.ontologies.RDF;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.utils.GraphNode;
 import org.apache.clerezza.rdf.utils.UnionMGraph;
-import org.apache.clerezza.rdf.utils.smushing.SameAsSmusher;
+//import org.apache.clerezza.rdf.utils.smushing.SameAsSmusher;
 import org.apache.commons.io.IOUtils;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -112,6 +113,12 @@ public class SourcingAdmin {
      * graphs to manage their life cycle
      */
     private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/datalifecycle/meta.graph");
+    
+    /**
+     * Reference of the patent dataset to which all the patent RDF data will be moved after
+     * reconciliation, smushing and URI rewrite. 
+     */
+    private UriRef PATENT_DATA_GRAPH_REFERENCE = new UriRef("http://fusepool.info/patent.graph");
 
     /**
      * Register graph referencing graphs for life cycle monitoring;
@@ -125,9 +132,14 @@ public class SourcingAdmin {
     private final int DELETE_GRAPH_OPERATION = 3;
     private final int RECONCILE_GRAPH_OPERATION = 4;
     private final int SMUSH_GRAPH_OPERATION = 5;
+    private final int RECONCILE_SMUSH_OPERATION = 6;
+    private final int RECONCILE_AGAINST_DATASET_GRAPH = 7;
+    private final int MOVE_DOCSET_TO_DATASET_GRAPH = 8;
     
     //TODO make this a component parameter
+    // URI for rewriting from urn scheme to http
     private String baseURI = "http://beta.fusepool.com/ecs/content/";
+    // Union of all the equivalence sets (linksets)
     private UriRef OWL_SAME_AS_GRAPH = new UriRef("urn:x-localinstance:/datalifecycle/sameas.graph");
 
     @Activate
@@ -140,18 +152,27 @@ public class SourcingAdmin {
             } else {
                 log.info("interlinker service NOT available");
             }
-            // Creates the data lifecycle graph if it doesn't exists. This graph contains references to  
+            // Creates the data lifecycle graph if it doesn't exists. This graph contains references to graphs and linksets  
             try {
                 createDlcGraph();
                 log.info("Created Data Lifecycle Register Graph. This graph will reference all graphs during their lifecycle");
             } catch (EntityAlreadyExistsException ex) {
                 log.info("Data Lifecycle Graph already exists.");
             }
+            // Creates a graph to store the union of all the equivalence sets of the reconciliation task that have been done 
+            // on a graph against itself and the dataset graph
             try {
                 tcManager.createMGraph(OWL_SAME_AS_GRAPH);
                 log.info("Created OWL Same As Graph. This graphs will contain owl:sameAs statemenets");
             } catch (EntityAlreadyExistsException ex) {
                 log.info("OWL Same As Graph already exists.");
+            }
+            // Creates a graph to store all the patent data 
+            try {
+                tcManager.createMGraph(PATENT_DATA_GRAPH_REFERENCE);
+                log.info("Created Patent Dataset Graph. This graphs will contain all the patent data that will be published on the platform");
+            } catch (EntityAlreadyExistsException ex) {
+                log.info("Patent Dataset Graph already exists.");
             }
 
         } catch (EntityAlreadyExistsException ex) {
@@ -236,8 +257,8 @@ public class SourcingAdmin {
     }
 
     /**
-     * Creates a new graph and adds its uri and label to the data life cycle
-     * graph
+     * Creates a new graph and adds its uri and label to the data life cycle graph and to a dataset graph 
+     * (currently just patent dataset graph but should be passed as argument)
      *
      * @return
      */
@@ -255,9 +276,11 @@ public class SourcingAdmin {
                 tcManager.createMGraph(graphRef);
                 GraphNode dlcGraphNode = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
                 dlcGraphNode.addProperty(DCTERMS.hasPart, graphRef);
-                if (!"".equals(label)) {
-                    getDlcGraph().add(new TripleImpl(graphRef, RDFS.label, new PlainLiteralImpl(label)));
-                }
+                getDlcGraph().add(new TripleImpl(graphRef, RDFS.label, new PlainLiteralImpl("This graph will be moved to the its dataset graph")));
+                // add a reference to the patent graph that will store the graph after any operation
+                // this reference will be a reference to the content-graph.
+                getDlcGraph().add(new TripleImpl(PATENT_DATA_GRAPH_REFERENCE, DCTERMS.source, graphRef));
+                
             }
         } catch (UnsupportedOperationException uoe) {
             log.error("Error while creating a graph");
@@ -291,7 +314,6 @@ public class SourcingAdmin {
         AccessController.checkPermission(new AllPermission());
         String message = "";
         if (graphExists(graphRef)) {
-
             switch (operationCode) {
                 case ADD_TRIPLES_OPERATION:
                     message = addTriples(graphRef, dataUrl, mediaType);
@@ -308,6 +330,15 @@ public class SourcingAdmin {
                 case SMUSH_GRAPH_OPERATION:
                     message = smush(graphRef);
                     break;
+                case RECONCILE_SMUSH_OPERATION:
+                    message = reconcileSmush(graphRef, dataUrl, mediaType);
+                    break;
+                case RECONCILE_AGAINST_DATASET_GRAPH:
+                	message = reconcile(graphRef, PATENT_DATA_GRAPH_REFERENCE);
+                	break;
+                case MOVE_DOCSET_TO_DATASET_GRAPH:
+                	message = moveToDatasetGraph(graphRef, PATENT_DATA_GRAPH_REFERENCE);
+                	break;
             }
         } else {
             message = "The graph " + graphRef.getUnicodeString() + " does not exist.";
@@ -316,15 +347,37 @@ public class SourcingAdmin {
         return message;
 
     }
-
+    
     /**
-     * Load RDF data into an existing graph from a URL (schemes: "file://" or
-     * "http://"). The arguments to be passed are: url of the dataset name of
-     * the graph in which the RDF data must be stored
+     * Load RDF data into an existing graph from a URL (schemes: "file://" or "http://"). 
+     * The arguments to be passed are: 
+     * 1) graph in which the RDF data must be stored
+     * 2) url of the dataset 
      */
     private String addTriples(UriRef graphRef, URL dataUrl, String mediaType) throws Exception {
-        AccessController.checkPermission(new AllPermission());
+    	AccessController.checkPermission(new AllPermission());
         String message = "";
+
+        // add the triples of the temporary graph into the graph selected by the user
+        if (graphExists(graphRef)) {
+        	
+        	MGraph updatedGraph = addTriplesCommand(graphRef, dataUrl, mediaType);
+
+            message = "Added " + updatedGraph.size() + " triples to " + graphRef.getUnicodeString() + "\n";
+
+        } else {
+            message = "The graph " + graphRef.getUnicodeString() + " does not exist. It must be created before adding triples.\n";
+        }
+       
+        log.info(message);
+        return message;
+
+    	
+    }
+
+    private MGraph addTriplesCommand(UriRef graphRef, URL dataUrl, String mediaType) throws Exception {
+        AccessController.checkPermission(new AllPermission());
+        MGraph graph = null;
         URLConnection connection = dataUrl.openConnection();
         connection.addRequestProperty("Accept", "application/rdf+xml; q=.9, text/turte;q=1");
         String currentTime = String.valueOf(System.currentTimeMillis());
@@ -341,22 +394,17 @@ public class SourcingAdmin {
 
             // add the triples of the temporary graph into the graph selected by the user
             if (graphExists(graphRef)) {
-                MGraph graph = tcManager.getMGraph(graphRef);
+                graph = tcManager.getMGraph(graphRef);
 
                 graph.addAll(tempGraph);
-
-                message = "Added " + tempGraph.size() + " triples to " + graphRef.getUnicodeString() + "\n";
-
-            } else {
-                message = "The graph " + graphRef.getUnicodeString() + " does not exist. It must be created before adding triples.\n";
-            }
-        } else {
-            message = "The source data is empty.\n";
+                
+            } 
         }
-        reconcile(graphRef, tempGraph);
-        log.info(message);
-        return message;
+        
+        return graph;
     }
+    
+    
 
     /**
      * Removes all the triples from the graph
@@ -386,69 +434,121 @@ public class SourcingAdmin {
     }
 
     /**
-     * Reconciles a source graph with the target graph (content-graph). The
-     * result of the reconciliation is stored in a new graph which is related to
-     * the source graph with the dcterms:source property.
-     *
-     * @param graphRef the URI of the referenced graph, ie. the graph for which the reconciliation should be performed.
-     * @param addition if not null only this addition will be interlinked otherwise the whole reference graph
+     * Reconciles a source graph with a target graph. The result of the reconciliation is an equivalence set 
+     * stored in a new graph which is related to the source graph with the dcterms:source property.
+     * @param sourceGraphRef the URI of the referenced graph, ie. the graph for which the reconciliation should be performed.
+     * @param targetGraphRef teh URI of the target graph. If null the target graph is the same as the source graph.
      * @return
+     * @throws Exception 
      */
-    private String reconcile(UriRef graphRef, TripleCollection addition) {
+    private String reconcile(UriRef sourceGraphRef, UriRef targetGraphRef) throws Exception {
         String message = "";
-        if (graphExists(graphRef)) {
+        if (graphExists(sourceGraphRef)) {
             String currentTime = String.valueOf(System.currentTimeMillis());
-
-            TripleCollection interlinkGrah = addition == null ?  tcManager.getMGraph(graphRef) 
-                    : addition;
             
-            // reconcile the source graph with the target graph (content graph)
-            TripleCollection cgGraphOwlSameAs = interlinker.interlink(interlinkGrah, CONTENT_GRAPH_REF);
-            
-            TripleCollection selfOwlSameAs =  interlinker.interlink(interlinkGrah, graphRef);
-
-            
-            TripleCollection unionSameAs = new UnionMGraph(cgGraphOwlSameAs, selfOwlSameAs);
-            
-            if (unionSameAs.size() > 0) {
-
-                // create a graph (linkset) to store the result of the reconciliation task
-                String sameAsGraphName = graphRef.getUnicodeString() + "-owl-same-as-" + currentTime + ".graph";
-                UriRef sameAsGraphRef = new UriRef(sameAsGraphName);
-                MGraph sameAsGraph = tcManager.createMGraph(sameAsGraphRef);
-                sameAsGraph.addAll(unionSameAs);
-
-                Iterator<Triple> isameas = unionSameAs.iterator();
-                while (isameas.hasNext()) {
-                    Triple t = isameas.next();
-                    NonLiteral s = t.getSubject();
-                    UriRef p = t.getPredicate();
-                    Resource o = t.getObject();
-                    log.info(s.toString() + p.getUnicodeString() + o.toString() + " .");
-                }
-
-                // add a reference property of the linkset to the source graph in the DLC graph to state from which source it is derived 
-                getDlcGraph().add(new TripleImpl(sameAsGraphRef, DCTERMS.source, graphRef));
-
-                message = "A reconciliation task has been done between " + graphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + ".\n"
-                        + unionSameAs.size() + " owl:sameAs statements have been created and stored in " + sameAsGraphName;
-            } else {
-                message = "A reconciliation task has been done between " + graphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + ".\n"
-                        + "No duplicates have been found.";
+            //if target graph is not provided the reconciliation will be against the source graph itself
+            if(targetGraphRef == null){
+            	targetGraphRef = sourceGraphRef;
             }
-        } else {
+            
+            // reconcile the source graph with the target graph 
+            UriRef owlSameAsRef =  reconcileCommand(sourceGraphRef, targetGraphRef);
+            
+            TripleCollection owlSameAs = tcManager.getMGraph(owlSameAsRef);
+
+            if (owlSameAs.size() > 0) {
+
+                message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + targetGraphRef.getUnicodeString() + ".\n"
+                        + owlSameAs.size() + " owl:sameAs statements have been created and stored in " + owlSameAsRef.getUnicodeString();
+            } 
+            else {
+                message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + targetGraphRef.getUnicodeString() + ".\n"
+                        + "No equivalent entities have been found.";
+            }
+            
+        } 
+        else {
             message = "The source graph does not exist.";
         }
+        
         log.info(message);
         return message;
 
     }
+    
+    private UriRef reconcileCommand(UriRef sourceGraphRef, UriRef targetGraphRef) throws Exception {
+    	
+    	TripleCollection owlSameAs = null;
+    	UriRef sameAsGraphRef = null;
+        
+    	if (graphExists(sourceGraphRef)) {
+            String currentTime = String.valueOf(System.currentTimeMillis());
+
+            TripleCollection sourceGrah = tcManager.getMGraph(sourceGraphRef);
+            
+            // reconcile the source graph with the target graph 
+            owlSameAs =  interlinker.interlink(sourceGrah, targetGraphRef);
+
+            if (owlSameAs.size() > 0) {
+
+                // create a graph (equivalence set) to store the result of the reconciliation task
+                String sameAsGraphName = sourceGraphRef.getUnicodeString() + "-eq-" + currentTime + ".graph";
+                sameAsGraphRef = new UriRef(sameAsGraphName);
+                LockableMGraph sameAsGraph = tcManager.createMGraph(sameAsGraphRef);
+                sameAsGraph.addAll(owlSameAs);
+
+                // log the result (the equivalence set should be serialized and stored)
+                Lock l = sameAsGraph.getLock().readLock();
+                l.lock();
+                try {
+	                Iterator<Triple> isameas = owlSameAs.iterator();
+	                while (isameas.hasNext()) {
+	                    Triple t = isameas.next();
+	                    NonLiteral s = t.getSubject();
+	                    UriRef p = t.getPredicate();
+	                    Resource o = t.getObject();
+	                    log.info(s.toString() + p.getUnicodeString() + o.toString() + " .\n");
+	                }
+                }
+                finally {
+                	l.unlock();
+                }
+
+                // the result of the reconciliation is an equivalent set (not exactly a Linkset)
+                getDlcGraph().add(new TripleImpl(sameAsGraphRef, RDF.type, Ontology.voidLinkset));
+                // add a reference property of the equivalence set to the source graph in the DLC graph to state from which source it is derived 
+                getDlcGraph().add(new TripleImpl(sameAsGraphRef, DCTERMS.source, sourceGraphRef));
+                // add a reference of the equivalence set to the target graph if it is different from the source graph
+                if(targetGraphRef != sourceGraphRef) {
+                	getDlcGraph().add(new TripleImpl(sameAsGraphRef, DCTERMS.source, targetGraphRef));
+                }
+
+               
+            }         
+    	}
+            
+        return sameAsGraphRef;
+
+    }
+    
+    /**
+     * Performs two operations one (smush) after the other (reconciliation)
+     * @param graphRef
+     * @param dataUrl
+     * @param mediaType
+     * @return
+     * @throws Exception
+     */
+    private String reconcileSmush(UriRef graphRef, URL dataUrl, String mediaType) throws Exception {
+    	String message = "";
+    	
+    	return message;    	
+    }
 
     /**
-     * Looks for all the linkset that have been created from the source graph
-     * and smush the source graph using the linksets.
-     *
-     * @param sourceGraphRef
+     * Looks for all the equivalence sets that have been created from the graph
+     * and smush the graph using the union of the equivalence sets.
+     * @param graphToSmushRef
      * @return
      */
     private String smush(UriRef graphToSmushRef) {
@@ -460,20 +560,24 @@ public class SourcingAdmin {
         Lock l = dlcGraph.getLock().readLock();
         l.lock();
         try {
-            Iterator<Triple> ilinksets = dlcGraph.filter(null, DCTERMS.source, graphToSmushRef);
-            while (ilinksets.hasNext()) {
-                sameAsGraphs.add(tcManager.getMGraph((UriRef) ilinksets.next().getSubject()));
+            Iterator<Triple> ilinksets = dlcGraph.filter(null, DCTERMS.source, graphToSmushRef);      
+            while (ilinksets.hasNext()) {            	
+            	UriRef equivSetRef = (UriRef) ilinksets.next().getSubject(); 
+            	if( dlcGraph.getGraph().contains(new TripleImpl(equivSetRef,RDF.type,Ontology.voidLinkset)) ) {       
+            		//UriRef equivalenceSet = (UriRef) ilinksets.next().getSubject();
+            		sameAsGraphs.add(tcManager.getMGraph(equivSetRef));
+            	}
             }
         } finally {
             l.unlock();
         }
         sameAsGraphs.add(getOwlSameAsGraph());
         if (!sameAsGraphs.isEmpty()) {
-            UnionMGraph sameAsUnionGraph = new UnionMGraph(
-                    sameAsGraphs.toArray(new MGraph[sameAsGraphs.size()]));
-            message += smush(graphToSmushRef, sameAsUnionGraph) + "\n";
+            UnionMGraph sameAsUnionGraph = new UnionMGraph(sameAsGraphs.toArray(new MGraph[sameAsGraphs.size()]));
+            String smushSetResult = smush(graphToSmushRef, sameAsUnionGraph);
+            message += smushSetResult + "\n";
         } else {
-            message = "No linkset available for " + graphToSmushRef.toString() + "\n"
+            message = "No equivalence set available for " + graphToSmushRef.toString() + "\n"
                     + "Start a reconciliation task before.";
         }
 
@@ -481,22 +585,37 @@ public class SourcingAdmin {
     }
 
     /**
-     * Smush a graph using a linkset
+     * Smush a graph using one equivalence set (or linkset)
      *
      */
-    private String smush(UriRef sourceGraphRef, LockableMGraph linkset) {
+    private String smush(UriRef graphRef, LockableMGraph eqset) {
         String message = "";
-        LockableMGraph graph = tcManager.getMGraph(sourceGraphRef);
+        
+        LockableMGraph smushedGraph = smushCommand(graphRef,eqset);
+
+        message = "Smushing of " + graphRef.getUnicodeString()
+                + " with linkset completed. "
+                + "Smushed graph size = " + smushedGraph.size() + "\n";
+        return message;
+    }
+    
+    private LockableMGraph smushCommand(UriRef graphRef, LockableMGraph linkset) {
+        
+        LockableMGraph graph = tcManager.getMGraph(graphRef);
         SimpleMGraph tempLinkset = new SimpleMGraph();
         tempLinkset.addAll(linkset);
-        SameAsSmusher smusher = new CanonicalizingSameAsSmusher();
+        IriSmusher smusher = new CanonicalizingSameAsSmusher();
         smusher.smush(graph, tempLinkset, true);
         serializer.serialize(System.out, graph, SupportedFormat.RDF_XML);
+        
+        return graph;
 
-        message = "Smushing of " + sourceGraphRef.getUnicodeString()
-                + " with linkset completed. "
-                + "Smushed graph size = " + graph.size() + "\n";
-        return message;
+    }
+    
+    private String moveToDatasetGraph(UriRef sourceGraphRef, UriRef datasetGraphRef) {
+    	String message = "To be implemented";
+    	
+    	return message;
     }
 
     /**
@@ -589,13 +708,13 @@ public class SourcingAdmin {
         return tcManager.getMGraph(OWL_SAME_AS_GRAPH);
     }
 
-    private class CanonicalizingSameAsSmusher extends SameAsSmusher {
+    private class CanonicalizingSameAsSmusher extends IriSmusher {
 
         @Override
         protected UriRef getPreferedIri(Set<UriRef> uriRefs) {
             Set<UriRef> httpUri = new HashSet<UriRef>();
             for (UriRef uriRef : uriRefs) {
-                if (uriRef.getUnicodeString().equals("http")) {
+                if (uriRef.getUnicodeString().startsWith("http")) {
                     httpUri.add(uriRef);
                 }
             }
