@@ -16,5 +16,8 @@ public class Ontology {
      */
     public static final UriRef SourcingAdmin = new UriRef("http://fusepool.com/ontologies/interlinking#SourcingAdmin");
     public static final UriRef graph = new UriRef("http://fusepool.com/ontologies/interlinking#graph");
+    
+    // VOID ontology - Linkset
+    public static final UriRef voidLinkset = new UriRef("http://rdfs.org/ns/void#Linkset");
 
 }
