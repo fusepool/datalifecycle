@@ -104,6 +104,9 @@ public class SourcingAdmin {
     @Reference
     private Interlinker interlinker;
     
+    @Reference
+    private RdfDigester digester;
+    
     /**
      * This is the name of the graph in which we "log" the requests
      */
@@ -135,6 +138,7 @@ public class SourcingAdmin {
     private final int RECONCILE_SMUSH_OPERATION = 6;
     private final int RECONCILE_AGAINST_DATASET_GRAPH = 7;
     private final int MOVE_DOCSET_TO_DATASET_GRAPH = 8;
+    private final int TEXT_EXTRACTION = 9;
     
     //TODO make this a component parameter
     // URI for rewriting from urn scheme to http
@@ -339,6 +343,9 @@ public class SourcingAdmin {
                 case MOVE_DOCSET_TO_DATASET_GRAPH:
                 	message = moveToDatasetGraph(graphRef, PATENT_DATA_GRAPH_REFERENCE);
                 	break;
+                case TEXT_EXTRACTION:
+                	message = extractText(graphRef);
+                	break;
             }
         } else {
             message = "The graph " + graphRef.getUnicodeString() + " does not exist.";
@@ -353,6 +360,8 @@ public class SourcingAdmin {
      * The arguments to be passed are: 
      * 1) graph in which the RDF data must be stored
      * 2) url of the dataset 
+     * After the upload the input graph is sent to a digester to extract text for indexing and 
+     * adding entities found by NLP components (in the default chain) as subject
      */
     private String addTriples(UriRef graphRef, URL dataUrl, String mediaType) throws Exception {
     	AccessController.checkPermission(new AllPermission());
@@ -614,6 +623,23 @@ public class SourcingAdmin {
     
     private String moveToDatasetGraph(UriRef sourceGraphRef, UriRef datasetGraphRef) {
     	String message = "To be implemented";
+    	
+    	return message;
+    }
+    
+    private String extractText(UriRef graphRef){
+    	String message = "Extract text and adding a sioc:content property.\n";
+    	LockableMGraph graph = tcManager.getMGraph(graphRef);
+		Lock l = graph.getLock().readLock();
+        l.lock();
+    	try {    		
+    		digester.extractText(graph);
+    	}
+    	finally {
+    		l.unlock();
+    	}
+    	
+    	message += "Extracted text from " + graphRef.getUnicodeString();
     	
     	return message;
     }
