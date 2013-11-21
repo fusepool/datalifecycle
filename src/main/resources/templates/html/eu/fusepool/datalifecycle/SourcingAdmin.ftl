@@ -44,6 +44,7 @@
         	<input type="text" name="data_url" value="" size="70"><br/>
         </div>
         </li>
+        <li><input type="radio" name="operation_code" value="9">Extract Text<br></li>
         <li><input type="radio" name="operation_code" value="2">Remove all triples<br></li>
         <li><input type="radio" name="operation_code" value="3">Delete<br></li>
         <li><input type="radio" name="operation_code" value="4">Reconcile (against itself)<br></li>
