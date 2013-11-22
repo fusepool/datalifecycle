@@ -101,12 +101,13 @@ public class SourcingAdmin {
     @Reference
     private TcManager tcManager;
 
-    @Reference
     private Interlinker interlinker;
     
-    @Reference
-    private RdfDigester digester;
+    @Reference(target="(extractorType=patent)")
+    private RdfDigester patentDigester;
     
+    @Reference(target="(extractorType=pubmed)")
+    private RdfDigester pubmedDigester;
     /**
      * This is the name of the graph in which we "log" the requests
      */
@@ -138,7 +139,8 @@ public class SourcingAdmin {
     private final int RECONCILE_SMUSH_OPERATION = 6;
     private final int RECONCILE_AGAINST_DATASET_GRAPH = 7;
     private final int MOVE_DOCSET_TO_DATASET_GRAPH = 8;
-    private final int TEXT_EXTRACTION = 9;
+    private final int PATENT_TEXT_EXTRACTION = 9;
+    private final int PUBMED_TEXT_EXTRACTION = 10;
     
     //TODO make this a component parameter
     // URI for rewriting from urn scheme to http
@@ -152,9 +154,9 @@ public class SourcingAdmin {
         log.info("The Data Life Cycle service is being activated");
         try {
             if (interlinker != null) {
-                log.info("interlinker service available");
+                log.info("Silk interlinker service available");
             } else {
-                log.info("interlinker service NOT available");
+                log.info("Silk interlinker service NOT available");
             }
             // Creates the data lifecycle graph if it doesn't exists. This graph contains references to graphs and linksets  
             try {
@@ -343,8 +345,11 @@ public class SourcingAdmin {
                 case MOVE_DOCSET_TO_DATASET_GRAPH:
                 	message = moveToDatasetGraph(graphRef, PATENT_DATA_GRAPH_REFERENCE);
                 	break;
-                case TEXT_EXTRACTION:
-                	message = extractText(graphRef);
+                case PATENT_TEXT_EXTRACTION:
+                	message = extractTextFromPatent(graphRef);
+                	break;
+                case PUBMED_TEXT_EXTRACTION:
+                	message = extractTextFromPubMed(graphRef);
                 	break;
             }
         } else {
@@ -627,18 +632,21 @@ public class SourcingAdmin {
     	return message;
     }
     
-    private String extractText(UriRef graphRef){
-    	String message = "Extract text and adding a sioc:content property.\n";
-    	LockableMGraph graph = tcManager.getMGraph(graphRef);
-		Lock l = graph.getLock().readLock();
-        l.lock();
-    	try {    		
-    		digester.extractText(graph);
-    	}
-    	finally {
-    		l.unlock();
-    	}
+    private String extractTextFromPatent(UriRef graphRef){
+    	String message = "Extract text from patents and adding a sioc:content property.\n";
+    	MGraph graph = tcManager.getMGraph(graphRef);
+		    		
+    	patentDigester.extractText(graph);
+    	message += "Extracted text from " + graphRef.getUnicodeString();
     	
+    	return message;
+    }
+    
+    private String extractTextFromPubMed(UriRef graphRef){
+    	String message = "Extract text from PubMed articles and adding a sioc:content property.\n";
+    	MGraph graph = tcManager.getMGraph(graphRef);
+		    		
+    	pubmedDigester.extractText(graph);
     	message += "Extracted text from " + graphRef.getUnicodeString();
     	
     	return message;
