@@ -1,1 +1,1 @@
-<div>Thank you for trying out this example application.</div>
+<div>Fusepool project.</div>
