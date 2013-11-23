@@ -10,7 +10,7 @@
   </head>
 
   <body>
-    <h1>RDF Data Lifecycle Manager</h1>
+    <h1>Data Lifecycle Manager</h1>
     
     <h2>Create a new RDF graph (to be published within the Patent Data Set)</h2>
     <div>
@@ -38,6 +38,12 @@
         </div>
         
         <ul>
+        <li><input type="radio" name="operation_code" value="12" disabled>RDFize<br>
+        <div>
+        	<label for="url">URL of XML file to upload:</label>
+        	<input type="text" name="xml_url" value="" size="70"><br/>
+        </div>
+        </li>
         <li><input type="radio" name="operation_code" value="1">Add triples<br>
         <div>
         	<label for="url">URL of RDF data to upload:</label>
@@ -45,7 +51,7 @@
         </div>
         </li>
         <li><input type="radio" name="operation_code" value="9">Extract Text (from patent docs)<br></li>
-        <li><input type="radio" name="operation_code" value="10">Extract Text (from articles)<br></li>
+        <li><input type="radio" name="operation_code" value="10">Extract Text from articles only for test<br></li>
         <li><input type="radio" name="operation_code" value="2">Remove all triples<br></li>
         <li><input type="radio" name="operation_code" value="3">Delete<br></li>
         <li><input type="radio" name="operation_code" value="4">Reconcile (against itself)<br></li>
