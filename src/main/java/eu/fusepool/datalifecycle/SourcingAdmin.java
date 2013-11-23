@@ -141,6 +141,8 @@ public class SourcingAdmin {
     private final int MOVE_DOCSET_TO_DATASET_GRAPH = 8;
     private final int PATENT_TEXT_EXTRACTION = 9;
     private final int PUBMED_TEXT_EXTRACTION = 10;
+    private final int PUBMED_RDFIZE = 11;
+    private final int PATENT_RDFIZE = 12;
     
     //TODO make this a component parameter
     // URI for rewriting from urn scheme to http
@@ -351,6 +353,12 @@ public class SourcingAdmin {
                 case PUBMED_TEXT_EXTRACTION:
                 	message = extractTextFromPubMed(graphRef);
                 	break;
+                case PUBMED_RDFIZE:
+                	message = transformPubMedXml(dataUrl);
+                	break;
+                case PATENT_RDFIZE:
+                	message = transformPatentXml(dataUrl);
+                	break;
             }
         } else {
             message = "The graph " + graphRef.getUnicodeString() + " does not exist.";
@@ -358,6 +366,18 @@ public class SourcingAdmin {
 
         return message;
 
+    }
+    
+    private String transformPubMedXml(URL dataUrl) {
+    	String message = "";
+    	
+    	return message;
+    }
+    
+    private String transformPatentXml(URL dataUrl) {
+    	String message = "";
+    	
+    	return message;
     }
     
     /**
