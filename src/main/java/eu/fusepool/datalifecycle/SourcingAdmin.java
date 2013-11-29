@@ -74,9 +74,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Uses the SiteManager to resolve entities. Every requested is recorded to a
- * graph. The client gets information and meta-information about the resource
- * and sees all previous requests for that resource.
+ * This is the controller class of the fusepool data life cycle component. The main functionalities provided are
+ * 1) XML2RDF transformation 
+ * 2) Indexing and Information Extraction
+ * 3) Reconciliation/Interlinking
+ * 4) Smushing
  */
 @Component
 @Property(name = "javax.ws.rs", boolValue = true)
@@ -101,6 +103,7 @@ public class SourcingAdmin {
     @Reference
     private TcManager tcManager;
 
+    @Reference
     private Interlinker interlinker;
     
     @Reference(target="(extractorType=patent)")
@@ -361,7 +364,7 @@ public class SourcingAdmin {
                 	break;
             }
         } else {
-            message = "The graph " + graphRef.getUnicodeString() + " does not exist.";
+            message = "The graph does not exist.";
         }
 
         return message;
@@ -468,19 +471,19 @@ public class SourcingAdmin {
     }
 
     /**
-     * Reconciles a source graph with a target graph. The result of the reconciliation is an equivalence set 
-     * stored in a new graph which is related to the source graph with the dcterms:source property.
+     * Reconciles a source graph with a target graph. The result of the reconciliation is an equivalence link set 
+     * stored in a graph which is related to the source graph with the dcterms:source property.
      * @param sourceGraphRef the URI of the referenced graph, ie. the graph for which the reconciliation should be performed.
-     * @param targetGraphRef teh URI of the target graph. If null the target graph is the same as the source graph.
+     * @param targetGraphRef the URI of the target graph. If null the target graph is the same as the source graph.
      * @return
      * @throws Exception 
      */
     private String reconcile(UriRef sourceGraphRef, UriRef targetGraphRef) throws Exception {
         String message = "";
         if (graphExists(sourceGraphRef)) {
-            String currentTime = String.valueOf(System.currentTimeMillis());
+            //String currentTime = String.valueOf(System.currentTimeMillis());
             
-            //if target graph is not provided the reconciliation will be against the source graph itself
+            //if target graph is not provided the reconciliation will be done against the source graph itself
             if(targetGraphRef == null){
             	targetGraphRef = sourceGraphRef;
             }
@@ -513,10 +516,14 @@ public class SourcingAdmin {
     private UriRef reconcileCommand(UriRef sourceGraphRef, UriRef targetGraphRef) throws Exception {
     	
     	TripleCollection owlSameAs = null;
-    	UriRef sameAsGraphRef = null;
+    	
+    	// create a graph (equivalence set) to store the result of the reconciliation task
+    	String currentTime = String.valueOf(System.currentTimeMillis());
+        String sameAsGraphName = sourceGraphRef.getUnicodeString() + "-eq-" + currentTime + ".graph";
+        UriRef sameAsGraphRef = new UriRef(sameAsGraphName);
         
     	if (graphExists(sourceGraphRef)) {
-            String currentTime = String.valueOf(System.currentTimeMillis());
+            
 
             TripleCollection sourceGrah = tcManager.getMGraph(sourceGraphRef);
             
@@ -525,9 +532,6 @@ public class SourcingAdmin {
 
             if (owlSameAs.size() > 0) {
 
-                // create a graph (equivalence set) to store the result of the reconciliation task
-                String sameAsGraphName = sourceGraphRef.getUnicodeString() + "-eq-" + currentTime + ".graph";
-                sameAsGraphRef = new UriRef(sameAsGraphName);
                 LockableMGraph sameAsGraph = tcManager.createMGraph(sameAsGraphRef);
                 sameAsGraph.addAll(owlSameAs);
 
