@@ -119,14 +119,8 @@ public class SourcingAdmin {
      * Name of the data life cycle graph. It is used as a register of other
      * graphs to manage their life cycle
      */
-    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/datalifecycle/meta.graph");
+    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/dlc/meta.graph");
     
-    /**
-     * Reference of the patent dataset to which all the patent RDF data will be moved after
-     * reconciliation, smushing and URI rewrite. 
-     */
-    private UriRef PATENT_DATA_GRAPH_REFERENCE = new UriRef("http://fusepool.info/patent.graph");
-
     /**
      * Register graph referencing graphs for life cycle monitoring;
      */
@@ -134,6 +128,7 @@ public class SourcingAdmin {
 
     private UriRef CONTENT_GRAPH_REF = new UriRef(CONTENT_GRAPH_NAME);
 
+    // Operation codes
     private final int ADD_TRIPLES_OPERATION = 1;
     private final int REMOVE_ALL_TRIPLES_OPERATION = 2;
     private final int DELETE_GRAPH_OPERATION = 3;
@@ -146,6 +141,7 @@ public class SourcingAdmin {
     private final int PUBMED_TEXT_EXTRACTION = 10;
     private final int PUBMED_RDFIZE = 11;
     private final int PATENT_RDFIZE = 12;
+    private final int EMPTY_CONTENT_GRAPH = 13;
     
     //TODO make this a component parameter
     // URI for rewriting from urn scheme to http
@@ -170,21 +166,7 @@ public class SourcingAdmin {
             } catch (EntityAlreadyExistsException ex) {
                 log.info("Data Lifecycle Graph already exists.");
             }
-            // Creates a graph to store the union of all the equivalence sets of the reconciliation task that have been done 
-            // on a graph against itself and the dataset graph
-            try {
-                tcManager.createMGraph(OWL_SAME_AS_GRAPH);
-                log.info("Created OWL Same As Graph. This graphs will contain owl:sameAs statemenets");
-            } catch (EntityAlreadyExistsException ex) {
-                log.info("OWL Same As Graph already exists.");
-            }
-            // Creates a graph to store all the patent data 
-            try {
-                tcManager.createMGraph(PATENT_DATA_GRAPH_REFERENCE);
-                log.info("Created Patent Dataset Graph. This graphs will contain all the patent data that will be published on the platform");
-            } catch (EntityAlreadyExistsException ex) {
-                log.info("Patent Dataset Graph already exists.");
-            }
+            
 
         } catch (EntityAlreadyExistsException ex) {
             log.debug("The graph for the request log already exists");
@@ -268,8 +250,16 @@ public class SourcingAdmin {
     }
 
     /**
-     * Creates a new graph and adds its uri and label to the data life cycle graph and to a dataset graph 
-     * (currently just patent dataset graph but should be passed as argument)
+     * Creates a new graph and adds its uri and a label to the data life cycle graph. 
+     * This graph will contain the RDF data uploaded or sent by a transformation task 
+     * that have to be processed (text extraction, NLP processing, reconciliation, smushing).
+     * The following graphs are created to store the results of the processing tasks
+     * index.graph
+     * enhance.graph
+     * interlink.graph
+     * smush.graph
+     * These graphs will be empty at the beginning. 
+     * 
      *
      * @return
      */
@@ -362,6 +352,8 @@ public class SourcingAdmin {
                 case PATENT_RDFIZE:
                 	message = transformPatentXml(dataUrl);
                 	break;
+                case EMPTY_CONTENT_GRAPH:
+                	message = emptyContentGraph();
             }
         } else {
             message = "The graph does not exist.";
@@ -722,6 +714,16 @@ public class SourcingAdmin {
 
         return false;
 
+    }
+    
+    /**
+     * Remove all the triples in the content-graph
+     */
+    private String emptyContentGraph() {
+    	UriRef contentGraphRef = new UriRef("urn:x-localinstance:/content.graph");
+    	MGraph graph = tcManager.getMGraph(contentGraphRef);
+        graph.clear();
+        return "Graph urn:x-localinstance:/content.graph is now empty.";
     }
 
     /**
