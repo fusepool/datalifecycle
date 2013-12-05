@@ -280,7 +280,7 @@ public class SourcingAdmin {
                 getDlcGraph().add(new TripleImpl(graphRef, RDFS.label, new PlainLiteralImpl("This graph will be moved to the its dataset graph")));
                 // add a reference to the patent graph that will store the graph after any operation
                 // this reference will be a reference to the content-graph.
-                getDlcGraph().add(new TripleImpl(PATENT_DATA_GRAPH_REFERENCE, DCTERMS.source, graphRef));
+                //getDlcGraph().add(new TripleImpl(PATENT_DATA_GRAPH_REFERENCE, DCTERMS.source, graphRef));
                 
             }
         } catch (UnsupportedOperationException uoe) {
@@ -334,12 +334,14 @@ public class SourcingAdmin {
                 case RECONCILE_SMUSH_OPERATION:
                     message = reconcileSmush(graphRef, dataUrl, mediaType);
                     break;
+                    /*
                 case RECONCILE_AGAINST_DATASET_GRAPH:
                 	message = reconcile(graphRef, PATENT_DATA_GRAPH_REFERENCE);
                 	break;
                 case MOVE_DOCSET_TO_DATASET_GRAPH:
                 	message = moveToDatasetGraph(graphRef, PATENT_DATA_GRAPH_REFERENCE);
                 	break;
+                	*/
                 case PATENT_TEXT_EXTRACTION:
                 	message = extractTextFromPatent(graphRef);
                 	break;
