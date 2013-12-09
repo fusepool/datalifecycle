@@ -2,6 +2,8 @@
 <@namespace ehub="http://stanbol.apache.org/ontology/entityhub/entityhub#" />
 <@namespace cc="http://creativecommons.org/ns#" />
 <@namespace dcterms="http://purl.org/dc/terms/" />
+<@namespace rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" />
+<@namespace wf="http://example.com/ont/workflow/" />
 
 <html>
   <head>
@@ -12,25 +14,25 @@
   <body>
     <h1>Data Lifecycle Manager</h1>
     
-    <h2>Create a new RDF graph (to be published within the Patent Data Set)</h2>
+    <h2>Create a new pipe to process a dataset</h2>
     <div>
-    <form action="create_graph" method="post">
-        Graph URI: <input type="text" name="graph" value="" size="60"> Label: <input type="text" name="graph_label" value="" size="60"><br/>
-        <input type="submit" value="Create" />        
+    <form action="create_pipe" method="post">
+        Label: <input type="text" name="pipe_label" value="" size="60"><br/>
+        <input type="submit" value="Create Pipe" />        
     </form>
     </div>
     
     
     
-    <h2>Graphs Management</h2>
+    <h2>Pipes Management</h2>
     <div>
     <form action="operate" method="post">
         
         <div>
-        <p>Select a graph on which to perform any of the operations below</p>
-        <select name="graph" size="10">
+        <p>Select a pipe to perform any of the operations below</p>
+        <select name="pipe" size="10">
            
-           <@ldpath path="dcterms:hasPart">
+           <@ldpath path="wf:pipe">
                <option><@ldpath path="."/></option>
            </@ldpath>
            
