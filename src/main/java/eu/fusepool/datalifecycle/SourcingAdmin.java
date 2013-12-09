@@ -17,6 +17,7 @@ import java.security.AllPermission;
 import java.security.Permission;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -146,7 +147,32 @@ public class SourcingAdmin {
     //TODO make this a component parameter
     // URI for rewriting from urn scheme to http
     private String baseURI = "http://beta.fusepool.com/ecs/content/";
+    
+    /**
+     * For each rdf triple collection uploaded 4 graphs are created.
+     * 1) a buffer graph to store the rdf data
+     * 2) an enhancements graph to store the text extracted for indexing and the
+     *   entities extracted from the text by NLP engines in the default enhancement chain
+     * 3) a graph to store the result of the interlinking task 
+     * 4) a graph to store the smushed graph
+     * The name convention for these graphs is
+     *   GRAPH_URN_PREFIX + timestamp + SUFFIX
+     *   where SUFFIX can be one of BUFFER_GRAPH_URN_SUFFIX, ENHANCE_GRAPH_URN_SUFFIX,
+     *   INTERLINK_GRAPH_URN_SUFFIX, SMUSH_GRAPH_URN_SUFFIX
+     */
+    // base graph uri
+    private String GRAPH_URN_PREFIX = "urn:x-localinstance:/dlc/";
+    // graph suffix
+    private String SOURCE_GRAPH_URN_SUFFIX = "/rdf.graph";
+    // enhancements graph suffix
+    private String ENHANCE_GRAPH_URN_SUFFIX = "/enhance.graph";
+    // interlink graph suffix
+    private String INTERLINK_GRAPH_URN_SUFFIX = "/interlink.graph";
+    // smushed graph suffix
+    private String SMUSH_GRAPH_URN_SUFFIX = "/smush.graph";
     // Union of all the equivalence sets (linksets)
+    
+    
     private UriRef OWL_SAME_AS_GRAPH = new UriRef("urn:x-localinstance:/datalifecycle/sameas.graph");
 
     @Activate
@@ -221,13 +247,13 @@ public class SourcingAdmin {
      * @throws Exception
      */
     @POST
-    @Path("create_graph")
+    @Path("create_pipe")
     @Produces("text/plain")
-    public Response createGraphCommand(@Context final UriInfo uriInfo,
-            @FormParam("graph") final String graphName,
-            @FormParam("graph_label") final String graphLabel) throws Exception {
+    public Response createGraphRequest(@Context final UriInfo uriInfo,            
+            @FormParam("pipe_label") final String pipeLabel) throws Exception {
         AccessController.checkPermission(new AllPermission());
         //some simplicistic (and too restrictive) validation
+        /*
         try {
             new URI(graphName);
         } catch (URISyntaxException e) {
@@ -238,10 +264,11 @@ public class SourcingAdmin {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity("Graphname is not a valid URI: No colon separating scheme").build();
         }
+        */
         AccessController.checkPermission(new AllPermission());
-        if (createGraph(graphName, graphLabel)) {
+        if (createPipe(pipeLabel)) {
             return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Graph " + graphName + " already exists.").build();
+                    .entity("Cannot create graph" + pipeLabel).build();
         } else {
             return RedirectUtil.createSeeOtherResponse("./", uriInfo);
 
@@ -250,11 +277,10 @@ public class SourcingAdmin {
     }
 
     /**
-     * Creates a new graph and adds its uri and a label to the data life cycle graph. 
-     * This graph will contain the RDF data uploaded or sent by a transformation task 
+     * Creates a new pipe with tasks and product graphs and adds its uri and a label to the data life cycle graph. 
+     * A graph will contain the RDF data uploaded or sent by a transformation task 
      * that have to be processed (text extraction, NLP processing, reconciliation, smushing).
      * The following graphs are created to store the results of the processing tasks
-     * index.graph
      * enhance.graph
      * interlink.graph
      * smush.graph
@@ -263,27 +289,78 @@ public class SourcingAdmin {
      *
      * @return
      */
-    private boolean createGraph(String graphName, String graphLabel) {
+    private boolean createPipe(String pipeLabel) {
         boolean graphExists = false;
         String label = "";
-        if (graphLabel != null) {
-            label = graphLabel;
+        if (pipeLabel != null) {
+            label = pipeLabel;
         }
-        UriRef graphRef = new UriRef(graphName);
+        
         try {
-            if (graphExists(new UriRef(graphName))) {
-                graphExists = true;
-            } else {
-                tcManager.createMGraph(graphRef);
-                GraphNode dlcGraphNode = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
-                dlcGraphNode.addProperty(DCTERMS.hasPart, graphRef);
-                getDlcGraph().add(new TripleImpl(graphRef, RDFS.label, new PlainLiteralImpl("This graph will be moved to the its dataset graph")));
-                // add a reference to the patent graph that will store the graph after any operation
-                // this reference will be a reference to the content-graph.
-                //getDlcGraph().add(new TripleImpl(PATENT_DATA_GRAPH_REFERENCE, DCTERMS.source, graphRef));
-                
-            }
-        } catch (UnsupportedOperationException uoe) {
+        	String timeStamp = String.valueOf(System.currentTimeMillis());
+        	
+        	// create a pipe 
+        	UriRef pipeRef = new UriRef(GRAPH_URN_PREFIX + timeStamp);
+        	getDlcGraph().add(new TripleImpl(pipeRef, RDF.type, Ontology.Pipe));
+        	getDlcGraph().add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, pipeRef));
+        	// create tasks
+        	//rdf task
+        	UriRef rdfTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/rdf");
+        	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, rdfTaskRef));
+        	getDlcGraph().add(new TripleImpl(rdfTaskRef, RDF.type, Ontology.RdfTask));
+        	// enhance task
+        	UriRef enhanceTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/enhance");
+        	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, enhanceTaskRef));
+        	getDlcGraph().add(new TripleImpl(enhanceTaskRef, RDF.type, Ontology.EnhanceTask));
+        	// interlink task
+        	UriRef interlinkTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/interlink");
+        	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, interlinkTaskRef));
+        	getDlcGraph().add(new TripleImpl(interlinkTaskRef, RDF.type, Ontology.InterlinkTask));
+        	// smush task
+        	UriRef smushTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/smush");
+        	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, smushTaskRef));
+        	getDlcGraph().add(new TripleImpl(smushTaskRef, RDF.type, Ontology.SmushTask));
+        	
+        	// create the graph for the dataset (result of transformation in RDF)
+        	String graphName = GRAPH_URN_PREFIX + timeStamp + SOURCE_GRAPH_URN_SUFFIX;
+        	UriRef graphRef = new UriRef(graphName);
+        	tcManager.createMGraph(graphRef);
+            //GraphNode dlcGraphNode = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
+            //dlcGraphNode.addProperty(DCTERMS.hasPart, graphRef);
+        	getDlcGraph().add(new TripleImpl(rdfTaskRef, Ontology.deliverable, graphRef));
+            getDlcGraph().add(new TripleImpl(graphRef, RDF.type, Ontology.voidDataset));
+            getDlcGraph().add(new TripleImpl(graphRef, RDFS.label, new PlainLiteralImpl(label)));
+            
+            
+            // create the graph to store text and enhancements
+            String enhancementsGraphName = GRAPH_URN_PREFIX + timeStamp + ENHANCE_GRAPH_URN_SUFFIX;
+        	UriRef enhancementsGraphRef = new UriRef(enhancementsGraphName);
+        	tcManager.createMGraph(enhancementsGraphRef);
+        	getDlcGraph().add(new TripleImpl(enhanceTaskRef, Ontology.deliverable, enhancementsGraphRef));
+        	getDlcGraph().add(new TripleImpl(enhancementsGraphRef, RDFS.label, new PlainLiteralImpl("Contains a sioc:content property with text " +
+        			"for indexing and references to entities found in the text by NLP enhancement engines")));
+        	
+        	// create the graph to store the result of the interlinking task
+        	String interlinkGraphName = GRAPH_URN_PREFIX + timeStamp + INTERLINK_GRAPH_URN_SUFFIX;
+        	UriRef interlinkGraphRef = new UriRef(interlinkGraphName);
+        	tcManager.createMGraph(interlinkGraphRef);
+        	getDlcGraph().add(new TripleImpl(interlinkTaskRef, Ontology.deliverable, interlinkGraphRef));
+        	getDlcGraph().add(new TripleImpl(interlinkGraphRef, RDF.type, Ontology.voidLinkset));
+        	getDlcGraph().add(new TripleImpl(interlinkGraphRef,Ontology.voidSubjectsTarget, graphRef));
+        	getDlcGraph().add(new TripleImpl(interlinkGraphRef,Ontology.voidLinkPredicate, OWL.sameAs));
+        	getDlcGraph().add(new TripleImpl(interlinkGraphRef, RDFS.label, new PlainLiteralImpl("Contains equivalence links")));
+        	
+        	// create the graph to store the result of the smushing task
+        	String smushGraphName = GRAPH_URN_PREFIX + timeStamp + SMUSH_GRAPH_URN_SUFFIX;
+        	UriRef smushGraphRef = new UriRef(smushGraphName);
+        	tcManager.createMGraph(smushGraphRef);
+        	getDlcGraph().add(new TripleImpl(smushTaskRef, Ontology.deliverable, smushGraphRef));
+        	
+        	
+ 
+            
+        } 
+        catch (UnsupportedOperationException uoe) {
             log.error("Error while creating a graph");
         }
 
@@ -300,39 +377,39 @@ public class SourcingAdmin {
     @Path("operate")
     @Produces("text/plain")
     public String operateOnGraphCommand(@Context final UriInfo uriInfo,
-            @FormParam("graph") final UriRef graphRef,
+            @FormParam("pipe") final UriRef pipeRef,
             @FormParam("operation_code") final int operationCode,
             @FormParam("data_url") final URL dataUrl,
             @HeaderParam("Content-Type") String mediaType) throws Exception {
         AccessController.checkPermission(new AllPermission());
 
         // validate arguments and handle all the connection exceptions
-        return operateOnGraph(graphRef, operationCode, dataUrl, mediaType);
+        return operateOnPipe(pipeRef, operationCode, dataUrl, mediaType);
 
     }
 
-    private String operateOnGraph(UriRef graphRef, int operationCode, URL dataUrl, String mediaType) throws Exception {
+    private String operateOnPipe(UriRef pipeRef, int operationCode, URL dataUrl, String mediaType) throws Exception {
         AccessController.checkPermission(new AllPermission());
         String message = "";
-        if (graphExists(graphRef)) {
+        if (pipeExists(pipeRef)) {
             switch (operationCode) {
                 case ADD_TRIPLES_OPERATION:
-                    message = addTriples(graphRef, dataUrl, mediaType);
+                    message = addTriples(pipeRef, dataUrl, mediaType);
                     break;
                 case REMOVE_ALL_TRIPLES_OPERATION:
-                    message = emptyGraph(graphRef);
+                    message = emptyGraph(pipeRef);
                     break;
                 case DELETE_GRAPH_OPERATION:
-                    message = deleteGraph(graphRef);
+                    message = deleteGraph(pipeRef);
                     break;
                 case RECONCILE_GRAPH_OPERATION:
-                    message = reconcile(graphRef, null);
+                    message = reconcile(pipeRef, null);
                     break;
                 case SMUSH_GRAPH_OPERATION:
-                    message = smush(graphRef);
+                    message = smush(pipeRef);
                     break;
                 case RECONCILE_SMUSH_OPERATION:
-                    message = reconcileSmush(graphRef, dataUrl, mediaType);
+                    message = reconcileSmush(pipeRef, dataUrl, mediaType);
                     break;
                     /*
                 case RECONCILE_AGAINST_DATASET_GRAPH:
@@ -343,10 +420,10 @@ public class SourcingAdmin {
                 	break;
                 	*/
                 case PATENT_TEXT_EXTRACTION:
-                	message = extractTextFromPatent(graphRef);
+                	message = extractTextFromPatent(pipeRef);
                 	break;
                 case PUBMED_TEXT_EXTRACTION:
-                	message = extractTextFromPubMed(graphRef);
+                	message = extractTextFromPubMed(pipeRef);
                 	break;
                 case PUBMED_RDFIZE:
                 	message = transformPubMedXml(dataUrl);
@@ -358,7 +435,7 @@ public class SourcingAdmin {
                 	message = emptyContentGraph();
             }
         } else {
-            message = "The graph does not exist.";
+            message = "The pipe does not exist.";
         }
 
         return message;
@@ -385,10 +462,13 @@ public class SourcingAdmin {
      * After the upload the input graph is sent to a digester to extract text for indexing and 
      * adding entities found by NLP components (in the default chain) as subject
      */
-    private String addTriples(UriRef graphRef, URL dataUrl, String mediaType) throws Exception {
+    private String addTriples(UriRef pipeRef, URL dataUrl, String mediaType) throws Exception {
     	AccessController.checkPermission(new AllPermission());
         String message = "";
-
+        
+        // look up the pipe's rdf graph to which add the data
+        UriRef graphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+        
         // add the triples of the temporary graph into the graph selected by the user
         if (graphExists(graphRef)) {
         	
@@ -650,22 +730,39 @@ public class SourcingAdmin {
     	return message;
     }
     
-    private String extractTextFromPatent(UriRef graphRef){
+    /**
+     * Extract text from dcterms:title and dcterms:abstract fields in the source graph and adds a sioc:content
+     * property with that text in the relative enhance graph
+     * @param pipeRef
+     * @return
+     */
+    private String extractTextFromPatent(UriRef pipeRef){
     	String message = "Extract text from patents and adding a sioc:content property.\n";
-    	MGraph graph = tcManager.getMGraph(graphRef);
-		    		
-    	patentDigester.extractText(graph);
-    	message += "Extracted text from " + graphRef.getUnicodeString();
+    	UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
+    	MGraph enhanceGraph = tcManager.getMGraph(enhanceGraphRef);
+    	UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+    	MGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
+    	
+    	enhanceGraph.addAll(sourceGraph);
+    		
+    	patentDigester.extractText(enhanceGraph);
+    	message += "Extracted text from " + enhanceGraphRef.getUnicodeString();
     	
     	return message;
     }
     
-    private String extractTextFromPubMed(UriRef graphRef){
+    private String extractTextFromPubMed(UriRef pipeRef){
     	String message = "Extract text from PubMed articles and adding a sioc:content property.\n";
-    	MGraph graph = tcManager.getMGraph(graphRef);
+    	UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
+    	MGraph enhanceGraph = tcManager.getMGraph(enhanceGraphRef);
+    	UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+    	MGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
+    	
+    	enhanceGraph.addAll(sourceGraph);
+    	
 		    		
-    	pubmedDigester.extractText(graph);
-    	message += "Extracted text from " + graphRef.getUnicodeString();
+    	pubmedDigester.extractText(enhanceGraph);
+    	message += "Extracted text from " + enhanceGraphRef.getUnicodeString();
     	
     	return message;
     }
@@ -716,6 +813,19 @@ public class SourcingAdmin {
 
         return false;
 
+    }
+    
+    /**
+     * Checks whether a pipe exists
+     */
+    private boolean pipeExists(UriRef pipeRef) {
+    	boolean result = false;
+    	GraphNode pipeNode = new GraphNode(pipeRef, getDlcGraph());
+    	if(pipeNode != null) {
+    		result = true;
+    	}
+    	return result;
+    	
     }
     
     /**
