@@ -46,7 +46,7 @@
         	<input type="text" name="xml_url" value="" size="70"><br/>
         </div>
         </li>
-        <li><input type="radio" name="operation_code" value="1">Add triples<br>
+        <li><input type="radio" name="operation_code" value="1">Add triples to the pipe's source graph<br>
         <div>
         	<label for="url">URL of RDF data to upload:</label>
         	<input type="text" name="data_url" value="" size="70"><br/>
