@@ -41,6 +41,7 @@ public class Ontology {
     //Linkset
     public static final UriRef voidLinkset = new UriRef("http://rdfs.org/ns/void#Linkset");
     public static final UriRef voidSubjectsTarget = new UriRef("http://rdfs.org/ns/void#subjectsTarget");
+    public static final UriRef voidObjectsTarget = new UriRef("http://rdfs.org/ns/void#objectsTarget");
     public static final UriRef voidLinkPredicate = new UriRef("http://rdfs.org/ns/void#linkPredicate");
 
 }
