@@ -170,7 +170,8 @@ public class SourcingAdmin {
     private String INTERLINK_GRAPH_URN_SUFFIX = "/interlink.graph";
     // smushed graph suffix
     private String SMUSH_GRAPH_URN_SUFFIX = "/smush.graph";
-    // Union of all the equivalence sets (linksets)
+    
+    private UriRef pipeRef = null;
     
     
     private UriRef OWL_SAME_AS_GRAPH = new UriRef("urn:x-localinstance:/datalifecycle/sameas.graph");
@@ -237,6 +238,13 @@ public class SourcingAdmin {
 
         return new RdfViewable("SourcingAdmin", node, SourcingAdmin.class);
     }
+    
+    private void setPipeRef(UriRef pipeRef) {
+    	this.pipeRef = pipeRef;
+    }
+    private MGraph getInterlinkGraph(UriRef pipeRef) {
+    	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX));
+    }
 
     /**
      * Creates a new empty graph
@@ -249,7 +257,7 @@ public class SourcingAdmin {
     @POST
     @Path("create_pipe")
     @Produces("text/plain")
-    public Response createGraphRequest(@Context final UriInfo uriInfo,            
+    public Response createPipeRequest(@Context final UriInfo uriInfo,            
             @FormParam("pipe_label") final String pipeLabel) throws Exception {
         AccessController.checkPermission(new AllPermission());
         //some simplicistic (and too restrictive) validation
@@ -265,6 +273,9 @@ public class SourcingAdmin {
                     .entity("Graphname is not a valid URI: No colon separating scheme").build();
         }
         */
+        
+        // Set up the pipe's graphs
+        
         AccessController.checkPermission(new AllPermission());
         if (createPipe(pipeLabel)) {
             return Response.status(Response.Status.BAD_REQUEST)
@@ -356,7 +367,7 @@ public class SourcingAdmin {
         	tcManager.createMGraph(smushGraphRef);
         	getDlcGraph().add(new TripleImpl(smushTaskRef, Ontology.deliverable, smushGraphRef));
         	
-        	
+        	setPipeRef(pipeRef);
  
             
         } 
@@ -392,6 +403,9 @@ public class SourcingAdmin {
         AccessController.checkPermission(new AllPermission());
         String message = "";
         if (pipeExists(pipeRef)) {
+        	
+        	setPipeRef(pipeRef);
+        	
             switch (operationCode) {
                 case ADD_TRIPLES_OPERATION:
                     message = addTriples(pipeRef, dataUrl, mediaType);
@@ -546,16 +560,18 @@ public class SourcingAdmin {
 
     /**
      * Reconciles a source graph with a target graph. The result of the reconciliation is an equivalence link set 
-     * stored in a graph which is related to the source graph with the dcterms:source property.
+     * stored in the interlink graph of the pipe.
      * @param sourceGraphRef the URI of the referenced graph, ie. the graph for which the reconciliation should be performed.
      * @param targetGraphRef the URI of the target graph. If null the target graph is the same as the source graph.
      * @return
      * @throws Exception 
      */
-    private String reconcile(UriRef sourceGraphRef, UriRef targetGraphRef) throws Exception {
+    private String reconcile(UriRef pipeRef, UriRef targetGraphRef) throws Exception {
         String message = "";
-        if (graphExists(sourceGraphRef)) {
-            //String currentTime = String.valueOf(System.currentTimeMillis());
+        
+        UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+        
+        if (graphExists(sourceGraphRef)) {            
             
             //if target graph is not provided the reconciliation will be done against the source graph itself
             if(targetGraphRef == null){
@@ -563,14 +579,14 @@ public class SourcingAdmin {
             }
             
             // reconcile the source graph with the target graph 
-            UriRef owlSameAsRef =  reconcileCommand(sourceGraphRef, targetGraphRef);
+            UriRef interlinkGraphRef =  reconcileCommand(pipeRef, sourceGraphRef, targetGraphRef);
             
-            TripleCollection owlSameAs = tcManager.getMGraph(owlSameAsRef);
+            TripleCollection interlinkGraph = tcManager.getMGraph(interlinkGraphRef);
 
-            if (owlSameAs.size() > 0) {
+            if (interlinkGraph.size() > 0) {
 
                 message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + targetGraphRef.getUnicodeString() + ".\n"
-                        + owlSameAs.size() + " owl:sameAs statements have been created and stored in " + owlSameAsRef.getUnicodeString();
+                        + interlinkGraph.size() + " owl:sameAs statements have been created and stored in " + interlinkGraphRef.getUnicodeString();
             } 
             else {
                 message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + targetGraphRef.getUnicodeString() + ".\n"
@@ -587,14 +603,12 @@ public class SourcingAdmin {
 
     }
     
-    private UriRef reconcileCommand(UriRef sourceGraphRef, UriRef targetGraphRef) throws Exception {
+    private UriRef reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef) throws Exception {
     	
     	TripleCollection owlSameAs = null;
     	
-    	// create a graph (equivalence set) to store the result of the reconciliation task
-    	String currentTime = String.valueOf(System.currentTimeMillis());
-        String sameAsGraphName = sourceGraphRef.getUnicodeString() + "-eq-" + currentTime + ".graph";
-        UriRef sameAsGraphRef = new UriRef(sameAsGraphName);
+    	// get the pipe's interlink graph to store the result of the reconciliation task        
+    	UriRef interlinkGraphRef = new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX);
         
     	if (graphExists(sourceGraphRef)) {
             
@@ -606,7 +620,7 @@ public class SourcingAdmin {
 
             if (owlSameAs.size() > 0) {
 
-                LockableMGraph sameAsGraph = tcManager.createMGraph(sameAsGraphRef);
+                LockableMGraph sameAsGraph = tcManager.getMGraph(interlinkGraphRef);
                 sameAsGraph.addAll(owlSameAs);
 
                 // log the result (the equivalence set should be serialized and stored)
@@ -625,21 +639,16 @@ public class SourcingAdmin {
                 finally {
                 	l.unlock();
                 }
-
-                // the result of the reconciliation is an equivalent set (not exactly a Linkset)
-                getDlcGraph().add(new TripleImpl(sameAsGraphRef, RDF.type, Ontology.voidLinkset));
-                // add a reference property of the equivalence set to the source graph in the DLC graph to state from which source it is derived 
-                getDlcGraph().add(new TripleImpl(sameAsGraphRef, DCTERMS.source, sourceGraphRef));
-                // add a reference of the equivalence set to the target graph if it is different from the source graph
-                if(targetGraphRef != sourceGraphRef) {
-                	getDlcGraph().add(new TripleImpl(sameAsGraphRef, DCTERMS.source, targetGraphRef));
-                }
-
+                
+                // add a reference of the equivalence set to the source graph 
+                getDlcGraph().add(new TripleImpl(interlinkGraphRef, Ontology.voidSubjectsTarget, sourceGraphRef));
+                // add a reference of the equivalence set to the target graph                
+                getDlcGraph().add(new TripleImpl(interlinkGraphRef, Ontology.voidObjectsTarget, targetGraphRef));
                
             }         
     	}
             
-        return sameAsGraphRef;
+        return interlinkGraphRef;
 
     }
     
@@ -658,15 +667,13 @@ public class SourcingAdmin {
     }
 
     /**
-     * Looks for all the equivalence sets that have been created from the graph
-     * and smush the graph using the union of the equivalence sets.
+     * Smush the source graph using the interlinking graph.
      * @param graphToSmushRef
      * @return
      */
     private String smush(UriRef graphToSmushRef) {
         String message = "Smushing task.\n";
-        //SimpleMGraph dlcGraphCopy = new SimpleMGraph();
-        //dlcGraphCopy.addAll(getDlcGraph()); //this solves a java.util.ConcurrentModificationException
+        
         Set<LockableMGraph> sameAsGraphs = new HashSet<LockableMGraph>();
         LockableMGraph dlcGraph = getDlcGraph();
         Lock l = dlcGraph.getLock().readLock();
@@ -683,7 +690,9 @@ public class SourcingAdmin {
         } finally {
             l.unlock();
         }
-        sameAsGraphs.add(getOwlSameAsGraph());
+        
+        //sameAsGraphs.add(getOwlSameAsGraph());
+        
         if (!sameAsGraphs.isEmpty()) {
             UnionMGraph sameAsUnionGraph = new UnionMGraph(sameAsGraphs.toArray(new MGraph[sameAsGraphs.size()]));
             String smushSetResult = smush(graphToSmushRef, sameAsUnionGraph);
@@ -697,7 +706,9 @@ public class SourcingAdmin {
     }
 
     /**
-     * Smush a graph using one equivalence set (or linkset)
+     * Collates data coming from different equivalent resources in a single one chosen among them.
+     * The source graph is smushed using the interlinking graph and the result is stored
+     * in the smush graph. 
      *
      */
     private String smush(UriRef graphRef, LockableMGraph eqset) {
@@ -732,7 +743,10 @@ public class SourcingAdmin {
     
     /**
      * Extract text from dcterms:title and dcterms:abstract fields in the source graph and adds a sioc:content
-     * property with that text in the relative enhance graph
+     * property with that text in the enhance graph. The text is used by the ECS for indexing. The keywords
+     * will be related to a patent (resource of type pmo:PatentPublication) so that the patent will be retrieved anytime 
+     * the keyword is searched. The extractor also takes all the entities extracted by NLP enhancement engines. These entities
+     * and a rdfs:label if available, are added to the patent resource using dcterms:subject property. 
      * @param pipeRef
      * @return
      */
@@ -751,6 +765,15 @@ public class SourcingAdmin {
     	return message;
     }
     
+    /**
+     * Extract text from dcterms:title and dcterms:abstract fields in the source graph and adds a sioc:content
+     * property with that text in the enhance graph. The text is used by the ECS for indexing. The keywords
+     * will be related to a PubMed article (resource of type bibo:Document) so that the article will be retrieved any time 
+     * the keywords are searched. The extractor also takes all the entities extracted by NLP enhancement engines. These entities
+     * and a rdfs:label if available, are added to the article resource using dcterms:subject property. 
+     * @param pipeRef
+     * @return
+     */
     private String extractTextFromPubMed(UriRef pipeRef){
     	String message = "Extract text from PubMed articles and adding a sioc:content property.\n";
     	UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
@@ -758,8 +781,7 @@ public class SourcingAdmin {
     	UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
     	MGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
     	
-    	enhanceGraph.addAll(sourceGraph);
-    	
+    	enhanceGraph.addAll(sourceGraph);	
 		    		
     	pubmedDigester.extractText(enhanceGraph);
     	message += "Extracted text from " + enhanceGraphRef.getUnicodeString();
@@ -839,7 +861,7 @@ public class SourcingAdmin {
     }
 
     /**
-     * Creates the data lifecycle register graph. Must be called at the bundle
+     * Creates the data lifecycle graph. Must be called at the bundle
      * activation if the graph doesn't exists yet.
      */
     private MGraph createDlcGraph() {
@@ -851,6 +873,14 @@ public class SourcingAdmin {
         return dlcGraph;
     }
 
+    /**
+     * Generates a new http URI that will be used as the canonical one in place 
+     * of a set of equivalent non-http URIs. An owl:sameAs statement is added to
+     * the interlinking graph statint that it is aeuivqlent to one of the non-http
+     * URI in the set of equivalent URIs. 
+     * @param uriRefs
+     * @return
+     */
     private UriRef generateNewHttpUri(Set<UriRef> uriRefs) {
         UriRef bestNonHttp = chooseBest(uriRefs);
         String nonHttpString = bestNonHttp.getUnicodeString();
@@ -859,9 +889,10 @@ public class SourcingAdmin {
                     + "URIs to be canonicalized to be urn:x-temp");
         }
         String httpUriString = nonHttpString.replaceFirst("urn:x-temp:", baseURI);
-        UriRef result = new UriRef(httpUriString);
-        getOwlSameAsGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, result));
-        return result;
+        UriRef httpUriRef = new UriRef(httpUriString);
+        // add an owl:sameAs statement in the interlinking graph 
+        getInterlinkGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, httpUriRef));
+        return httpUriRef;
     }
 
     private UriRef chooseBest(Set<UriRef> httpUri) {
@@ -875,11 +906,11 @@ public class SourcingAdmin {
         }
         return best;
     }
-
-    private LockableMGraph getOwlSameAsGraph() {
-        return tcManager.getMGraph(OWL_SAME_AS_GRAPH);
-    }
-
+    
+    /**
+     * An inline class to canonicalize URI from urn to http scheme. A http URI is chosen 
+     * among the equivalent ones.if no one http URI is available a new one is created. 
+     */
     private class CanonicalizingSameAsSmusher extends IriSmusher {
 
         @Override
@@ -893,6 +924,8 @@ public class SourcingAdmin {
             if (httpUri.size() == 1) {
                 return httpUri.iterator().next();
             }
+            // There is no http URI in the set of equivalent resource. The entity was unknown. 
+            // A new representation of the entity with http URI will be created. 
             if (httpUri.size() == 0) {
                 return generateNewHttpUri(uriRefs);
             }
