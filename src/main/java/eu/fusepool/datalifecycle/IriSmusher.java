@@ -60,7 +60,7 @@ public class IriSmusher extends BaseSmusher {
     	final Map<NonLiteral, Set<NonLiteral>> node2EquivalenceSet = new HashMap<NonLiteral, Set<NonLiteral>>();
     	
     	log.info("Creating the sets of equivalent uris of each subject or object in the owl:sameAs statements");
-    	// Determines for each subject and object in all the owl:sameAs statements the set of ewquivalent uris 
+    	// Determines for each subject and object in all the owl:sameAs statements the set of equivalent uris 
     	for (Iterator<Triple> it = owlSameStatements.iterator(); it.hasNext();) {            
     		final Triple triple = it.next();
             final UriRef predicate = triple.getPredicate();
