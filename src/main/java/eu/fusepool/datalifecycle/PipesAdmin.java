@@ -1,10 +1,17 @@
 package eu.fusepool.datalifecycle;
 
+import java.security.AccessController;
+import java.security.AllPermission;
+
+import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import org.apache.clerezza.jaxrs.utils.TrailingSlash;
@@ -72,8 +79,22 @@ public class PipesAdmin {
         //This GraphNode represents the service within our result graph
         final GraphNode node = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
                 
-        //What we return is the GraphNode 
+        //What we return is the GraphNode to the template with the same path and name 
         return new RdfViewable("PipesAdmin", node, PipesAdmin.class);
+    }
+    
+    @POST
+    @Path("update_pipe")
+    @Produces("text/plain")
+    public String updatePipeRequest(@Context final UriInfo uriInfo,  
+    		 @FormParam("operation") final String operation,
+    		 @FormParam("graph") final String graph) throws Exception {
+        AccessController.checkPermission(new AllPermission());
+        String message = "";
+        
+        message += "Operation: " + operation + " Graph: " + graph;
+        
+        return message;
     }
     
     /**
