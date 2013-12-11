@@ -130,19 +130,13 @@ public class SourcingAdmin {
     private UriRef CONTENT_GRAPH_REF = new UriRef(CONTENT_GRAPH_NAME);
 
     // Operation codes
-    private final int ADD_TRIPLES_OPERATION = 1;
-    private final int REMOVE_ALL_TRIPLES_OPERATION = 2;
-    private final int DELETE_GRAPH_OPERATION = 3;
-    private final int RECONCILE_GRAPH_OPERATION = 4;
-    private final int SMUSH_GRAPH_OPERATION = 5;
-    private final int RECONCILE_SMUSH_OPERATION = 6;
-    private final int RECONCILE_AGAINST_DATASET_GRAPH = 7;
-    private final int MOVE_DOCSET_TO_DATASET_GRAPH = 8;
-    private final int PATENT_TEXT_EXTRACTION = 9;
-    private final int PUBMED_TEXT_EXTRACTION = 10;
-    private final int PUBMED_RDFIZE = 11;
-    private final int PATENT_RDFIZE = 12;
-    private final int EMPTY_CONTENT_GRAPH = 13;
+    private final int ADD_TRIPLES_OPERATION = 3;
+    private final int RECONCILE_GRAPH_OPERATION = 6;
+    private final int SMUSH_GRAPH_OPERATION = 7;
+    private final int PATENT_TEXT_EXTRACTION = 4;
+    private final int PUBMED_TEXT_EXTRACTION = 5;
+    private final int PUBMED_RDFIZE = 2;
+    private final int PATENT_RDFIZE = 1;
     
     //TODO make this a component parameter
     // URI for rewriting from urn scheme to http
@@ -172,9 +166,6 @@ public class SourcingAdmin {
     private String SMUSH_GRAPH_URN_SUFFIX = "/smush.graph";
     
     private UriRef pipeRef = null;
-    
-    
-    private UriRef OWL_SAME_AS_GRAPH = new UriRef("urn:x-localinstance:/datalifecycle/sameas.graph");
 
     @Activate
     protected void activate(ComponentContext context) {
@@ -242,8 +233,18 @@ public class SourcingAdmin {
     private void setPipeRef(UriRef pipeRef) {
     	this.pipeRef = pipeRef;
     }
-    private MGraph getInterlinkGraph() {
+    
+    private LockableMGraph getSourceGraph() {
+    	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX));
+    }
+    private LockableMGraph getEnhanceGraph() {
+    	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX));
+    }
+    private LockableMGraph getInterlinkGraph() {
     	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX));
+    }
+    private LockableMGraph getSmushGraph() {
+    	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + SMUSH_GRAPH_URN_SUFFIX));
     }
 
     /**
@@ -409,30 +410,13 @@ public class SourcingAdmin {
             switch (operationCode) {
                 case ADD_TRIPLES_OPERATION:
                     message = addTriples(pipeRef, dataUrl, mediaType);
-                    break;
-                case REMOVE_ALL_TRIPLES_OPERATION:
-                    message = emptyGraph(pipeRef);
-                    break;
-                case DELETE_GRAPH_OPERATION:
-                    message = deleteGraph(pipeRef);
-                    break;
+                    break;                       
                 case RECONCILE_GRAPH_OPERATION:
                     message = reconcile(pipeRef, null);
                     break;
                 case SMUSH_GRAPH_OPERATION:
                     message = smush(pipeRef);
-                    break;
-                case RECONCILE_SMUSH_OPERATION:
-                    message = reconcileSmush(pipeRef, dataUrl, mediaType);
-                    break;
-                    /*
-                case RECONCILE_AGAINST_DATASET_GRAPH:
-                	message = reconcile(graphRef, PATENT_DATA_GRAPH_REFERENCE);
-                	break;
-                case MOVE_DOCSET_TO_DATASET_GRAPH:
-                	message = moveToDatasetGraph(graphRef, PATENT_DATA_GRAPH_REFERENCE);
-                	break;
-                	*/
+                    break;            
                 case PATENT_TEXT_EXTRACTION:
                 	message = extractTextFromPatent(pipeRef);
                 	break;
@@ -444,9 +428,7 @@ public class SourcingAdmin {
                 	break;
                 case PATENT_RDFIZE:
                 	message = transformPatentXml(dataUrl);
-                	break;
-                case EMPTY_CONTENT_GRAPH:
-                	message = emptyContentGraph();
+                	break;                
             }
         } else {
             message = "The pipe does not exist.";
@@ -484,19 +466,18 @@ public class SourcingAdmin {
         UriRef graphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
         
         // add the triples of the temporary graph into the graph selected by the user
-        if (graphExists(graphRef)) {
+        if (isValidUrl(dataUrl)) {
         	
         	MGraph updatedGraph = addTriplesCommand(graphRef, dataUrl, mediaType);
 
             message = "Added " + updatedGraph.size() + " triples to " + graphRef.getUnicodeString() + "\n";
 
         } else {
-            message = "The graph " + graphRef.getUnicodeString() + " does not exist. It must be created before adding triples.\n";
+            message = "The URL of the data is not a valid one.\n";
         }
        
         log.info(message);
         return message;
-
     	
     }
 
@@ -666,71 +647,50 @@ public class SourcingAdmin {
     }
 
     /**
-     * Smush the source graph using the interlinking graph.
+     * Smush the source graph using the interlinking graph. More precisely collates data coming 
+     * from different equivalent resources in a single one chosen among them. The triples in the
+     * source graph are copied in the smush graph that is then smushed using the interlinking 
+     * graph..
      * @param graphToSmushRef
      * @return
      */
-    private String smush(UriRef graphToSmushRef) {
+    private String smush(UriRef pipeRef) {
         String message = "Smushing task.\n";
         
-        Set<LockableMGraph> sameAsGraphs = new HashSet<LockableMGraph>();
-        LockableMGraph dlcGraph = getDlcGraph();
-        Lock l = dlcGraph.getLock().readLock();
-        l.lock();
-        try {
-            Iterator<Triple> ilinksets = dlcGraph.filter(null, DCTERMS.source, graphToSmushRef);      
-            while (ilinksets.hasNext()) {            	
-            	UriRef equivSetRef = (UriRef) ilinksets.next().getSubject(); 
-            	if( dlcGraph.getGraph().contains(new TripleImpl(equivSetRef,RDF.type,Ontology.voidLinkset)) ) {       
-            		//UriRef equivalenceSet = (UriRef) ilinksets.next().getSubject();
-            		sameAsGraphs.add(tcManager.getMGraph(equivSetRef));
-            	}
-            }
-        } finally {
-            l.unlock();
+        UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+        
+        if(getInterlinkGraph().size() > 0) {
+                
+        	LockableMGraph smushedGraph = smushCommand(sourceGraphRef, getInterlinkGraph());
+        
+        	message = "Smushing of " + sourceGraphRef.getUnicodeString()
+                    + " with linkset completed. "
+                    + "Smushed graph size = " + smushedGraph.size() + "\n";
         }
-        
-        //sameAsGraphs.add(getOwlSameAsGraph());
-        
-        if (!sameAsGraphs.isEmpty()) {
-            UnionMGraph sameAsUnionGraph = new UnionMGraph(sameAsGraphs.toArray(new MGraph[sameAsGraphs.size()]));
-            String smushSetResult = smush(graphToSmushRef, sameAsUnionGraph);
-            message += smushSetResult + "\n";
-        } else {
-            message = "No equivalence set available for " + graphToSmushRef.toString() + "\n"
-                    + "Start a reconciliation task before.";
+        else {
+        	message = "No equivalence links available for " + sourceGraphRef.getUnicodeString() + "\n"
+                    + "Start a reconciliation task before smushing.";
         }
-
-        return message;
-    }
-
-    /**
-     * Collates data coming from different equivalent resources in a single one chosen among them.
-     * The source graph is smushed using the interlinking graph and the result is stored
-     * in the smush graph. 
-     *
-     */
-    private String smush(UriRef graphRef, LockableMGraph eqset) {
-        String message = "";
-        
-        LockableMGraph smushedGraph = smushCommand(graphRef,eqset);
-
-        message = "Smushing of " + graphRef.getUnicodeString()
-                + " with linkset completed. "
-                + "Smushed graph size = " + smushedGraph.size() + "\n";
+                
         return message;
     }
     
-    private LockableMGraph smushCommand(UriRef graphRef, LockableMGraph linkset) {
+    private LockableMGraph smushCommand(UriRef sourceGraphRef, LockableMGraph linkset) {
         
-        LockableMGraph graph = tcManager.getMGraph(graphRef);
+        LockableMGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
+        // removes all the triples in the smush graph
+        if(getSmushGraph().size() > 0) {
+        	getSmushGraph().clear();
+        }
+        // copies triples from the source graph in the smush graph
+        getSmushGraph().addAll(getSourceGraph());
         SimpleMGraph tempLinkset = new SimpleMGraph();
         tempLinkset.addAll(linkset);
         IriSmusher smusher = new CanonicalizingSameAsSmusher();
-        smusher.smush(graph, tempLinkset, true);
-        serializer.serialize(System.out, graph, SupportedFormat.RDF_XML);
+        smusher.smush(getSmushGraph(), tempLinkset, true);
+        serializer.serialize(System.out, getSmushGraph(), SupportedFormat.RDF_XML);
         
-        return graph;
+        return getSmushGraph();
 
     }
     
@@ -787,6 +747,21 @@ public class SourcingAdmin {
     	
     	return message;
     }
+    
+    /**
+     * Validate URL
+     * A valid URL must start with file:/// or http://
+     */
+    private boolean isValidUrl(URL url) {
+    	boolean isValidUrl = false;
+    	if(url != null) {
+	    	if( url.toString().startsWith("http://") || url.toString().startsWith("file:///")) {
+	    		isValidUrl = true;
+	    	}
+    	}
+    	
+        return isValidUrl;
+    }
 
     /**
      * Extracts the content type from the file extension
@@ -841,10 +816,14 @@ public class SourcingAdmin {
      */
     private boolean pipeExists(UriRef pipeRef) {
     	boolean result = false;
-    	GraphNode pipeNode = new GraphNode(pipeRef, getDlcGraph());
-    	if(pipeNode != null) {
-    		result = true;
+    	
+    	if (pipeRef != null) {
+	    	GraphNode pipeNode = new GraphNode(pipeRef, getDlcGraph());
+	    	if(pipeNode != null) {
+	    		result = true;
+	    	}
     	}
+    	
     	return result;
     	
     }
