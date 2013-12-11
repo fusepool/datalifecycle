@@ -242,7 +242,7 @@ public class SourcingAdmin {
     private void setPipeRef(UriRef pipeRef) {
     	this.pipeRef = pipeRef;
     }
-    private MGraph getInterlinkGraph(UriRef pipeRef) {
+    private MGraph getInterlinkGraph() {
     	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX));
     }
 
@@ -505,7 +505,6 @@ public class SourcingAdmin {
         MGraph graph = null;
         URLConnection connection = dataUrl.openConnection();
         connection.addRequestProperty("Accept", "application/rdf+xml; q=.9, text/turte;q=1");
-        String currentTime = String.valueOf(System.currentTimeMillis());
 
         // create a temporary graph to store the data        
         SimpleMGraph tempGraph = new SimpleMGraph();
