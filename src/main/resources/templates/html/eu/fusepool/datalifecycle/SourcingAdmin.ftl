@@ -8,7 +8,10 @@
 <html>
   <head>
     <title>Data Lifecycle Admin Page</title>
-    <link type="text/css" rel="stylesheet" href="styles/resource-resolver.css" />
+    <link rel="stylesheet" href="http://localhost:8080/static/home/style/stanbol.css" />
+    <link rel="icon" type="image/png" href="http://localhost:8080/static/home/images/favicon.png" />
+    <link rel="stylesheet" href="http://localhost:8080/static/home/style/stanbol.css" />
+    <!-- link type="text/css" rel="stylesheet" href="styles/resource-resolver.css" /-->
   </head>
 
   <body>
@@ -40,43 +43,43 @@
         </div>
         
         <ul>
-        <li><input type="radio" name="operation_code" value="12" disabled>RDFize<br>
+        <li><input type="radio" name="operation_code" value="1" disabled>RDFize MAREC patent
         <div>
-        	<label for="url">URL of XML file to upload:</label>
-        	<input type="text" name="xml_url" value="" size="70"><br/>
+        	<label for="url">URL of MAREC XML file to upload:</label>
+        	<input type="text" name="xml_url" value="" size="70"><br>
         </div>
         </li>
-        <li><input type="radio" name="operation_code" value="1">Add triples to the pipe's source graph<br>
+        <li><input type="radio" name="operation_code" value="2" disabled>RDFize PubMed article
         <div>
-        	<label for="url">URL of RDF data to upload:</label>
-        	<input type="text" name="data_url" value="" size="70"><br/>
+        	<label for="url">URL of PubMed XML file to upload:</label>
+        	<input type="text" name="xml_url" value="" size="70"><br>
         </div>
         </li>
-        <li><input type="radio" name="operation_code" value="9">Extract Text (from patent docs)<br></li>
-        <li><input type="radio" name="operation_code" value="10">Extract Text from articles only for test<br></li>
-        <li><input type="radio" name="operation_code" value="2">Remove all triples<br></li>
-        <li><input type="radio" name="operation_code" value="3">Delete<br></li>
-        <li><input type="radio" name="operation_code" value="4">Reconcile (against itself)<br></li>
-        <li><input type="radio" name="operation_code" value="5">Smush (uses the equivalence sets created with the reconciliation)<br></li>
-        <li><input type="radio" name="operation_code" value="6">Reconcile + smush (performs the two operations one after the other)<br>
-        <li><input type="radio" name="operation_code" value="7">Reconcile (against the dataset graph)<br>
-        <li><input type="radio" name="operation_code" value="8">Move to dataset graph<br>
+        <li><input type="radio" name="operation_code" value="3">Add triples to the pipe's source graph
         <div>
         	<label for="url">URL of RDF data to upload:</label>
-        	<input type="text" name="data_url" value="" size="70"><br/>
+        	<input type="text" name="data_url" value="" size="70"><br>
         </div>
         </li>
+        <li><input type="radio" name="operation_code" value="4">Extract text from MAREC patents</li>
+        <li><input type="radio" name="operation_code" value="5">Extract text from PubMed articles</li>
+        <li><input type="radio" name="operation_code" value="6">Reconcile
+        <div>
+        	<label for="target_recon_graph">Target graph URI:</label>
+        	<input type="text" name="data_url" value="" size="70"><br>
         </div>
+        </li>
+        </li>
+        <li><input type="radio" name="operation_code" value="7">Smush<br></li>
+        
+        </ul>
         
         <input type="submit" value="Apply" />
         
     </form>
     </div>
     
-    
-    
-    
-    
+    <a href="/pipesadmin">Pipes graphs admin page</a>
     <#include "/html/includes/footer.ftl">
   </body>
 </html>
