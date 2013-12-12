@@ -42,7 +42,8 @@
         </select>
         </div>
         
-        <ul>
+        <ol>
+        <!--
         <li><input type="radio" name="operation_code" value="1" disabled>RDFize MAREC patent
         <div>
         	<label for="url">URL of MAREC XML file to upload:</label>
@@ -55,14 +56,33 @@
         	<input type="text" name="xml_url" value="" size="70"><br>
         </div>
         </li>
+        -->
+        <li>
+        	<input type="radio" disabled>RDFize
+        	<select name="operation_code">
+        		<option value="1">MAREC patent</option>
+        		<option value="2">PubMed article</option>
+        	</select>
+        	URL of XML file: <input type="text" name="xml_url" value="" size="70"><br>
+        </li>
         <li><input type="radio" name="operation_code" value="3">Add triples to the pipe's source graph
         <div>
         	<label for="url">URL of RDF data to upload:</label>
         	<input type="text" name="data_url" value="" size="70"><br>
         </div>
         </li>
+        <!--
         <li><input type="radio" name="operation_code" value="4">Extract text from MAREC patents</li>
         <li><input type="radio" name="operation_code" value="5">Extract text from PubMed articles</li>
+        -->
+        <li>
+        	<input type="radio">Extract text
+        	<select name="operation_code">
+        		<option value="4">MAREC patents</option>
+        		<option value="5">PubMed articles</option>
+        	</select>
+        	
+        </li>
         <li><input type="radio" name="operation_code" value="6">Reconcile
         <div>
         	<label for="target_recon_graph">Target graph URI:</label>
@@ -72,7 +92,7 @@
         </li>
         <li><input type="radio" name="operation_code" value="7">Smush<br></li>
         
-        </ul>
+        </ol>
         
         <input type="submit" value="Apply" />
         
