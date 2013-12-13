@@ -130,13 +130,19 @@ public class SourcingAdmin {
     private UriRef CONTENT_GRAPH_REF = new UriRef(CONTENT_GRAPH_NAME);
 
     // Operation codes
-    private final int ADD_TRIPLES_OPERATION = 3;
-    private final int RECONCILE_GRAPH_OPERATION = 6;
-    private final int SMUSH_GRAPH_OPERATION = 7;
-    private final int PATENT_TEXT_EXTRACTION = 4;
-    private final int PUBMED_TEXT_EXTRACTION = 5;
-    private final int PUBMED_RDFIZE = 2;
-    private final int PATENT_RDFIZE = 1;
+    private final int RDFIZE = 1;
+    private final int ADD_TRIPLES_OPERATION = 2;
+    private final int TEXT_EXTRACTION = 3;
+    private final int RECONCILE_GRAPH_OPERATION = 4;
+    private final int SMUSH_GRAPH_OPERATION = 5;
+    
+    // RDFdigester
+    private final String PUBMED_RDFDIGESTER = "pubmed";
+    private final String PATENT_RDFDIGESTER = "patent";
+    
+    // RDFizer
+    private final String PUBMED_RDFIZER = "pubmed";
+    private final String PATENT_RDFIZER = "patent";
     
     //TODO make this a component parameter
     // URI for rewriting from urn scheme to http
@@ -393,15 +399,22 @@ public class SourcingAdmin {
             @FormParam("pipe") final UriRef pipeRef,
             @FormParam("operation_code") final int operationCode,
             @FormParam("data_url") final URL dataUrl,
+            @FormParam("rdfizer") final String rdfizer,
+            @FormParam("rdfdigester") final String rdfdigester,
             @HeaderParam("Content-Type") String mediaType) throws Exception {
         AccessController.checkPermission(new AllPermission());
 
         // validate arguments and handle all the connection exceptions
-        return operateOnPipe(pipeRef, operationCode, dataUrl, mediaType);
+        return operateOnPipe(pipeRef, operationCode, dataUrl, rdfizer, rdfdigester, mediaType);
 
     }
 
-    private String operateOnPipe(UriRef pipeRef, int operationCode, URL dataUrl, String mediaType) throws Exception {
+    private String operateOnPipe(UriRef pipeRef, 
+    		int operationCode, 
+    		URL dataUrl, 
+    		String rdfizer,
+    		String rdfdigester,
+    		String mediaType) throws Exception {
         AccessController.checkPermission(new AllPermission());
         String message = "";
         if (pipeExists(pipeRef)) {
@@ -418,18 +431,12 @@ public class SourcingAdmin {
                 case SMUSH_GRAPH_OPERATION:
                     message = smush(pipeRef);
                     break;            
-                case PATENT_TEXT_EXTRACTION:
-                	message = extractTextFromPatent(pipeRef);
-                	break;
-                case PUBMED_TEXT_EXTRACTION:
-                	message = extractTextFromPubMed(pipeRef);
-                	break;
-                case PUBMED_RDFIZE:
-                	message = transformPubMedXml(dataUrl);
-                	break;
-                case PATENT_RDFIZE:
-                	message = transformPatentXml(dataUrl);
+                case TEXT_EXTRACTION:
+                	message = extractText(pipeRef, rdfdigester);
                 	break;                
+                case RDFIZE:
+                	message = transformXml(dataUrl, rdfizer);
+                	break;                             
             }
         } else {
             message = "The pipe does not exist.";
@@ -439,14 +446,28 @@ public class SourcingAdmin {
 
     }
     
-    private String transformPubMedXml(URL dataUrl) {
+    private String transformXml(URL dataUrl, String rdfizer) {
     	String message = "";
+    	
+    	if(PUBMED_RDFIZER.equals(rdfizer)){
+    		message = transformPubMedXml(dataUrl);
+    	}
+    	else if (PATENT_RDFIZER.equals(rdfizer)) {
+    		message = transformPatentXml(dataUrl);
+    	}
+    	
+    	return message;
+    	
+    }
+    
+    private String transformPubMedXml(URL dataUrl) {
+    	String message = "PubMed XML->RDF transformation to be implemented.";
     	
     	return message;
     }
     
     private String transformPatentXml(URL dataUrl) {
-    	String message = "";
+    	String message = "Marec Patent XML->RDF transformation to be implemented";
     	
     	return message;
     }
@@ -701,6 +722,19 @@ public class SourcingAdmin {
     	return message;
     }
     
+    private String extractText(UriRef pipeRef, String rdfdigester) {
+    	String message = "";
+    	
+    	if(PATENT_RDFDIGESTER.equals(rdfdigester)){
+    		message = extractTextFromPatent(pipeRef);
+    	}
+    	else if (PUBMED_RDFDIGESTER.equals(rdfdigester)) {
+    		message = extractTextFromPubMed(pipeRef);
+    	}
+    	
+    	return message;
+    }
+    
     /**
      * Extract text from dcterms:title and dcterms:abstract fields in the source graph and adds a sioc:content
      * property with that text in the enhance graph. The text is used by the ECS for indexing. The keywords
@@ -756,7 +790,7 @@ public class SourcingAdmin {
     private boolean isValidUrl(URL url) {
     	boolean isValidUrl = false;
     	if(url != null) {
-	    	if( url.toString().startsWith("http://") || url.toString().startsWith("file:///")) {
+	    	if( url.toString().startsWith("http://") || url.toString().startsWith("file:/")) {
 	    		isValidUrl = true;
 	    	}
     	}
