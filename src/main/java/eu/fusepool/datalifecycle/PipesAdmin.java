@@ -88,11 +88,11 @@ public class PipesAdmin {
         return new RdfViewable("PipesAdmin", node, PipesAdmin.class);
     }
     
-    @GET
+    @POST
     @Path("empty_graph")
     @Produces("text/plain")
     public String emptyGraphRequest(@Context final UriInfo uriInfo,  
-    		@QueryParam("graph") final String graphName) throws Exception {
+    		@FormParam("graph") final String graphName) throws Exception {
         AccessController.checkPermission(new AllPermission());
         String message = "";
         
