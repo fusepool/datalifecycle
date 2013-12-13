@@ -7,91 +7,79 @@
 
 <html>
   <head>
-    <title>Data Lifecycle Admin Page</title>
-    <link rel="stylesheet" href="http://localhost:8080/static/home/style/stanbol.css" />
-    <link rel="icon" type="image/png" href="http://localhost:8080/static/home/images/favicon.png" />
-    <link rel="stylesheet" href="http://localhost:8080/static/home/style/stanbol.css" />
-    <!-- link type="text/css" rel="stylesheet" href="styles/resource-resolver.css" /-->
+    <title>Fusepool Data Lifecycle</title>
+    <link type="text/css" rel="stylesheet" href="styles/common.css" />
   </head>
 
   <body>
-    <h1>Data Lifecycle Manager</h1>
+    <div id="wrapper">
+	   <div id="top">    
+      <div id="title">
+        
+    	<h1><img src="images/fusepool.png" />Fusepool Data Lifecycle</h1>
+
+      </div>
+	
+      <div class="menu">
+        <ul>
+          <li><a href="/sourcing">Pipes</a></li>
+
+          <li><a href="/pipesadmin">Graphs</a></li>
+
+         </ul>
+      </div>
+      
+    </div><!-- top ends here -->
     
-    <h2>Create a new pipe to process a dataset</h2>
+    <div id="mainColumn">
+    
     <div>
+    <h2>Create a new pipe to process a dataset</h2>
     <form action="create_pipe" method="post">
         Label: <input type="text" name="pipe_label" value="" size="60"><br/>
         <input type="submit" value="Create Pipe" />        
     </form>
     </div>
     
-    
-    
-    <h2>Pipes Management</h2>
     <div>
+    
     <form action="operate" method="post">
-        
-        <div>
-        <p>Select a pipe to perform any of the operations below</p>
-        <select name="pipe" size="10">
-           
+        <h2>Select a pipe</h2>    
+        <select name="pipe">
            <@ldpath path="wf:pipe">
                <option><@ldpath path="."/></option>
-           </@ldpath>
-           
+           </@ldpath>           
         </select>
-        </div>
         
+        <h2>Select a task</h2>
         <ol>
-        <!--
-        <li><input type="radio" name="operation_code" value="1" disabled>RDFize MAREC patent
-        <div>
-        	<label for="url">URL of MAREC XML file to upload:</label>
-        	<input type="text" name="xml_url" value="" size="70"><br>
-        </div>
-        </li>
-        <li><input type="radio" name="operation_code" value="2" disabled>RDFize PubMed article
-        <div>
-        	<label for="url">URL of PubMed XML file to upload:</label>
-        	<input type="text" name="xml_url" value="" size="70"><br>
-        </div>
-        </li>
-        -->
         <li>
-        	<input type="radio" disabled>RDFize
-        	<select name="operation_code">
-        		<option value="1">MAREC patent</option>
-        		<option value="2">PubMed article</option>
+        	<input type="radio" name="operation_code" value="1">RDFize
+        	<select name="rdfizer">
+        		<option value="patent">MAREC patent</option>
+        		<option value="pubmed">PubMed article</option>
         	</select>
-        	URL of XML file: <input type="text" name="xml_url" value="" size="70"><br>
-        </li>
-        <li><input type="radio" name="operation_code" value="3">Add triples to the pipe's source graph
-        <div>
-        	<label for="url">URL of RDF data to upload:</label>
-        	<input type="text" name="data_url" value="" size="70"><br>
-        </div>
-        </li>
-        <!--
-        <li><input type="radio" name="operation_code" value="4">Extract text from MAREC patents</li>
-        <li><input type="radio" name="operation_code" value="5">Extract text from PubMed articles</li>
-        -->
-        <li>
-        	<input type="radio">Extract text
-        	<select name="operation_code">
-        		<option value="4">MAREC patents</option>
-        		<option value="5">PubMed articles</option>
-        	</select>
+        	<br>
+        	URL of XML file: <input type="text" name="xml_url" value="" size="70">
         	
         </li>
-        <li><input type="radio" name="operation_code" value="6">Reconcile
-        <div>
+        <li><input type="radio" name="operation_code" value="2">Add triples from URL<br>
+        	<input type="text" name="data_url" value="" size="70">
+        </li>
+        <li>
+        	<input type="radio" name="operation_code" value="3">Extract text
+        	<select name="rdfdigester">
+        		<option value="patent">MAREC patents</option>
+        		<option value="pubmed">PubMed articles</option>
+        	</select>
+        	<br>
+        </li>
+        <li><input type="radio" name="operation_code" value="6">Reconcile<br>
         	<label for="target_recon_graph">Target graph URI:</label>
-        	<input type="text" name="data_url" value="" size="70"><br>
-        </div>
+        	<input type="text" name="data_url" value="" size="70">
         </li>
         </li>
         <li><input type="radio" name="operation_code" value="7">Smush<br></li>
-        
         </ol>
         
         <input type="submit" value="Apply" />
@@ -99,8 +87,16 @@
     </form>
     </div>
     
-    <a href="/pipesadmin">Pipes graphs admin page</a>
+   
+    </div><!-- mainColumn end -->
+    
+    <div id="footer">
+    
     <#include "/html/includes/footer.ftl">
+    </div><!-- footer end -->
+    
+    </div><!-- wrapper end -->
+    
   </body>
 </html>
 
