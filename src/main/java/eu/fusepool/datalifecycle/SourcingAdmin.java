@@ -278,6 +278,7 @@ public class SourcingAdmin {
         // Set up the pipe's graphs
         
         AccessController.checkPermission(new AllPermission());
+        
         if (createPipe(pipeLabel)) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity("Cannot create graph" + pipeLabel).build();
