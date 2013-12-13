@@ -21,15 +21,15 @@ List of Pipes <br>
 			<tr>
 			<td><@ldpath path="."/></td>
 			<td>
-				<form action="update_pipe" method="post">
-					<input type="hidden" name="graph" value="<@ldpath path="."/>">
-					<input type="submit" name="operation" value="Get">
+				<form action="get_graph" method="get">
+					<input type="submit" value="Get">	
+					<input type="hidden" name="graph" value="<@ldpath path="."/>">				
 				</form>
 			</td>
 			<td>
-				<form action="update_pipe" method="post">
-					<input type="hidden" name="graph" value="<@ldpath path="."/>">
-					<input type="submit" name="operation" value="Empty">
+				<form action="empty_graph" method="post">
+					<input type="submit" value="Empty">
+					<input type="hidden" name="graph" value="<@ldpath path="."/>">					
 				</form>
 			</td>
 			</tr>
