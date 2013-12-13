@@ -14,6 +14,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
+import org.apache.clerezza.jaxrs.utils.RedirectUtil;
 import org.apache.clerezza.jaxrs.utils.TrailingSlash;
 import org.apache.clerezza.rdf.core.MGraph;
 import org.apache.clerezza.rdf.core.UriRef;
@@ -21,6 +22,8 @@ import org.apache.clerezza.rdf.core.access.LockableMGraph;
 import org.apache.clerezza.rdf.core.access.TcManager;
 import org.apache.clerezza.rdf.core.impl.PlainLiteralImpl;
 import org.apache.clerezza.rdf.core.impl.SimpleMGraph;
+import org.apache.clerezza.rdf.core.serializedform.Serializer;
+import org.apache.clerezza.rdf.core.serializedform.SupportedFormat;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.utils.GraphNode;
 import org.apache.felix.scr.annotations.Activate;
@@ -46,13 +49,15 @@ public class PipesAdmin {
     @Reference
     private TcManager tcManager;
     
+    @Reference
+    private Serializer serializer;
+    
     /**
      * Using slf4j for normal logging
      */
     private static final Logger log = LoggerFactory.getLogger(PipesAdmin.class);
     
     private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/dlc/meta.graph");
-
     
     /**
      * This method return an RdfViewable, this is an RDF serviceUri with
@@ -83,19 +88,37 @@ public class PipesAdmin {
         return new RdfViewable("PipesAdmin", node, PipesAdmin.class);
     }
     
-    @POST
-    @Path("update_pipe")
+    @GET
+    @Path("empty_graph")
     @Produces("text/plain")
-    public String updatePipeRequest(@Context final UriInfo uriInfo,  
-    		 @FormParam("operation") final String operation,
-    		 @FormParam("graph") final String graph) throws Exception {
+    public String emptyGraphRequest(@Context final UriInfo uriInfo,  
+    		@QueryParam("graph") final String graphName) throws Exception {
         AccessController.checkPermission(new AllPermission());
         String message = "";
         
-        message += "Operation: " + operation + " Graph: " + graph;
+        UriRef graphRef = new UriRef(graphName);
+        
+        tcManager.getMGraph(graphRef).clear();
+        
+        message += " Graph: " + graphName + " empty";
         
         return message;
     }
+    
+    @GET
+    @Path("get_graph")
+    @Produces("text/plain")
+    public Response getGraphRequest(@Context final UriInfo uriInfo,
+    		@QueryParam("graph") final String graphName) throws Exception {
+    	
+    	String graphUrl = "http://localhost:8080/graph?name=" + graphName;
+    	
+    	
+    	return RedirectUtil.createSeeOtherResponse(graphUrl, uriInfo);
+    	
+    	
+    }
+    
     
     /**
      * Returns the data life cycle graph containing all the monitored graphs. It
