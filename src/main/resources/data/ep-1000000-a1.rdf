@@ -1,0 +1,279 @@
+<rdf:RDF
+    xmlns:j.0="http://www.patexpert.org/ontologies/pulo.owl#"
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:j.1="http://www.w3.org/2004/02/skos/core#"
+    xmlns:j.3="http://xmlns.com/foaf/0.1/"
+    xmlns:j.2="http://www.patexpert.org/ontologies/pmo.owl#"
+    xmlns:j.4="http://www.patexpert.org/ontologies/pso.owl#"
+    xmlns:j.5="http://www.owl-ontologies.com/sumo.owl#"
+    xmlns:j.6="http://purl.org/dc/terms/"
+    xmlns:j.8="http://www.w3.org/ns/prov#"
+    xmlns:j.7="http://fusepool.info/property/"
+    xmlns:j.9="http://schema.org/"
+    xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+    xmlns:j.10="http://fise.iks-project.eu/ontology/" > 
+  <rdf:Description rdf:about="http://fusepool.info/id/4169fb9b-e202-48ef-b901-0bca435076d8">
+    <rdfs:label>Beheermaatschappij De Boer Nijmegen B.V.</rdfs:label>
+    <j.9:address rdf:resource="http://fusepool.info/id/8b1df483-b65b-4006-80be-dd1ea3da119e"/>
+    <rdf:type rdf:resource="http://www.owl-ontologies.com/sumo.owl#CognitiveAgent"/>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Agent"/>
+    <j.3:name>Beheermaatschappij De Boer Nijmegen B.V.</j.3:name>
+    <j.2:applicantOf rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/id/fdb47b56-1dc6-4feb-8bba-0fe5cd8073cd">
+    <rdfs:label>BEHEERMAATSCHAPPIJ DE BOER NIJMEGEN B.V.</rdfs:label>
+    <rdf:type rdf:resource="http://www.owl-ontologies.com/sumo.owl#CognitiveAgent"/>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Agent"/>
+    <j.3:name>BEHEERMAATSCHAPPIJ DE BOER NIJMEGEN B.V.</j.3:name>
+    <j.2:applicantOf rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/doc/family/19768124">
+    <rdf:type rdf:resource="http://www.w3.org/2004/02/skos/core#Collection"/>
+    <rdf:type rdf:resource="http://www.patexpert.org/ontologies/pmo.owl#PatentFamily"/>
+    <j.1:notation>19768124</j.1:notation>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/id/d7a620c2-78c5-45f2-a5ea-a7a92eac9dbc">
+    <rdfs:label>BOER BEHEER NIJMEGEN BV DE</rdfs:label>
+    <j.9:address rdf:resource="http://fusepool.info/id/02165201-2251-4432-866f-902a72375bc1"/>
+    <rdf:type rdf:resource="http://www.owl-ontologies.com/sumo.owl#CognitiveAgent"/>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Agent"/>
+    <j.3:name>BOER BEHEER NIJMEGEN BV DE</j.3:name>
+    <j.2:applicantOf rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/id/8062a9b5-738a-4210-b210-8af30303cf8f">
+    <j.9:streetAddress>Bredeweg 9</j.9:streetAddress>
+    <rdf:type rdf:resource="http://schema.org/PostalAddress"/>
+    <j.9:addressLocality>6562 DA Groesbeek</j.9:addressLocality>
+    <j.9:addressCountry rdf:resource="http://fusepool.info/code/country/NL"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://csarven.ca/#i">
+    <rdf:type rdf:resource="http://www.w3.org/ns/prov#Agent"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="urn:enhancement-81b8b716-e35c-a551-0cba-bfa5d1a17b2b">
+    <j.10:extracted-from rdf:resource="urn:content-item-sha1-fcade54caf5eb863b0dafb4b90e984fb914279db"/>
+    <j.10:ConfidenceLevel>1.0</j.10:ConfidenceLevel>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/EntityAnnotation"/>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/Enhancement"/>
+    <j.6:created rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2013-06-12T16:04:26.841Z</j.6:created>
+    <j.6:creator rdf:datatype="http://www.w3.org/2001/XMLSchema#string">eu.fusepool.platform.enhancer.engine.patent.PatentEnhancementEngine</j.6:creator>
+    <j.10:entity-reference rdf:resource="http://fusepool.info/id/fca63ace-1639-4272-aa4b-c2593c7cc126"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="urn:content-item-sha1-fcade54caf5eb863b0dafb4b90e984fb914279db">
+    <j.6:hasPart rdf:resource="urn:fusepool-patent-engine:part-01:c3224be9-9357-a155-4a39-5712403386b7"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/id/b74a60de-f801-456f-8a24-3dc95f2bdba8">
+    <rdfs:label>Schumann, Bernard Herman Johan</rdfs:label>
+    <j.7:agentOf rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+    <j.9:address rdf:resource="http://fusepool.info/id/2f429ec3-42dc-42e8-9bfd-d57ffffbebf0"/>
+    <rdf:type rdf:resource="http://www.owl-ontologies.com/sumo.owl#Agent"/>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Agent"/>
+    <j.3:name>Schumann, Bernard Herman Johan</j.3:name>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/doc/patent/NL-1010536-A">
+    <j.7:filing-office rdf:resource="http://fusepool.info/code/filing-office/NL"/>
+    <j.0:fileFormat>epo</j.0:fileFormat>
+    <rdf:type rdf:resource="http://www.patexpert.org/ontologies/pmo.owl#PatentPublication"/>
+    <j.2:countryOfFiling>NL</j.2:countryOfFiling>
+    <j.2:dateOfPublication rdf:datatype="http://www.w3.org/2001/XMLSchema#date">1998-11-12</j.2:dateOfPublication>
+    <j.2:kindCode>A</j.2:kindCode>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/id/02165201-2251-4432-866f-902a72375bc1">
+    <rdf:type rdf:resource="http://schema.org/PostalAddress"/>
+    <j.9:addressCountry rdf:resource="http://fusepool.info/code/country/NL"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/id/759efa69-b1db-4ed0-998f-6978baf0f617">
+    <rdfs:label>KOSMAN, WILHELMUS JACOBUS MARIA</rdfs:label>
+    <j.9:address rdf:resource="http://fusepool.info/id/8062a9b5-738a-4210-b210-8af30303cf8f"/>
+    <j.2:inventorOf rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
+    <rdf:type rdf:resource="http://www.owl-ontologies.com/sumo.owl#Human"/>
+    <j.3:lastName>KOSMAN, WILHELMUS JACOBUS MARIA</j.3:lastName>
+  </rdf:Description>
+  <rdf:Description rdf:about="urn:enhancement-9ad79372-4c6b-7856-c8cf-55a0ab0881fc">
+    <j.10:extracted-from rdf:resource="urn:content-item-sha1-fcade54caf5eb863b0dafb4b90e984fb914279db"/>
+    <j.10:ConfidenceLevel>1.0</j.10:ConfidenceLevel>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/EntityAnnotation"/>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/Enhancement"/>
+    <j.6:created rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2013-06-12T16:04:26.839Z</j.6:created>
+    <j.6:creator rdf:datatype="http://www.w3.org/2001/XMLSchema#string">eu.fusepool.platform.enhancer.engine.patent.PatentEnhancementEngine</j.6:creator>
+    <j.10:entity-reference rdf:resource="http://fusepool.info/id/1bb5adb6-1128-4328-bcb4-a8ed2446bbc7"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="urn:enhancement-feb72d86-9184-6b30-f84a-32cd1f0c63a7">
+    <j.10:extracted-from rdf:resource="urn:content-item-sha1-fcade54caf5eb863b0dafb4b90e984fb914279db"/>
+    <j.10:ConfidenceLevel>1.0</j.10:ConfidenceLevel>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/EntityAnnotation"/>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/Enhancement"/>
+    <j.6:created rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2013-06-12T16:04:26.842Z</j.6:created>
+    <j.6:creator rdf:datatype="http://www.w3.org/2001/XMLSchema#string">eu.fusepool.platform.enhancer.engine.patent.PatentEnhancementEngine</j.6:creator>
+    <j.10:entity-reference rdf:resource="http://fusepool.info/id/d7a620c2-78c5-45f2-a5ea-a7a92eac9dbc"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="urn:enhancement-cda29450-140f-09ad-b7da-c2e392c8b10b">
+    <j.10:extracted-from rdf:resource="urn:content-item-sha1-fcade54caf5eb863b0dafb4b90e984fb914279db"/>
+    <j.10:ConfidenceLevel>1.0</j.10:ConfidenceLevel>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/EntityAnnotation"/>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/Enhancement"/>
+    <j.6:created rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2013-06-12T16:04:26.841Z</j.6:created>
+    <j.6:creator rdf:datatype="http://www.w3.org/2001/XMLSchema#string">eu.fusepool.platform.enhancer.engine.patent.PatentEnhancementEngine</j.6:creator>
+    <j.10:entity-reference rdf:resource="http://fusepool.info/id/b74a60de-f801-456f-8a24-3dc95f2bdba8"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/doc/patent/NL-9400663-A">
+    <j.7:filing-office rdf:resource="http://fusepool.info/code/filing-office/NL"/>
+    <j.2:citedBy rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+    <j.2:publicationNumber>9400663</j.2:publicationNumber>
+    <j.0:fileFormat>epo</j.0:fileFormat>
+    <rdf:type rdf:resource="http://www.patexpert.org/ontologies/pmo.owl#PatentPublication"/>
+    <j.2:countryOfFiling>NL</j.2:countryOfFiling>
+    <j.2:kindCode>A</j.2:kindCode>
+  </rdf:Description>
+  <rdf:Description rdf:about="urn:enhancement-7cf5921a-566d-a4e7-7ee4-b3973d1df825">
+    <j.10:extracted-from rdf:resource="urn:content-item-sha1-fcade54caf5eb863b0dafb4b90e984fb914279db"/>
+    <j.10:ConfidenceLevel>1.0</j.10:ConfidenceLevel>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/EntityAnnotation"/>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/Enhancement"/>
+    <j.6:created rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2013-06-12T16:04:26.841Z</j.6:created>
+    <j.6:creator rdf:datatype="http://www.w3.org/2001/XMLSchema#string">eu.fusepool.platform.enhancer.engine.patent.PatentEnhancementEngine</j.6:creator>
+    <j.10:entity-reference rdf:resource="http://fusepool.info/id/759efa69-b1db-4ed0-998f-6978baf0f617"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/id/2f429ec3-42dc-42e8-9bfd-d57ffffbebf0">
+    <j.9:streetAddress>Arnold &amp;amp; Siedsma, Advocaten en Octrooigemachtigden, Sweelinckplein 1</j.9:streetAddress>
+    <rdf:type rdf:resource="http://schema.org/PostalAddress"/>
+    <j.9:addressLocality>2517 GK Den Haag</j.9:addressLocality>
+    <j.9:addressCountry rdf:resource="http://fusepool.info/code/country/NL"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/id/fca63ace-1639-4272-aa4b-c2593c7cc126">
+    <rdfs:label>KOSMAN WILHELMUS JACOBUS MARIA</rdfs:label>
+    <j.9:address rdf:resource="http://fusepool.info/id/b41a1117-2829-463a-b127-9ed8e671637a"/>
+    <j.2:inventorOf rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
+    <rdf:type rdf:resource="http://www.owl-ontologies.com/sumo.owl#Human"/>
+    <j.3:name>KOSMAN WILHELMUS JACOBUS MARIA</j.3:name>
+  </rdf:Description>
+  <rdf:Description rdf:about="urn:enhancement-3c18699e-1277-3cf2-4450-11d3f3d413f9">
+    <j.10:extracted-from rdf:resource="urn:content-item-sha1-fcade54caf5eb863b0dafb4b90e984fb914279db"/>
+    <j.10:ConfidenceLevel>1.0</j.10:ConfidenceLevel>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/EntityAnnotation"/>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/Enhancement"/>
+    <j.6:created rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2013-06-12T16:04:26.842Z</j.6:created>
+    <j.6:creator rdf:datatype="http://www.w3.org/2001/XMLSchema#string">eu.fusepool.platform.enhancer.engine.patent.PatentEnhancementEngine</j.6:creator>
+    <j.10:entity-reference rdf:resource="http://fusepool.info/id/4169fb9b-e202-48ef-b901-0bca435076d8"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/id/b41a1117-2829-463a-b127-9ed8e671637a">
+    <rdf:type rdf:resource="http://schema.org/PostalAddress"/>
+    <j.9:addressCountry rdf:resource="http://fusepool.info/code/country/NL"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/prov/activity/20130612180426">
+    <j.8:wasAssociatedWith rdf:resource="http://csarven.ca/#i"/>
+    <rdf:type rdf:resource="http://www.w3.org/ns/prov#Activity"/>
+    <j.8:startedAtTime rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2013-06-12T18:04:26Z</j.8:startedAtTime>
+    <j.8:generated rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+    <j.8:used rdf:resource="http://relative-uri.fake/"/>
+    <j.8:used rdf:resource="https://github.com/fusepool/patents-reengineering/src/main/resources/xsl/marec.xsl"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/doc/patent/EP-1000000-A1">
+    <j.7:filing-office rdf:resource="http://fusepool.info/code/filing-office/EP"/>
+    <j.8:wasGeneratedBy rdf:resource="http://fusepool.info/prov/activity/20130612180426"/>
+    <j.7:priority-claim rdf:resource="http://fusepool.info/doc/patent/NL-1010536-A"/>
+    <j.2:applicant rdf:resource="http://fusepool.info/id/fdb47b56-1dc6-4feb-8bba-0fe5cd8073cd"/>
+    <j.2:applicant rdf:resource="http://fusepool.info/id/d7a620c2-78c5-45f2-a5ea-a7a92eac9dbc"/>
+    <j.2:applicant rdf:resource="http://fusepool.info/id/4169fb9b-e202-48ef-b901-0bca435076d8"/>
+    <j.8:wasDerivedFrom rdf:resource="http://relative-uri.fake/"/>
+    <j.2:publicationNumber>1000000</j.2:publicationNumber>
+    <j.0:fileFormat>original</j.0:fileFormat>
+    <j.6:references rdf:resource="http://fusepool.info/doc/patent/EP-99203729-A"/>
+    <j.2:inventor rdf:resource="http://fusepool.info/id/1bb5adb6-1128-4328-bcb4-a8ed2446bbc7"/>
+    <j.2:inventor rdf:resource="http://fusepool.info/id/759efa69-b1db-4ed0-998f-6978baf0f617"/>
+    <j.2:inventor rdf:resource="http://fusepool.info/id/fca63ace-1639-4272-aa4b-c2593c7cc126"/>
+    <j.7:status>new</j.7:status>
+    <j.6:title xml:lang="fr">Dispositif pour la fabrication de briques crues utilisées dans l'industrie manufacturière des briques</j.6:title>
+    <j.6:title xml:lang="de">Vorrichtung zur Herstellung von Steinformlingen für die Ziegelindustrie</j.6:title>
+    <j.6:title xml:lang="en">Machine for manufacturing wood for apartment</j.6:title>
+    <j.7:agent rdf:resource="http://fusepool.info/id/b74a60de-f801-456f-8a24-3dc95f2bdba8"/>
+    <j.6:abstract xml:lang="en">The invention relates to an apparatus (1) for
+manufacturing green bricks from clay for the brick
+manufacturing industry, comprising a circulating conveyor (3)
+carrying mould containers combined to mould container
+parts (4), a reservoir (5) for clay arranged above the mould
+containers, means for carrying clay out of the reservoir (5)
+into the mould containers, means (9) for pressing and
+trimming clay in the mould containers, means (11) for
+supplying and placing take-off plates for the green
+bricks (13) and means for discharging green bricks released
+from the mould containers, characterized in that the
+apparatus further comprises means (22) for moving the mould
+container parts (4) filled with green bricks such that a
+protruding edge is formed on at least one side of the
+green bricks.
+</j.6:abstract>
+    <rdf:type rdf:resource="http://www.patexpert.org/ontologies/pso.owl#A1Document"/>
+    <rdf:type rdf:resource="http://www.patexpert.org/ontologies/pmo.owl#PatentPublication"/>
+    <j.2:patentFamily rdf:resource="http://fusepool.info/doc/family/19768124"/>
+    <j.2:countryOfFiling>EP</j.2:countryOfFiling>
+    <j.6:license>User acknowledges that the Information Retrieval Facility (IRF) and its third party providers retain all right, title and interest in and to this xml under applicable copyright laws. User acquires no ownership rights to this xml including but not limited to its format. User hereby accepts the terms and conditions of the Licence Agreement set forth at http://www.ir-facility.org/legal/marec/data_licence</j.6:license>
+    <j.2:cites rdf:resource="http://fusepool.info/doc/patent/NL-9400663-A"/>
+    <j.2:cites rdf:resource="http://fusepool.info/doc/patent/DE-3546191-A1"/>
+    <j.2:cites rdf:resource="http://fusepool.info/doc/patent/EP-0680812-A1"/>
+    <j.2:dateOfPublication rdf:datatype="http://www.w3.org/2001/XMLSchema#date">2000-05-17</j.2:dateOfPublication>
+    <j.2:kindCode>A1</j.2:kindCode>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/doc/patent/DE-3546191-A1">
+    <j.7:filing-office rdf:resource="http://fusepool.info/code/filing-office/DE"/>
+    <j.2:citedBy rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+    <j.2:publicationNumber>3546191</j.2:publicationNumber>
+    <j.0:fileFormat>epo</j.0:fileFormat>
+    <rdf:type rdf:resource="http://www.patexpert.org/ontologies/pmo.owl#PatentPublication"/>
+    <j.2:countryOfFiling>DE</j.2:countryOfFiling>
+    <j.2:kindCode>A1</j.2:kindCode>
+  </rdf:Description>
+  <rdf:Description rdf:about="urn:enhancement-1c1ddfe6-5e8e-0e01-34e3-d7cc586ec0b9">
+    <j.10:extracted-from rdf:resource="urn:content-item-sha1-fcade54caf5eb863b0dafb4b90e984fb914279db"/>
+    <j.10:ConfidenceLevel>1.0</j.10:ConfidenceLevel>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/EntityAnnotation"/>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/Enhancement"/>
+    <j.6:created rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2013-06-12T16:04:26.843Z</j.6:created>
+    <j.6:creator rdf:datatype="http://www.w3.org/2001/XMLSchema#string">eu.fusepool.platform.enhancer.engine.patent.PatentEnhancementEngine</j.6:creator>
+    <j.10:entity-reference rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="urn:enhancement-16aa8675-2081-3c8d-b2a2-2eaf69908329">
+    <j.10:extracted-from rdf:resource="urn:content-item-sha1-fcade54caf5eb863b0dafb4b90e984fb914279db"/>
+    <j.10:ConfidenceLevel>1.0</j.10:ConfidenceLevel>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/EntityAnnotation"/>
+    <rdf:type rdf:resource="http://fise.iks-project.eu/ontology/Enhancement"/>
+    <j.6:created rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2013-06-12T16:04:26.841Z</j.6:created>
+    <j.6:creator rdf:datatype="http://www.w3.org/2001/XMLSchema#string">eu.fusepool.platform.enhancer.engine.patent.PatentEnhancementEngine</j.6:creator>
+    <j.10:entity-reference rdf:resource="http://fusepool.info/id/fdb47b56-1dc6-4feb-8bba-0fe5cd8073cd"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/id/1bb5adb6-1128-4328-bcb4-a8ed2446bbc7">
+    <rdfs:label>KOSMAN, WILHELMUS JACOBUS MARIA</rdfs:label>
+    <j.2:inventorOf rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+    <rdf:type rdf:resource="http://xmlns.com/foaf/0.1/Person"/>
+    <rdf:type rdf:resource="http://www.owl-ontologies.com/sumo.owl#Human"/>
+    <j.3:name>KOSMAN, WILHELMUS JACOBUS MARIA</j.3:name>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/doc/patent/EP-0680812-A1">
+    <j.7:filing-office rdf:resource="http://fusepool.info/code/filing-office/EP"/>
+    <j.2:citedBy rdf:resource="http://fusepool.info/doc/patent/EP-1000000-A1"/>
+    <j.2:publicationNumber>0680812</j.2:publicationNumber>
+    <j.0:fileFormat>epo</j.0:fileFormat>
+    <rdf:type rdf:resource="http://www.patexpert.org/ontologies/pso.owl#A1Document"/>
+    <rdf:type rdf:resource="http://www.patexpert.org/ontologies/pmo.owl#PatentPublication"/>
+    <j.2:countryOfFiling>EP</j.2:countryOfFiling>
+    <j.2:kindCode>A1</j.2:kindCode>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/id/8b1df483-b65b-4006-80be-dd1ea3da119e">
+    <j.9:streetAddress>Koopvaardijweg 2</j.9:streetAddress>
+    <rdf:type rdf:resource="http://schema.org/PostalAddress"/>
+    <j.9:addressLocality>6541 BS Nijmegen</j.9:addressLocality>
+    <j.9:addressCountry rdf:resource="http://fusepool.info/code/country/NL"/>
+  </rdf:Description>
+  <rdf:Description rdf:about="http://fusepool.info/doc/patent/EP-99203729-A">
+    <j.7:filing-office rdf:resource="http://fusepool.info/code/filing-office/EP"/>
+    <j.0:fileFormat>epo</j.0:fileFormat>
+    <j.7:status>new</j.7:status>
+    <rdf:type rdf:resource="http://www.patexpert.org/ontologies/pmo.owl#PatentPublication"/>
+    <j.2:countryOfFiling>EP</j.2:countryOfFiling>
+    <j.2:dateOfPublication rdf:datatype="http://www.w3.org/2001/XMLSchema#date">1999-11-08</j.2:dateOfPublication>
+    <j.2:applicationNumber>99203729</j.2:applicationNumber>
+    <j.7:is-representative>NO</j.7:is-representative>
+    <j.2:kindCode>A</j.2:kindCode>
+  </rdf:Description>
+</rdf:RDF>
