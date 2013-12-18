@@ -74,12 +74,12 @@
         	</select>
         	<br>
         </li>
-        <li><input type="radio" name="operation_code" value="6">Reconcile<br>
+        <li><input type="radio" name="operation_code" value="4">Reconcile<br>
         	<label for="target_recon_graph">Target graph URI:</label>
         	<input type="text" name="data_url" value="" size="70">
         </li>
         </li>
-        <li><input type="radio" name="operation_code" value="7">Smush<br></li>
+        <li><input type="radio" name="operation_code" value="5">Smush<br></li>
         </ol>
         
         <input type="submit" value="Apply" />
