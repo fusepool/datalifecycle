@@ -111,7 +111,7 @@ public class PipesAdmin {
     public Response getGraphRequest(@Context final UriInfo uriInfo,
     		@QueryParam("graph") final String graphName) throws Exception {
     	
-    	String graphUrl = "http://localhost:8080/graph?name=" + graphName;
+    	String graphUrl = uriInfo.getBaseUri() + "graph?name=" + graphName;
     	
     	
     	return RedirectUtil.createSeeOtherResponse(graphUrl, uriInfo);
