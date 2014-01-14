@@ -26,6 +26,7 @@ public class Ontology {
     public static final UriRef EnhanceTask = new UriRef("http://example.com/ont/workflow/enhanceTask");
     public static final UriRef InterlinkTask = new UriRef("http://example.com/ont/workflow/interlinkTask");
     public static final UriRef SmushTask = new UriRef("http://example.com/ont/workflow/smushTask");
+    public static final UriRef PublishTask = new UriRef("http://example.com/ont/workflow/publishTask");
     // a graph is a product of a task
     public static final UriRef Product = new UriRef("http://example.com/ont/workflow/Product");
     // properties
