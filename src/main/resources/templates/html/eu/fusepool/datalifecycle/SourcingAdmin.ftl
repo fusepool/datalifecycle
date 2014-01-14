@@ -80,6 +80,7 @@
         </li>
         </li>
         <li><input type="radio" name="operation_code" value="5">Smush<br></li>
+        <li><input type="radio" name="operation_code" value="6">Publish data<br></li>
         </ol>
         
         <input type="submit" value="Apply" />
