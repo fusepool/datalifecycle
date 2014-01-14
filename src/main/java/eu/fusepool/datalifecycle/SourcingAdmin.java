@@ -135,6 +135,7 @@ public class SourcingAdmin {
     private final int TEXT_EXTRACTION = 3;
     private final int RECONCILE_GRAPH_OPERATION = 4;
     private final int SMUSH_GRAPH_OPERATION = 5;
+    private final int PUBLISH_DATA = 6;
     
     // RDFdigester
     private final String PUBMED_RDFDIGESTER = "pubmed";
@@ -155,6 +156,7 @@ public class SourcingAdmin {
      *   entities extracted from the text by NLP engines in the default enhancement chain
      * 3) a graph to store the result of the interlinking task 
      * 4) a graph to store the smushed graph
+     * 5) a graph to store the published graph i.e. the smushed graph in a coerent state with data in the content graph
      * The name convention for these graphs is
      *   GRAPH_URN_PREFIX + timestamp + SUFFIX
      *   where SUFFIX can be one of BUFFER_GRAPH_URN_SUFFIX, ENHANCE_GRAPH_URN_SUFFIX,
@@ -170,6 +172,9 @@ public class SourcingAdmin {
     private String INTERLINK_GRAPH_URN_SUFFIX = "/interlink.graph";
     // smushed graph suffix
     private String SMUSH_GRAPH_URN_SUFFIX = "/smush.graph";
+    // published graph suffix
+    private String PUBLISH_GRAPH_URN_SUFFIX = "/publish.graph";
+    
     
     private UriRef pipeRef = null;
 
@@ -251,6 +256,12 @@ public class SourcingAdmin {
     }
     private LockableMGraph getSmushGraph() {
     	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + SMUSH_GRAPH_URN_SUFFIX));
+    }
+    private LockableMGraph getPublishGraph() {
+    	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + PUBLISH_GRAPH_URN_SUFFIX));
+    }
+    private LockableMGraph getContentGraph() {
+    	return tcManager.getMGraph( CONTENT_GRAPH_REF );
     }
 
     /**
@@ -339,6 +350,10 @@ public class SourcingAdmin {
         	UriRef smushTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/smush");
         	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, smushTaskRef));
         	getDlcGraph().add(new TripleImpl(smushTaskRef, RDF.type, Ontology.SmushTask));
+        	// publish task
+        	UriRef publishTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/publish");
+        	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, publishTaskRef));
+        	getDlcGraph().add(new TripleImpl(smushTaskRef, RDF.type, Ontology.PublishTask));
         	
         	// create the graph for the dataset (result of transformation in RDF)
         	String graphName = GRAPH_URN_PREFIX + timeStamp + SOURCE_GRAPH_URN_SUFFIX;
@@ -374,6 +389,12 @@ public class SourcingAdmin {
         	UriRef smushGraphRef = new UriRef(smushGraphName);
         	tcManager.createMGraph(smushGraphRef);
         	getDlcGraph().add(new TripleImpl(smushTaskRef, Ontology.deliverable, smushGraphRef));
+        	
+        	// create the graph to store the result of the publishing task
+        	String publishGraphName = GRAPH_URN_PREFIX + timeStamp + PUBLISH_GRAPH_URN_SUFFIX;
+        	UriRef publishGraphRef = new UriRef(publishGraphName);
+        	tcManager.createMGraph(publishGraphRef);
+        	getDlcGraph().add(new TripleImpl(publishTaskRef, Ontology.deliverable, publishGraphRef));
         	
         	setPipeRef(pipeRef);
  
@@ -436,7 +457,10 @@ public class SourcingAdmin {
                 	break;                
                 case RDFIZE:
                 	message = transformXml(dataUrl, rdfizer);
-                	break;                             
+                	break;     
+                case PUBLISH_DATA:
+                	message = publishData(pipeRef);
+                	break;
             }
         } else {
             message = "The pipe does not exist.";
@@ -653,26 +677,12 @@ public class SourcingAdmin {
         return interlinkGraphRef;
 
     }
-    
-    /**
-     * Performs two operations one (smush) after the other (reconciliation)
-     * @param graphRef
-     * @param dataUrl
-     * @param mediaType
-     * @return
-     * @throws Exception
-     */
-    private String reconcileSmush(UriRef graphRef, URL dataUrl, String mediaType) throws Exception {
-    	String message = "";
-    	
-    	return message;    	
-    }
 
     /**
      * Smush the source graph using the interlinking graph. More precisely collates data coming 
      * from different equivalent resources in a single one chosen among them. The triples in the
      * source graph are copied in the smush graph that is then smushed using the interlinking 
-     * graph..
+     * graph. 
      * @param graphToSmushRef
      * @return
      */
@@ -697,29 +707,25 @@ public class SourcingAdmin {
         return message;
     }
     
-    private LockableMGraph smushCommand(UriRef sourceGraphRef, LockableMGraph linkset) {
+    private LockableMGraph smushCommand(UriRef sourceGraphRef, LockableMGraph equivalenceSet) {
         
-        LockableMGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
-        // removes all the triples in the smush graph
-        if(getSmushGraph().size() > 0) {
-        	getSmushGraph().clear();
-        }
-        // copies triples from the source graph in the smush graph
-        getSmushGraph().addAll(getSourceGraph());
-        SimpleMGraph tempLinkset = new SimpleMGraph();
-        tempLinkset.addAll(linkset);
+    	if(getSmushGraph().size() > 0) {
+    		getSmushGraph().clear();
+    	}
+    	
+    	// add triples from source graph to smush graph
+    	getSmushGraph().addAll(getSourceGraph());
+        SimpleMGraph tempEquivalenceSet = new SimpleMGraph();
+        tempEquivalenceSet.addAll(equivalenceSet);
+        
+        // smush and canonicalize uris
         IriSmusher smusher = new CanonicalizingSameAsSmusher();
-        smusher.smush(getSmushGraph(), tempLinkset, true);
-        serializer.serialize(System.out, getSmushGraph(), SupportedFormat.RDF_XML);
+        smusher.smush(getSmushGraph(), tempEquivalenceSet, true);    
+        
+        //serializer.serialize(System.out, getSmushGraph(), SupportedFormat.RDF_XML);
         
         return getSmushGraph();
 
-    }
-    
-    private String moveToDatasetGraph(UriRef sourceGraphRef, UriRef datasetGraphRef) {
-    	String message = "To be implemented";
-    	
-    	return message;
     }
     
     private String extractText(UriRef pipeRef, String rdfdigester) {
@@ -779,6 +785,73 @@ public class SourcingAdmin {
 		    		
     	pubmedDigester.extractText(enhanceGraph);
     	message += "Extracted text from " + enhanceGraphRef.getUnicodeString();
+    	
+    	return message;
+    }
+    
+    /**
+     * Moves data from smush.grah to content.graph. The triples (facts) in the two graphs must be coherent, i.e. the same. 
+     * Before publishing the current smushed data must be compared with the last published data. New triples 
+     * in the smushed graph not in the published graph must be added while triples in the published graph absent
+     * in the smushed graph must be removed.  The algorithm is as follows
+     * 1) compare publish.graph and smush.graph. 
+     * 2) find triples in smush.graph not in publish.graph (new triples)
+     * 3) find triples in publish.graph not in smush.graph (old triples)
+     * 4) add new triples to content.graph 
+     * 5) remove old triples from content.graph
+     * 6) delete all triples in publish.graph
+     * 7) add new triples to publish.graph
+     */
+    private String publishData(UriRef pipeRef) {
+    	String message = "";
+    	
+        // add these triples to the content.graph 
+        SimpleMGraph triplesToAdd = new SimpleMGraph();
+        // remove these triples from the content.graph
+        SimpleMGraph triplesToRemove = new SimpleMGraph();
+        
+        // triples to add to the content.graph
+        Lock ls = getSmushGraph().getLock().readLock();
+        ls.lock();
+        try {
+            Iterator<Triple> ismush = getSmushGraph().iterator();            
+            while (ismush.hasNext()) {
+                Triple smushTriple = ismush.next();
+                if( ! getPublishGraph().contains(smushTriple) ) {
+                	triplesToAdd.add(smushTriple);
+                }
+                
+            }
+        }
+        finally {
+        	ls.unlock();
+        }
+        
+        // triples to remove from the content.graph
+        Lock lp = getPublishGraph().getLock().readLock();
+        lp.lock();
+        try {
+            Iterator<Triple> ipublish = getPublishGraph().iterator();            
+            while (ipublish.hasNext()) {
+                Triple publishTriple = ipublish.next();
+                if( ! getSmushGraph().contains(publishTriple) ) {
+                	triplesToRemove.add(publishTriple);
+                }
+                
+            }
+        }
+        finally {
+        	ls.unlock();
+        }
+        
+        getContentGraph().removeAll(triplesToRemove);
+        getContentGraph().addAll(triplesToAdd);
+        
+        getPublishGraph().clear();
+        
+        getPublishGraph().addAll(triplesToAdd);
+    	
+    	message = "Copied triples from " + pipeRef.getUnicodeString() + " to content-graph";
     	
     	return message;
     }
@@ -862,16 +935,6 @@ public class SourcingAdmin {
     	return result;
     	
     }
-    
-    /**
-     * Remove all the triples in the content-graph
-     */
-    private String emptyContentGraph() {
-    	UriRef contentGraphRef = new UriRef("urn:x-localinstance:/content.graph");
-    	MGraph graph = tcManager.getMGraph(contentGraphRef);
-        graph.clear();
-        return "Graph urn:x-localinstance:/content.graph is now empty.";
-    }
 
     /**
      * Creates the data lifecycle graph. Must be called at the bundle
@@ -889,8 +952,8 @@ public class SourcingAdmin {
     /**
      * Generates a new http URI that will be used as the canonical one in place 
      * of a set of equivalent non-http URIs. An owl:sameAs statement is added to
-     * the interlinking graph statint that it is aeuivqlent to one of the non-http
-     * URI in the set of equivalent URIs. 
+     * the interlinking graph stating that the canonical http URI is equivalent 
+     * to one of the non-http URI in the set of equivalent URIs. 
      * @param uriRefs
      * @return
      */
