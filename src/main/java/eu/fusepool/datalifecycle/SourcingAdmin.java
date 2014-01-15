@@ -794,13 +794,12 @@ public class SourcingAdmin {
      * Before publishing the current smushed data must be compared with the last published data. New triples 
      * in the smushed graph not in the published graph must be added while triples in the published graph absent
      * in the smushed graph must be removed.  The algorithm is as follows
-     * 1) compare publish.graph and smush.graph. 
-     * 2) find triples in smush.graph not in publish.graph (new triples)
-     * 3) find triples in publish.graph not in smush.graph (old triples)
-     * 4) add new triples to content.graph 
-     * 5) remove old triples from content.graph
-     * 6) delete all triples in publish.graph
-     * 7) add new triples to publish.graph
+     * 1) find triples in smush.graph not in publish.graph (new triples)
+     * 2) find triples in publish.graph not in smush.graph (old triples)
+     * 3) add new triples to content.graph 
+     * 4) remove old triples from content.graph
+     * 5) delete all triples in publish.graph
+     * 6) copy triples from smush.graph to publish.graph
      */
     private String publishData(UriRef pipeRef) {
     	String message = "";
@@ -841,7 +840,7 @@ public class SourcingAdmin {
             }
         }
         finally {
-        	ls.unlock();
+        	lp.unlock();
         }
         
         getContentGraph().removeAll(triplesToRemove);
@@ -849,9 +848,9 @@ public class SourcingAdmin {
         
         getPublishGraph().clear();
         
-        getPublishGraph().addAll(triplesToAdd);
+        getPublishGraph().addAll(getSmushGraph());
     	
-    	message = "Copied triples from " + pipeRef.getUnicodeString() + " to content-graph";
+    	message = "Copied " + getPublishGraph().size() + " triples from " + pipeRef.getUnicodeString() + " to content-graph";
     	
     	return message;
     }
