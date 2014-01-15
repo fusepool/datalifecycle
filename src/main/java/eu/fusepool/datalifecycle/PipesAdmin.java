@@ -2,6 +2,8 @@ package eu.fusepool.datalifecycle;
 
 import java.security.AccessController;
 import java.security.AllPermission;
+import java.util.Iterator;
+import java.util.concurrent.locks.Lock;
 
 import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
@@ -17,13 +19,16 @@ import javax.ws.rs.core.UriInfo;
 import org.apache.clerezza.jaxrs.utils.RedirectUtil;
 import org.apache.clerezza.jaxrs.utils.TrailingSlash;
 import org.apache.clerezza.rdf.core.MGraph;
+import org.apache.clerezza.rdf.core.Triple;
 import org.apache.clerezza.rdf.core.UriRef;
 import org.apache.clerezza.rdf.core.access.LockableMGraph;
 import org.apache.clerezza.rdf.core.access.TcManager;
 import org.apache.clerezza.rdf.core.impl.PlainLiteralImpl;
 import org.apache.clerezza.rdf.core.impl.SimpleMGraph;
+import org.apache.clerezza.rdf.core.impl.TripleImpl;
 import org.apache.clerezza.rdf.core.serializedform.Serializer;
 import org.apache.clerezza.rdf.core.serializedform.SupportedFormat;
+import org.apache.clerezza.rdf.ontologies.RDF;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.utils.GraphNode;
 import org.apache.felix.scr.annotations.Activate;
@@ -57,8 +62,6 @@ public class PipesAdmin {
      */
     private static final Logger log = LoggerFactory.getLogger(PipesAdmin.class);
     
-    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/dlc/meta.graph");
-    
     /**
      * This method return an RdfViewable, this is an RDF serviceUri with
      * associated presentational information.
@@ -82,12 +85,18 @@ public class PipesAdmin {
         final UriRef serviceUri = new UriRef(resourcePath);
         
         //This GraphNode represents the service within our result graph
-        final GraphNode node = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
+        final GraphNode node = new GraphNode(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
                 
         //What we return is the GraphNode to the template with the same path and name 
         return new RdfViewable("PipesAdmin", node, PipesAdmin.class);
     }
-    
+    /**
+     * Removes all the triples from the selected graph.
+     * @param uriInfo
+     * @param graphName
+     * @return
+     * @throws Exception
+     */
     @POST
     @Path("empty_graph")
     @Produces("text/plain")
@@ -105,6 +114,127 @@ public class PipesAdmin {
         return message;
     }
     
+    /**
+     * Deletes all the graphs created with the pipe: rdf.graph, enhance.graph, interlink.graph, smush.graph, publish.graph.
+     * Removes from the DLC meta graph all the pipe metadata.
+     * @param uriInfo
+     * @param pipeName
+     * @return
+     * @throws Exception
+     */
+    @POST
+    @Path("delete_pipe")
+    @Produces("text/plain")
+    public String deletePipe(@Context final UriInfo uriInfo,  
+    		@FormParam("pipe") final String pipeName) throws Exception {
+        AccessController.checkPermission(new AllPermission());
+        String message = "";
+        
+        // remove pipe metadata
+        removePipeMetaData(pipeName);
+        
+        // remove graphs
+        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.SOURCE_GRAPH_URN_SUFFIX));
+        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX));
+        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.INTERLINK_GRAPH_URN_SUFFIX));
+        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.SMUSH_GRAPH_URN_SUFFIX));
+        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
+        
+        message += "Pipe: " + pipeName + " deleted";
+        
+        return message;
+    }
+    
+    /**
+     * Removes all the triples related to the pipe in the DLC graph: graphs and tasks metadata
+     * and pipe metadata.
+     * @param pipeRef
+     */
+    private void removePipeMetaData(String pipeName) {    	
+    	
+    	// triple to remove
+    	SimpleMGraph pipeGraph = new SimpleMGraph(); 
+    	
+    	Lock rl = getDlcGraph().getLock().readLock();
+        rl.lock();
+        
+        try {
+    	
+	    	// select source graph and rdf task metadata
+	    	UriRef rdfTaskRef = new UriRef(pipeName + "/rdf");
+	    	UriRef sourceGraphRef = new UriRef(pipeName + SourcingAdmin.SOURCE_GRAPH_URN_SUFFIX);
+	    	Iterator<Triple> isourceGraph = getDlcGraph().filter(sourceGraphRef, null, null);
+	    	while(isourceGraph.hasNext()) {
+	    		pipeGraph.add(isourceGraph.next());
+	    	}
+	    	Iterator<Triple> irdfTask = getDlcGraph().filter(rdfTaskRef, null, null);
+	    	while(irdfTask.hasNext()) {
+	    		pipeGraph.add(irdfTask.next());
+	    	}
+	    	
+	    	// select enhance graph and task metadata 
+	    	UriRef enhanceTaskRef = new UriRef(pipeName + "/enhance");
+	    	UriRef enhanceGraphRef = new UriRef(pipeName + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX);
+	    	Iterator<Triple> ienhanceGraph = getDlcGraph().filter(enhanceGraphRef, null, null);
+	    	while(ienhanceGraph.hasNext()) {
+	    		pipeGraph.add(ienhanceGraph.next());
+	    	}
+	    	Iterator<Triple> ienhanceTask = getDlcGraph().filter(enhanceTaskRef, null, null);
+	    	while(ienhanceTask.hasNext()) {
+	    		pipeGraph.add(ienhanceTask.next());
+	    	}
+	    	    	
+	    	// select interlink graph and task metadata
+	    	UriRef interlinkTaskRef = new UriRef(pipeName + "/interlink");
+	    	UriRef interlinkGraphRef = new UriRef(pipeName + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX);
+	    	Iterator<Triple> iinterlinkGraph = getDlcGraph().filter(interlinkGraphRef, null, null);
+	    	while(iinterlinkGraph.hasNext()) {
+	    		pipeGraph.add(iinterlinkGraph.next());
+	    	}
+	    	Iterator<Triple> iinterlinkTask = getDlcGraph().filter(interlinkTaskRef, null, null);
+	    	while(iinterlinkTask.hasNext()) {
+	    		pipeGraph.add(iinterlinkTask.next());
+	    	}
+	    	
+	    	// select smush graph and task metadata
+	    	UriRef smushTaskRef = new UriRef(pipeName + "/smush");
+	    	UriRef smushGraphRef = new UriRef(pipeName + SourcingAdmin.SMUSH_GRAPH_URN_SUFFIX);
+	    	Iterator<Triple> ismushGraph = getDlcGraph().filter(smushGraphRef, null, null);
+	    	while(ismushGraph.hasNext()) {
+	    		pipeGraph.add(ismushGraph.next());
+	    	}
+	    	Iterator<Triple> ismushTask = getDlcGraph().filter(smushTaskRef, null, null);
+	    	while(ismushTask.hasNext()) {
+	    		pipeGraph.add(ismushTask.next());
+	    	}
+	    	
+	    	// select pipe metadata
+	    	UriRef pipeRef = new UriRef(pipeName);
+	    	Iterator<Triple> ipipe = getDlcGraph().filter(pipeRef, null, null);
+	    	while(ipipe.hasNext()) {
+	    		pipeGraph.add(ipipe.next());
+	    	}
+    	
+        }
+        finally {
+        	rl.unlock();
+        }                
+        
+        getDlcGraph().removeAll(pipeGraph);
+        
+        UriRef pipeRef = new UriRef(pipeName);
+        getDlcGraph().remove(new TripleImpl(pipeRef, RDF.type, Ontology.Pipe));
+        getDlcGraph().remove(new TripleImpl(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, pipeRef));
+        
+    }
+    
+    /**
+     * Retrieves the selected graph.
+     * @param uriInfo
+     * @param graphName
+     * @return
+     * @throws Exception
+     */
     @GET
     @Path("get_graph")
     @Produces("text/plain")
@@ -127,7 +257,7 @@ public class PipesAdmin {
      * @return
      */
     private LockableMGraph getDlcGraph() {
-        return tcManager.getMGraph(DATA_LIFECYCLE_GRAPH_REFERENCE);
+        return tcManager.getMGraph(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE);
     }
     
     
