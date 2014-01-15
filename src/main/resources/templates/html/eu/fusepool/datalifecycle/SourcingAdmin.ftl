@@ -22,7 +22,7 @@
 	
       <div class="menu">
         <ul>
-          <li><a href="/sourcing">Pipes</a></li>
+          <li><a href="/sourcing">Datasets</a></li>
 
           <li><a href="/pipesadmin">Graphs</a></li>
 
@@ -34,17 +34,17 @@
     <div id="mainColumn">
     
     <div>
-    <h2>Create a new pipe to process a dataset</h2>
+    <h2>Create a new dataset</h2>
     <form action="create_pipe" method="post">
         Label: <input type="text" name="pipe_label" value="" size="60"><br/>
-        <input type="submit" value="Create Pipe" />        
+        <input type="submit" value="Create Dataset" />        
     </form>
     </div>
     
     <div>
     
     <form action="operate" method="post">
-        <h2>Select a pipe</h2>    
+        <h2>Select a dataset</h2>    
         <select name="pipe">
            <@ldpath path="wf:pipe">
                <option><@ldpath path="."/></option>
@@ -80,7 +80,7 @@
         </li>
         </li>
         <li><input type="radio" name="operation_code" value="5">Smush<br></li>
-        <li><input type="radio" name="operation_code" value="6">Publish data<br></li>
+        <li><input type="radio" name="operation_code" value="6">Publish<br></li>
         </ol>
         
         <input type="submit" value="Apply" />
