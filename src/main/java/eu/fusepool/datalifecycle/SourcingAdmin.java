@@ -120,7 +120,7 @@ public class SourcingAdmin {
      * Name of the data life cycle graph. It is used as a register of other
      * graphs to manage their life cycle
      */
-    private UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/dlc/meta.graph");
+    public static final UriRef DATA_LIFECYCLE_GRAPH_REFERENCE = new UriRef("urn:x-localinstance:/dlc/meta.graph");
     
     /**
      * Register graph referencing graphs for life cycle monitoring;
@@ -147,11 +147,11 @@ public class SourcingAdmin {
     
     //TODO make this a component parameter
     // URI for rewriting from urn scheme to http
-    private String baseURI = "http://beta.fusepool.com/ecs/content/";
+    private String baseURI = "http://fusepool.info";
     
     /**
-     * For each rdf triple collection uploaded 4 graphs are created.
-     * 1) a buffer graph to store the rdf data
+     * For each rdf triple collection uploaded 5 graphs are created.
+     * 1) a source graph to store the rdf data
      * 2) an enhancements graph to store the text extracted for indexing and the
      *   entities extracted from the text by NLP engines in the default enhancement chain
      * 3) a graph to store the result of the interlinking task 
@@ -163,17 +163,17 @@ public class SourcingAdmin {
      *   INTERLINK_GRAPH_URN_SUFFIX, SMUSH_GRAPH_URN_SUFFIX
      */
     // base graph uri
-    private String GRAPH_URN_PREFIX = "urn:x-localinstance:/dlc/";
+    public static final String GRAPH_URN_PREFIX = "urn:x-localinstance:/dlc/";
     // graph suffix
-    private String SOURCE_GRAPH_URN_SUFFIX = "/rdf.graph";
+    public static final String SOURCE_GRAPH_URN_SUFFIX = "/rdf.graph";
     // enhancements graph suffix
-    private String ENHANCE_GRAPH_URN_SUFFIX = "/enhance.graph";
+    public static final String ENHANCE_GRAPH_URN_SUFFIX = "/enhance.graph";
     // interlink graph suffix
-    private String INTERLINK_GRAPH_URN_SUFFIX = "/interlink.graph";
+    public static final String INTERLINK_GRAPH_URN_SUFFIX = "/interlink.graph";
     // smushed graph suffix
-    private String SMUSH_GRAPH_URN_SUFFIX = "/smush.graph";
+    public static final String SMUSH_GRAPH_URN_SUFFIX = "/smush.graph";
     // published graph suffix
-    private String PUBLISH_GRAPH_URN_SUFFIX = "/publish.graph";
+    public static final String PUBLISH_GRAPH_URN_SUFFIX = "/publish.graph";
     
     
     private UriRef pipeRef = null;
@@ -355,15 +355,15 @@ public class SourcingAdmin {
         	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, publishTaskRef));
         	getDlcGraph().add(new TripleImpl(smushTaskRef, RDF.type, Ontology.PublishTask));
         	
-        	// create the graph for the dataset (result of transformation in RDF)
-        	String graphName = GRAPH_URN_PREFIX + timeStamp + SOURCE_GRAPH_URN_SUFFIX;
-        	UriRef graphRef = new UriRef(graphName);
-        	tcManager.createMGraph(graphRef);
+        	// create the source graph for the dataset (result of transformation in RDF)
+        	String sourceGraphName = GRAPH_URN_PREFIX + timeStamp + SOURCE_GRAPH_URN_SUFFIX;
+        	UriRef sourceGraphRef = new UriRef(sourceGraphName);
+        	tcManager.createMGraph(sourceGraphRef);
             //GraphNode dlcGraphNode = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
             //dlcGraphNode.addProperty(DCTERMS.hasPart, graphRef);
-        	getDlcGraph().add(new TripleImpl(rdfTaskRef, Ontology.deliverable, graphRef));
-            getDlcGraph().add(new TripleImpl(graphRef, RDF.type, Ontology.voidDataset));
-            getDlcGraph().add(new TripleImpl(graphRef, RDFS.label, new PlainLiteralImpl(label)));
+        	getDlcGraph().add(new TripleImpl(rdfTaskRef, Ontology.deliverable, sourceGraphRef));
+            getDlcGraph().add(new TripleImpl(sourceGraphRef, RDF.type, Ontology.voidDataset));
+            getDlcGraph().add(new TripleImpl(sourceGraphRef, RDFS.label, new PlainLiteralImpl(label)));
             
             
             // create the graph to store text and enhancements
@@ -380,7 +380,7 @@ public class SourcingAdmin {
         	tcManager.createMGraph(interlinkGraphRef);
         	getDlcGraph().add(new TripleImpl(interlinkTaskRef, Ontology.deliverable, interlinkGraphRef));
         	getDlcGraph().add(new TripleImpl(interlinkGraphRef, RDF.type, Ontology.voidLinkset));
-        	getDlcGraph().add(new TripleImpl(interlinkGraphRef,Ontology.voidSubjectsTarget, graphRef));
+        	getDlcGraph().add(new TripleImpl(interlinkGraphRef,Ontology.voidSubjectsTarget, sourceGraphRef));
         	getDlcGraph().add(new TripleImpl(interlinkGraphRef,Ontology.voidLinkPredicate, OWL.sameAs));
         	getDlcGraph().add(new TripleImpl(interlinkGraphRef, RDFS.label, new PlainLiteralImpl("Contains equivalence links")));
         	
