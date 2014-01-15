@@ -17,7 +17,7 @@
 	
       <div class="menu">
         <ul>
-          <li><a href="/sourcing">Pipes</a></li>
+          <li><a href="/sourcing">Datasets</a></li>
 
           <li><a href="/pipesadmin">Graphs</a></li>
 
@@ -29,7 +29,7 @@
 
 	
 	<@ldpath path="wf:pipe">
-			<h2>Pipe <@ldpath path="."/></h2>
+			<h2>Dataset <@ldpath path="."/></h2>
 			
 			<table>
 			<@ldpath path="wf:creates/wf:deliverable">
@@ -52,6 +52,10 @@
 					
 			</@ldpath>
 			</table>
+			<form action="delete_pipe" method="post">
+				<input type="submit" value="Delete Dataset">
+				<input type="hidden" name="pipe" value="<@ldpath path="."/>">					
+			</form>
 			
 	</@ldpath>
 
