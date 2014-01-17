@@ -45,6 +45,7 @@ import org.apache.clerezza.rdf.core.UriRef;
 import org.apache.clerezza.rdf.core.access.EntityAlreadyExistsException;
 import org.apache.clerezza.rdf.core.access.LockableMGraph;
 import org.apache.clerezza.rdf.core.access.TcManager;
+import org.apache.clerezza.rdf.core.access.TcProvider;
 import org.apache.clerezza.rdf.core.access.security.TcAccessController;
 import org.apache.clerezza.rdf.core.access.security.TcPermission;
 import org.apache.clerezza.rdf.core.impl.PlainLiteralImpl;
@@ -145,7 +146,7 @@ public class SourcingAdmin {
     private final String PUBMED_RDFIZER = "pubmed";
     private final String PATENT_RDFIZER = "patent";
     
-    //TODO make this a component parameter
+    
     // URI for rewriting from urn scheme to http
     private String baseURI = "http://fusepool.info";
     
@@ -156,11 +157,11 @@ public class SourcingAdmin {
      *   entities extracted from the text by NLP engines in the default enhancement chain
      * 3) a graph to store the result of the interlinking task 
      * 4) a graph to store the smushed graph
-     * 5) a graph to store the published graph i.e. the smushed graph in a coerent state with data in the content graph
+     * 5) a graph to store the published graph i.e. the smushed graph in a coherent state with data in the content graph
      * The name convention for these graphs is
      *   GRAPH_URN_PREFIX + timestamp + SUFFIX
-     *   where SUFFIX can be one of BUFFER_GRAPH_URN_SUFFIX, ENHANCE_GRAPH_URN_SUFFIX,
-     *   INTERLINK_GRAPH_URN_SUFFIX, SMUSH_GRAPH_URN_SUFFIX
+     *   where SUFFIX can be one of SOURCE_GRAPH_URN_SUFFIX, ENHANCE_GRAPH_URN_SUFFIX,
+     *   INTERLINK_GRAPH_URN_SUFFIX, SMUSH_GRAPH_URN_SUFFIX, PUBLISH_GRAPH_URN_SUFFIX
      */
     // base graph uri
     public static final String GRAPH_URN_PREFIX = "urn:x-localinstance:/dlc/";
@@ -181,31 +182,20 @@ public class SourcingAdmin {
     @Activate
     protected void activate(ComponentContext context) {
 
-        log.info("The Data Life Cycle service is being activated");
+        log.info("The Sourcing Admin Service is being activated");
+        // Creates the data lifecycle graph if it doesn't exists. This graph contains references to graphs and linksets  
         try {
-            if (interlinker != null) {
-                log.info("Silk interlinker service available");
-            } else {
-                log.info("Silk interlinker service NOT available");
-            }
-            // Creates the data lifecycle graph if it doesn't exists. This graph contains references to graphs and linksets  
-            try {
-                createDlcGraph();
-                log.info("Created Data Lifecycle Register Graph. This graph will reference all graphs during their lifecycle");
-            } catch (EntityAlreadyExistsException ex) {
-                log.info("Data Lifecycle Graph already exists.");
-            }
-            
-
+            createDlcGraph();
+            log.info("Created Data Lifecycle Register Graph. This graph will reference all graphs during their lifecycle");
         } catch (EntityAlreadyExistsException ex) {
-            log.debug("The graph for the request log already exists");
+            log.info("Data Lifecycle Graph already exists.");
         }
-
+        
     }
 
     @Deactivate
     protected void deactivate(ComponentContext context) {
-        log.info("The Data Life Cycle service is being deactivated");
+        log.info("The Sourcing Admin Service is being deactivated");
     }
 
     /**
@@ -321,10 +311,6 @@ public class SourcingAdmin {
      */
     private boolean createPipe(String pipeLabel) {
         boolean graphExists = false;
-        String label = "";
-        if (pipeLabel != null) {
-            label = pipeLabel;
-        }
         
         try {
         	String timeStamp = String.valueOf(System.currentTimeMillis());
@@ -332,7 +318,11 @@ public class SourcingAdmin {
         	// create a pipe 
         	UriRef pipeRef = new UriRef(GRAPH_URN_PREFIX + timeStamp);
         	getDlcGraph().add(new TripleImpl(pipeRef, RDF.type, Ontology.Pipe));
+        	if(pipeLabel != null & ! "".equals("")) {
+        		getDlcGraph().add(new TripleImpl(pipeRef, RDFS.label, new PlainLiteralImpl(pipeLabel)));
+        	}
         	getDlcGraph().add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, pipeRef));
+        	
         	// create tasks
         	//rdf task
         	UriRef rdfTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/rdf");
@@ -363,7 +353,7 @@ public class SourcingAdmin {
             //dlcGraphNode.addProperty(DCTERMS.hasPart, graphRef);
         	getDlcGraph().add(new TripleImpl(rdfTaskRef, Ontology.deliverable, sourceGraphRef));
             getDlcGraph().add(new TripleImpl(sourceGraphRef, RDF.type, Ontology.voidDataset));
-            getDlcGraph().add(new TripleImpl(sourceGraphRef, RDFS.label, new PlainLiteralImpl(label)));
+            
             
             
             // create the graph to store text and enhancements
@@ -585,9 +575,9 @@ public class SourcingAdmin {
     }
 
     /**
-     * Reconciles a source graph with a target graph. The result of the reconciliation is an equivalence link set 
-     * stored in the interlink graph of the pipe.
-     * @param sourceGraphRef the URI of the referenced graph, ie. the graph for which the reconciliation should be performed.
+     * Reconciles a graph with a target graph. The result of the reconciliation is an equivalence set 
+     * stored in the interlink graph of the pipe. The graph used as source is the source rdf graph 
+     * @param sourceGraphRef the URI of the referenced graph, i.e. the graph for which the reconciliation should be performed.
      * @param targetGraphRef the URI of the target graph. If null the target graph is the same as the source graph.
      * @return
      * @throws Exception 
@@ -679,7 +669,7 @@ public class SourcingAdmin {
     }
 
     /**
-     * Smush the source graph using the interlinking graph. More precisely collates data coming 
+     * Smush the enhanced graph using the interlinking graph. More precisely collates data coming 
      * from different equivalent resources in a single one chosen among them. The triples in the
      * source graph are copied in the smush graph that is then smushed using the interlinking 
      * graph. 
@@ -688,33 +678,35 @@ public class SourcingAdmin {
      */
     private String smush(UriRef pipeRef) {
         String message = "Smushing task.\n";
-        
-        UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+        // As the smush.graph must be published it has to contain the sioc.content property and all the subject
+        // extracted during the extraction phase that are stored in the enhance.graph with all the triples from 
+        // the rdf
+        UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
         
         if(getInterlinkGraph().size() > 0) {
                 
-        	LockableMGraph smushedGraph = smushCommand(sourceGraphRef, getInterlinkGraph());
+        	LockableMGraph smushedGraph = smushCommand(enhanceGraphRef, getInterlinkGraph());
         
-        	message = "Smushing of " + sourceGraphRef.getUnicodeString()
-                    + " with linkset completed. "
+        	message = "Smushing of " + enhanceGraphRef.getUnicodeString()
+                    + " with equivalence set completed. "
                     + "Smushed graph size = " + smushedGraph.size() + "\n";
         }
         else {
-        	message = "No equivalence links available for " + sourceGraphRef.getUnicodeString() + "\n"
+        	message = "No equivalence links available for " + enhanceGraphRef.getUnicodeString() + "\n"
                     + "Start a reconciliation task before smushing.";
         }
                 
         return message;
     }
     
-    private LockableMGraph smushCommand(UriRef sourceGraphRef, LockableMGraph equivalenceSet) {
+    private LockableMGraph smushCommand(UriRef enhanceGraphRef, LockableMGraph equivalenceSet) {
         
     	if(getSmushGraph().size() > 0) {
     		getSmushGraph().clear();
     	}
     	
     	// add triples from source graph to smush graph
-    	getSmushGraph().addAll(getSourceGraph());
+    	getSmushGraph().addAll(getEnhanceGraph());
         SimpleMGraph tempEquivalenceSet = new SimpleMGraph();
         tempEquivalenceSet.addAll(equivalenceSet);
         
@@ -751,13 +743,23 @@ public class SourcingAdmin {
      * @return
      */
     private String extractTextFromPatent(UriRef pipeRef){
-    	String message = "Extract text from patents and adding a sioc:content property.\n";
+    	String message = "Extracts text from patents and adds a sioc:content property.\n";
     	UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
     	MGraph enhanceGraph = tcManager.getMGraph(enhanceGraphRef);
     	UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
-    	MGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
+    	LockableMGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
     	
-    	enhanceGraph.addAll(sourceGraph);
+    	SimpleMGraph tempGraph = new SimpleMGraph();
+    	Lock rl = sourceGraph.getLock().readLock();
+        rl.lock();
+        try {
+        	tempGraph.addAll(sourceGraph);
+        }
+        finally {
+        	rl.unlock();
+        }
+    	
+    	enhanceGraph.addAll(tempGraph);
     		
     	patentDigester.extractText(enhanceGraph);
     	message += "Extracted text from " + enhanceGraphRef.getUnicodeString();
@@ -779,9 +781,19 @@ public class SourcingAdmin {
     	UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
     	MGraph enhanceGraph = tcManager.getMGraph(enhanceGraphRef);
     	UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
-    	MGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
+    	LockableMGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
     	
-    	enhanceGraph.addAll(sourceGraph);	
+    	SimpleMGraph tempGraph = new SimpleMGraph();
+    	Lock rl = sourceGraph.getLock().readLock();
+        rl.lock();
+        try {
+        	tempGraph.addAll(sourceGraph);
+        }
+        finally {
+        	rl.unlock();
+        }
+
+    	enhanceGraph.addAll(tempGraph);	
 		    		
     	pubmedDigester.extractText(enhanceGraph);
     	message += "Extracted text from " + enhanceGraphRef.getUnicodeString();
