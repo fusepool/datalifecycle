@@ -264,12 +264,12 @@ public class PipesAdmin {
     @Activate
     protected void activate(ComponentContext context) {
 
-        log.info("The Pipes Admin service is being activated");
+        log.info("The Graphs Admin service is being activated");
 
     }
     
     @Deactivate
     protected void deactivate(ComponentContext context) {
-        log.info("The Pipes Admin service is being deactivated");
+        log.info("The Graphs Admin service is being deactivated");
     }
 }
