@@ -3,6 +3,7 @@
 <@namespace cc="http://creativecommons.org/ns#" />
 <@namespace dcterms="http://purl.org/dc/terms/" />
 <@namespace rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" />
+<@namespace rdfs="http://www.w3.org/2000/01/rdf-schema#" />
 <@namespace wf="http://example.com/ont/workflow/" />
 
 <html>
@@ -47,7 +48,7 @@
         <h2>Select a dataset</h2>    
         <select name="pipe">
            <@ldpath path="wf:pipe">
-               <option><@ldpath path="."/></option>
+               <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
            </@ldpath>           
         </select>
         
