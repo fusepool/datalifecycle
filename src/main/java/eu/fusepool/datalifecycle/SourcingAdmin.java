@@ -318,7 +318,7 @@ public class SourcingAdmin {
         	// create a pipe 
         	UriRef pipeRef = new UriRef(GRAPH_URN_PREFIX + timeStamp);
         	getDlcGraph().add(new TripleImpl(pipeRef, RDF.type, Ontology.Pipe));
-        	if(pipeLabel != null & ! "".equals("")) {
+        	if(pipeLabel != null & ! "".equals(pipeLabel)) {
         		getDlcGraph().add(new TripleImpl(pipeRef, RDFS.label, new PlainLiteralImpl(pipeLabel)));
         	}
         	getDlcGraph().add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, pipeRef));
