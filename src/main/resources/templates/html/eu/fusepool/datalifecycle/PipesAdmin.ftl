@@ -1,3 +1,9 @@
+<@namespace ont="http://fusepool.com/ontologies/interlinking#" />
+<@namespace ehub="http://stanbol.apache.org/ontology/entityhub/entityhub#" />
+<@namespace cc="http://creativecommons.org/ns#" />
+<@namespace dcterms="http://purl.org/dc/terms/" />
+<@namespace rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" />
+<@namespace rdfs="http://www.w3.org/2000/01/rdf-schema#" />
 <@namespace wf="http://example.com/ont/workflow/" />
 <html>
 <head>
@@ -29,7 +35,7 @@
 
 	
 	<@ldpath path="wf:pipe">
-			<h2>Dataset <@ldpath path="."/></h2>
+			<h2>Dataset: <@ldpath path="rdfs:label"/></h2>
 			
 			<table>
 			<@ldpath path="wf:creates/wf:deliverable">
