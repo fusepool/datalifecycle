@@ -26,6 +26,8 @@
           <li><a href="/sourcing">Datasets</a></li>
 
           <li><a href="/pipesadmin">Graphs</a></li>
+          
+           <li><a href="../sourcing/html/howto.html">?</a></li>
 
          </ul>
       </div>
