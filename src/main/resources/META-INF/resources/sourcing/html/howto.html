@@ -35,29 +35,41 @@ Create a new dataset
 Select a dataset
 Select a task
 <h2>Create a new dataset</h2>
-When creating a new dataset to import and process some data it’s strongly suggested to add a label for the dataset. Click on the “Create Dataset” button to create a new dataset. The new dataset’s label will be visible in the combo box under “Select a dataset”. Switching to the “Graphs” page the new dataset will be visible with the graphs that will be used to store the result of the various tasks
+<p>When creating a new dataset to import and process some data it’s strongly suggested to add a label for the dataset. Click on the “Create Dataset” button to create a new dataset. The new dataset’s label will be visible in the combo box under “Select a dataset”. Switching to the “Graphs” page the new dataset will be visible with the graphs that will be used to store the result of the various tasks.</p>
 
- rdf.graph contains the uploaded triples or the triples obtained from the transformation from XML
-enhance.graph contains the rdf.graph plus sioc:content and dc:subject properties 
-interlink.graph contains the set of equivalent URI found by the interlinking component and expressed using the owl:sameAs property
-smush.graph contains the same information as the enhance.graph with all the facts related to the same entity through all its different URIs expressed using only a single one.
-publish.graph contains the graph that has been synchronized with the content graph
+ <p><strong>rdf.graph</strong> contains the uploaded triples or the triples obtained from the transformation from XML</p>
+<p><strong>enhance.graph</strong> contains the rdf.graph plus sioc:content and dc:subject properties</p> 
+<p><strong>interlink.graph</strong> contains the set of equivalent URI found by the interlinking component and expressed using the owl:sameAs property</p>
+<p><strong>smush.graph</strong> contains the same information as the enhance.graph with all the facts related to the same entity through all its different URIs expressed using only a single one.</p>
+<p><strong>publish.graph</strong> contains the graph that has been synchronized with the content graph</p>
 
 <h2>Select a dataset</h2>
 Once a dataset has been created a task can be applied on it following a logical order. The tasks available are
 
-RDFize This task is performed to transform an XML document into RDF. One of the available transformations must be chosen from a combo box: “MAREC patent”, “PubMed article”. A reference to the source data must be  provided using file:// or http:// scheme.
-Add triples from URL. In case the data is already available as RDF this task must be chosen and a URL for the RDF data must be provided in the same ways as for the XML data.
-Extract text task adds to rdf.graph one triple with sioc:content property that contains text that will be indexed by the ECS and dc:subjects extracted by NLP engines available in the default enhancement chain
-Reconcile performs the disambiguation and interlinking task. The reconciliation is performed against the same dataset in order to find duplicates and against the content graph in order to find whether an entity in the dataset is already known so that the URI used in the content graph will be used to represent it
-Smush merges all the facts (triples) related to an entity using a single canonicalized http URI and store the result in smush.graph.
-Publish synchronize the set of triples after the smush task has been performed with triples in the content graph. Facts (triples) asserted in smush.graph are compared to facts stored in publish.graph that have been copied in the content graph in a previous iteration. Facts in smush.graph are added to the content graph (published) if they are not in publish.graph (new facts). Facts in publish.graph that are not asserted anymore in smush.graph are removed from content graph
+RDFize This task is performed to transform an XML document into RDF. One of the available transformations must be chosen from a combo box: “MAREC patent”, “PubMed article”. 
+A reference to the source data must be  provided using file:// or http:// scheme.
+<p>Add triples from URL. In case the data is already available as RDF this task must be chosen and a URL for the RDF data must be provided in the same ways as for the XML data.</p>
+<p>Extract text task adds to rdf.graph one triple with sioc:content property that contains text that will be indexed by the ECS and dc:subjects extracted by NLP engines available in the default enhancement chain.</p>
+<p>Reconcile performs the disambiguation and interlinking task. The reconciliation is performed against the same dataset in order to find duplicates and against the content graph 
+in order to find whether an entity in the dataset is already known so that the URI used in the content graph will be used to represent it. In order to reconcile the dataset 
+against itself just select the task “Reconcile” and click on “Apply”. To reconcile the dataset against the content graph add its URI urn:x-localinstance:/content.graph in 
+the text area. </p>
+<p>Smush merges all the facts (triples) related to an entity using a single canonicalized http URI and store the result in smush.graph.</p>
+<p>Publish synchronize the set of triples after the smush task has been performed with triples in the content graph. Facts (triples) asserted in smush.graph are compared to facts stored in publish.graph that have been copied in the content graph in a previous iteration. Facts in smush.graph are added to the content graph (published) if they are not in publish.graph (new facts). Facts in publish.graph that are not asserted anymore in smush.graph are removed from content graph.</p>
 
 <h2>Select a task</h2>
-The tasks are provided in a numbered list and must be performed one by one. Starting for instance from a set of RDF files they can be uploaded one by one in a dataset selecting the corresponding radio box “Add triples” and then clicking on the “Apply” button. The rdf.graph will be filled with all the triples coming from the RDF documents. If the RDF data are about patents new subjects and a text field can be extracted selecting the “Extract text” radio box, its proper extractor “MAREC patent” from the list and then clicking the “Apply” button as before. The same procedure applies for interlinking (Reconcile radio box), Smush and Publish. Each task terminates with a message that will report the result of the task. In order to perform the “Reconcile” task the “Extractt text” task must be performed before as the reconciliation will use the enhance.graph. The Smush task also relies on the result of the interlinking (“Reconcile”) task and so on the “Extract text” task. The “Publish” task clearly depends on the “Smush” task. After the “Publish” task has been performed the new entities, documents, and subject should be visible in FirstSwim. The interlinking task might require a long time for processing depending on the size of the data to be reconciled. 
+<p>The tasks are provided in a numbered list and must be performed one by one. Starting for instance from a set of RDF files they can be uploaded one by one in a dataset 
+selecting the corresponding radio box “Add triples” and then clicking on the “Apply” button. The rdf.graph will be filled with all the triples coming from the RDF 
+documents. If the RDF data are about patents new subjects and a text field can be extracted selecting the “Extract text” radio box, its proper extractor “MAREC patent” 
+from the list and then clicking the “Apply” button as before. The same procedure applies for interlinking (Reconcile radio box), Smush and Publish. Each task terminates 
+with a message that will report the result of the task. In order to perform the “Reconcile” task the “Extract text” task must be performed before as the reconciliation 
+will use the enhance.graph. The Smush task also relies on the result of the interlinking (“Reconcile”) task and so on the “Extract text” task. The “Publish” task clearly 
+depends on the “Smush” task. After the “Publish” task has been performed the new entities, documents, and subject should be visible in FirstSwim. The interlinking task 
+might require a long time for processing depending on the size of the data to be reconciled.</p> 
 <h2>Test the tool</h2>
-Some RDF files for test are available from http://raw.fusepool.info/marec/00/ 
+<p>Some RDF files for test are available from http://raw.fusepool.info/marec/00/ 
 To do a test with the DLC create a dataset as described before then select the "Add triples" task, provide the URL of a RDF file from the previous link and click on the "Apply" button. Repeat for as many RDF files are needed for the test. After this the following tasks in the numbered list can be performed following the order in the list.
+</p>
 	
 	</div><!-- mainColumn end -->
     
