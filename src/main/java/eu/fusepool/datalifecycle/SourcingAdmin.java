@@ -628,11 +628,22 @@ public class SourcingAdmin {
         
     	if (graphExists(sourceGraphRef)) {
             
-
-            TripleCollection sourceGrah = tcManager.getMGraph(sourceGraphRef);
+    		// Get the source graph from the triple store
+            LockableMGraph sourceGrah = tcManager.getMGraph(sourceGraphRef);
+            // Copy the graph
+            MGraph copySourceGraph = new SimpleMGraph();
+            Lock rl = sourceGrah.getLock().readLock();
+            rl.lock();
+            try {
+            	copySourceGraph.addAll(sourceGrah);
+            }
+            finally {
+            	rl.unlock();
+            }
+            
             
             // reconcile the source graph with the target graph 
-            owlSameAs =  interlinker.interlink(sourceGrah, targetGraphRef);
+            owlSameAs =  interlinker.interlink(copySourceGraph, targetGraphRef);
 
             if (owlSameAs.size() > 0) {
 
@@ -860,7 +871,14 @@ public class SourcingAdmin {
         
         getPublishGraph().clear();
         
-        getPublishGraph().addAll(getSmushGraph());
+        Lock rl = getSmushGraph().getLock().readLock();
+        rl.lock();
+        try {
+        	getPublishGraph().addAll( getSmushGraph() );
+        }
+        finally {
+        	rl.unlock();
+        }
     	
     	message = "Copied " + getPublishGraph().size() + " triples from " + pipeRef.getUnicodeString() + " to content-graph";
     	
