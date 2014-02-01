@@ -148,7 +148,7 @@ public class SourcingAdmin {
     
     
     // URI for rewriting from urn scheme to http
-    private String baseURI = "http://fusepool.info";
+    private String baseURI = "http://platform.fusepool.info";
     
     /**
      * For each rdf triple collection uploaded 5 graphs are created.
@@ -585,6 +585,9 @@ public class SourcingAdmin {
     private String reconcile(UriRef pipeRef, UriRef targetGraphRef) throws Exception {
         String message = "";
         
+        // Identifier of the link rules within the Silk config file
+        String linkSpecId = "agents";
+        
         UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
         
         if (graphExists(sourceGraphRef)) {            
@@ -595,7 +598,7 @@ public class SourcingAdmin {
             }
             
             // reconcile the source graph with the target graph 
-            UriRef interlinkGraphRef =  reconcileCommand(pipeRef, sourceGraphRef, targetGraphRef);
+            UriRef interlinkGraphRef =  reconcileCommand(pipeRef, sourceGraphRef, targetGraphRef, linkSpecId);
             
             TripleCollection interlinkGraph = tcManager.getMGraph(interlinkGraphRef);
 
@@ -619,7 +622,7 @@ public class SourcingAdmin {
 
     }
     
-    private UriRef reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef) throws Exception {
+    private UriRef reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef, String linkSpecId) throws Exception {
     	
     	TripleCollection owlSameAs = null;
     	
@@ -643,7 +646,7 @@ public class SourcingAdmin {
             
             
             // reconcile the source graph with the target graph 
-            owlSameAs =  interlinker.interlink(copySourceGraph, targetGraphRef);
+            owlSameAs =  interlinker.interlink(copySourceGraph, targetGraphRef, linkSpecId);
 
             if (owlSameAs.size() > 0) {
 
@@ -680,7 +683,7 @@ public class SourcingAdmin {
     }
 
     /**
-     * Smush the enhanced graph using the interlinking graph. More precisely collates data coming 
+     * Smush the enhanced graph using the interlinking graph. More precisely collates URIs coming 
      * from different equivalent resources in a single one chosen among them. The triples in the
      * source graph are copied in the smush graph that is then smushed using the interlinking 
      * graph. 
@@ -714,17 +717,24 @@ public class SourcingAdmin {
         
     	if(getSmushGraph().size() > 0) {
     		getSmushGraph().clear();
-    	}
+    	}    	
     	
-    	// add triples from source graph to smush graph
-    	getSmushGraph().addAll(getEnhanceGraph());
-        SimpleMGraph tempEquivalenceSet = new SimpleMGraph();
-        tempEquivalenceSet.addAll(equivalenceSet);
-        
-        // smush and canonicalize uris
-        IriSmusher smusher = new CanonicalizingSameAsSmusher();
-        smusher.smush(getSmushGraph(), tempEquivalenceSet, true);    
-        
+    	Lock rl = getEnhanceGraph().getLock().readLock();
+        rl.lock();
+        try {
+        	// add triples from enhance graph to smush graph
+        	getSmushGraph().addAll(getEnhanceGraph());
+        	SimpleMGraph tempEquivalenceSet = new SimpleMGraph();
+            tempEquivalenceSet.addAll(equivalenceSet);
+            
+            // smush and canonicalize uris
+            IriSmusher smusher = new CanonicalizingSameAsSmusher();
+            smusher.smush(getSmushGraph(), tempEquivalenceSet, true);
+        }
+        finally {
+        	rl.unlock();
+        }
+            
         //serializer.serialize(System.out, getSmushGraph(), SupportedFormat.RDF_XML);
         
         return getSmushGraph();
