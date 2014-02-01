@@ -26,9 +26,10 @@ public interface Interlinker {
      * 
      * @param dataToInterlink the data to interlink
      * @param interlinkAgainst the IRI of the graph to interlink against
+     * @param the identifier of the set of rules to be applied among those available in the config file 
      * @return a collection of owl:sameAs statements
      */
     public TripleCollection interlink(TripleCollection dataToInterlink, 
-            UriRef interlinkAgainst);
+            UriRef interlinkAgainst, String linkSpecId);
     
 }
