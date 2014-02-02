@@ -542,7 +542,7 @@ public class SourcingAdmin {
             } 
         }
         
-        return graph;
+        return tempGraph;
     }
     
     
@@ -697,7 +697,7 @@ public class SourcingAdmin {
         // the rdf
         UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
         
-        if(getInterlinkGraph().size() > 0) {
+        if(getInterlinkGraph().size() > 0 & getEnhanceGraph().size() > 0) {
                 
         	LockableMGraph smushedGraph = smushCommand(enhanceGraphRef, getInterlinkGraph());
         
@@ -707,7 +707,8 @@ public class SourcingAdmin {
         }
         else {
         	message = "No equivalence links available for " + enhanceGraphRef.getUnicodeString() + "\n"
-                    + "Start a reconciliation task before smushing.";
+        			+ "or the enhancement graph is empty.\n"
+                    + "The smushing task is applied to the enhancement graph using the equivalence set in the interlinking graph.";
         }
                 
         return message;
@@ -724,12 +725,15 @@ public class SourcingAdmin {
         try {
         	// add triples from enhance graph to smush graph
         	getSmushGraph().addAll(getEnhanceGraph());
+        	log.info("Copied " + getEnhanceGraph().size() + " triples from the enhancement graph into the smush graph.");
         	SimpleMGraph tempEquivalenceSet = new SimpleMGraph();
             tempEquivalenceSet.addAll(equivalenceSet);
             
             // smush and canonicalize uris
             IriSmusher smusher = new CanonicalizingSameAsSmusher();
+            log.info("Smush task started.");
             smusher.smush(getSmushGraph(), tempEquivalenceSet, true);
+            log.info("Smush task completed.");
         }
         finally {
         	rl.unlock();
@@ -827,28 +831,33 @@ public class SourcingAdmin {
      * Before publishing the current smushed data must be compared with the last published data. New triples 
      * in the smushed graph not in the published graph must be added while triples in the published graph absent
      * in the smushed graph must be removed.  The algorithm is as follows
-     * 1) find triples in smush.graph not in publish.graph (new triples)
-     * 2) find triples in publish.graph not in smush.graph (old triples)
-     * 3) add new triples to content.graph 
-     * 4) remove old triples from content.graph
-     * 5) delete all triples in publish.graph
-     * 6) copy triples from smush.graph to publish.graph
+     * 1) make all URIs in smush.graph http dereferencable (uri canonicalization)
+     * 2) find triples in smush.graph not in publish.graph (new triples)
+     * 3) find triples in publish.graph not in smush.graph (old triples)
+     * 4) add new triples to content.graph 
+     * 5) remove old triples from content.graph
+     * 6) delete all triples in publish.graph
+     * 7) copy triples from smush.graph to publish.graph
      */
     private String publishData(UriRef pipeRef) {
     	String message = "";
     	
         // add these triples to the content.graph 
-        SimpleMGraph triplesToAdd = new SimpleMGraph();
+        MGraph triplesToAdd = new SimpleMGraph();
         // remove these triples from the content.graph
-        SimpleMGraph triplesToRemove = new SimpleMGraph();
+        MGraph triplesToRemove = new SimpleMGraph();
+        
+        // make all URIs in smush graph dereferencable
+        canonicalizeResources(getSmushGraph());
         
         // triples to add to the content.graph
         Lock ls = getSmushGraph().getLock().readLock();
         ls.lock();
         try {
+        	
             Iterator<Triple> ismush = getSmushGraph().iterator();            
             while (ismush.hasNext()) {
-                Triple smushTriple = ismush.next();
+                Triple smushTriple = ismush.next();                
                 if( ! getPublishGraph().contains(smushTriple) ) {
                 	triplesToAdd.add(smushTriple);
                 }
@@ -876,8 +885,20 @@ public class SourcingAdmin {
         	lp.unlock();
         }
         
-        getContentGraph().removeAll(triplesToRemove);
-        getContentGraph().addAll(triplesToAdd);
+        if(triplesToRemove.size() > 0) {
+        	getContentGraph().removeAll(triplesToRemove);
+        	log.info("Removed " + triplesToRemove.size() + " triples from " + CONTENT_GRAPH_REF.getUnicodeString());
+        }
+        else {
+        	log.info("No triples to remove from " + CONTENT_GRAPH_REF.getUnicodeString());
+        }
+        if(triplesToAdd.size() > 0) {
+        	getContentGraph().addAll(triplesToAdd);
+        	log.info("Added " + triplesToAdd.size() + " triples to " + CONTENT_GRAPH_REF.getUnicodeString());
+        }
+        else {
+        	log.info("No triples to add to " + CONTENT_GRAPH_REF.getUnicodeString());
+        }
         
         getPublishGraph().clear();
         
@@ -890,9 +911,57 @@ public class SourcingAdmin {
         	rl.unlock();
         }
     	
-    	message = "Copied " + getPublishGraph().size() + " triples from " + pipeRef.getUnicodeString() + " to content-graph";
+    	message = "Copied " + triplesToAdd.size() + " triples from " + pipeRef.getUnicodeString() + " to content-graph";
     	
     	return message;
+    }
+    
+    /**
+     * All the resources in the smush graph must be http dereferencable when published. 
+     * All the triples in the smush graph are copied into a temporary graph. For each triple the subject and the object
+     * that have a non-http URI are changed in http uri and an equivalence link is added in the interlinking graph for each
+     * resource (subject and object) that has been changed.
+     */
+    private void canonicalizeResources(LockableMGraph graph) {
+    	// Set of singleton sets. Each singleton set contains only one resource
+    	Set<Set<UriRef>> resourcesSet = new HashSet<Set<UriRef>>();
+    	MGraph graphCopy = new SimpleMGraph();
+    	// graph containing the same triple with the http URI for each subject and object
+    	MGraph canonicGraph = new SimpleMGraph();
+    	Lock rl = graph.getLock().readLock();
+        rl.lock();
+        try {
+        	graphCopy.addAll(graph);
+        }
+        finally {
+        	rl.unlock();
+        }
+        
+        Iterator<Triple> ismushTriples = graphCopy.iterator();            
+        while (ismushTriples.hasNext()) {
+            Triple triple = ismushTriples.next();
+            UriRef subject = (UriRef) triple.getSubject();
+            Resource object = triple.getObject();
+            Set<UriRef> singletonSetSubject = new HashSet<UriRef>();
+            Set<UriRef> singletonSetObject = new HashSet<UriRef>();
+            // generate an http URI for both subject and object and add an equivalence link into the interlinking graph
+            if( subject.getUnicodeString().startsWith("urn:x-temp:") ) {
+            	singletonSetSubject.add( (UriRef) triple.getSubject() );
+            	subject = generateNewHttpUri(singletonSetSubject);
+            }
+            if( object.toString().startsWith("urn:x-temp:") ) {
+            	singletonSetObject.add( (UriRef) triple.getObject() );
+            	object = generateNewHttpUri(singletonSetObject);
+            }            
+            
+            // add the triple with the http uris to the canonic graph
+            canonicGraph.add(new TripleImpl(subject, triple.getPredicate(), object));
+        }
+        
+        graph.clear();
+        
+        graph.addAll(canonicGraph);
+    	
     }
     
     /**
