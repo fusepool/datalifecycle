@@ -923,8 +923,7 @@ public class SourcingAdmin {
      * resource (subject and object) that has been changed.
      */
     private void canonicalizeResources(LockableMGraph graph) {
-    	// Set of singleton sets. Each singleton set contains only one resource
-    	Set<Set<UriRef>> resourcesSet = new HashSet<Set<UriRef>>();
+    	
     	MGraph graphCopy = new SimpleMGraph();
     	// graph containing the same triple with the http URI for each subject and object
     	MGraph canonicGraph = new SimpleMGraph();
