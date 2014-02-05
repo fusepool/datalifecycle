@@ -1,23 +1,13 @@
 package eu.fusepool.datalifecycle;
 
-import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.AccessController;
 import java.security.AllPermission;
 import java.security.Permission;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
+import java.util.Dictionary;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -45,7 +35,6 @@ import org.apache.clerezza.rdf.core.UriRef;
 import org.apache.clerezza.rdf.core.access.EntityAlreadyExistsException;
 import org.apache.clerezza.rdf.core.access.LockableMGraph;
 import org.apache.clerezza.rdf.core.access.TcManager;
-import org.apache.clerezza.rdf.core.access.TcProvider;
 import org.apache.clerezza.rdf.core.access.security.TcAccessController;
 import org.apache.clerezza.rdf.core.access.security.TcPermission;
 import org.apache.clerezza.rdf.core.impl.PlainLiteralImpl;
@@ -53,27 +42,25 @@ import org.apache.clerezza.rdf.core.impl.SimpleMGraph;
 import org.apache.clerezza.rdf.core.impl.TripleImpl;
 import org.apache.clerezza.rdf.core.serializedform.Parser;
 import org.apache.clerezza.rdf.core.serializedform.Serializer;
-import org.apache.clerezza.rdf.core.serializedform.SupportedFormat;
 import org.apache.clerezza.rdf.ontologies.DCTERMS;
 import org.apache.clerezza.rdf.ontologies.OWL;
 import org.apache.clerezza.rdf.ontologies.RDF;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.utils.GraphNode;
-import org.apache.clerezza.rdf.utils.UnionMGraph;
-//import org.apache.clerezza.rdf.utils.smushing.SameAsSmusher;
-import org.apache.commons.io.IOUtils;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
+import org.apache.felix.scr.annotations.ConfigurationPolicy;
 import org.apache.felix.scr.annotations.Deactivate;
+import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
-import org.apache.stanbol.commons.indexedgraph.IndexedMGraph;
 import org.apache.stanbol.commons.web.viewable.RdfViewable;
-import org.apache.stanbol.entityhub.servicesapi.site.SiteManager;
+import org.osgi.framework.Constants;
 import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 /**
  * This is the controller class of the fusepool data life cycle component. The main functionalities provided are
@@ -82,12 +69,27 @@ import org.slf4j.LoggerFactory;
  * 3) Reconciliation/Interlinking
  * 4) Smushing
  */
-@Component
-@Property(name = "javax.ws.rs", boolValue = true)
+@Component(immediate = true, metatype = true,
+policy = ConfigurationPolicy.OPTIONAL)
+@Properties( value={
+		@Property(name = "javax.ws.rs", boolValue = true),
+		@Property(name=Constants.SERVICE_RANKING,intValue=SourcingAdmin.DEFAULT_SERVICE_RANKING),
+		@Property(name=SourcingAdmin.BASE_URI_NAME, value="", description=SourcingAdmin.BASE_URI_DESCRIPTION)
+		})
+
 @Service(Object.class)
 @Path("sourcing")
 public class SourcingAdmin {
-
+	
+	public static final int DEFAULT_SERVICE_RANKING = 101;
+	
+	// URI for rewriting from urn scheme to http
+	// base uri service property name 
+    public static final String BASE_URI_NAME = "base.uri";
+    // base uri updated at service activation from the service property in the osgi console
+    private String baseUri;
+    
+    public static final String BASE_URI_DESCRIPTION = "Base URI to be used when publishing data.";
     /**
      * Using slf4j for normal logging
      */
@@ -146,10 +148,6 @@ public class SourcingAdmin {
     private final String PUBMED_RDFIZER = "pubmed";
     private final String PATENT_RDFIZER = "patent";
     
-    
-    // URI for rewriting from urn scheme to http
-    private String baseURI = "http://platform.fusepool.info";
-    
     /**
      * For each rdf triple collection uploaded 5 graphs are created.
      * 1) a source graph to store the rdf data
@@ -183,7 +181,13 @@ public class SourcingAdmin {
     protected void activate(ComponentContext context) {
 
         log.info("The Sourcing Admin Service is being activated");
-        // Creates the data lifecycle graph if it doesn't exists. This graph contains references to graphs and linksets  
+        // Creates the data lifecycle graph if it doesn't exists. This graph contains references to graphs and linksets 
+        
+        // Get the value of the base uri from the service property set in the Felix console
+        Dictionary<String,Object> dict = context.getProperties() ;
+		Object baseUriObj = dict.get(BASE_URI_NAME) ;
+		baseUri = baseUriObj.toString();
+		
         try {
             createDlcGraph();
             log.info("Created Data Lifecycle Register Graph. This graph will reference all graphs during their lifecycle");
@@ -1071,7 +1075,7 @@ public class SourcingAdmin {
             throw new RuntimeException("Sorry we current assume all non-http "
                     + "URIs to be canonicalized to be urn:x-temp");
         }
-        String httpUriString = nonHttpString.replaceFirst("urn:x-temp:", baseURI);
+        String httpUriString = nonHttpString.replaceFirst("urn:x-temp:", baseUri);
         UriRef httpUriRef = new UriRef(httpUriString);
         // add an owl:sameAs statement in the interlinking graph 
         getInterlinkGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, httpUriRef));
