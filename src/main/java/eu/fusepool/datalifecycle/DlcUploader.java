@@ -5,14 +5,12 @@ import java.io.InputStream;
 import java.security.AccessController;
 import java.security.AllPermission;
 
-import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.UriInfo;
 
 import org.apache.clerezza.rdf.core.MGraph;
@@ -29,10 +27,6 @@ import org.apache.felix.scr.annotations.Service;
 import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.sun.jersey.multipart.FormDataParam;
-
-
 
 
 
@@ -93,29 +87,7 @@ public class DlcUploader {
         return message + "Added " + graph.size() + " triples  to dataset " + dataset + "\n";
     }
     
-    @POST
-    @Path("multipartrdf")
-    @Consumes(MediaType.MULTIPART_FORM_DATA)
-    @Produces("text/plain")
-    public String uploadMultipartRdf(@Context final UriInfo uriInfo,  
-    		@HeaderParam("Content-Type") String mediaType,
-    		@FormDataParam("data") InputStream stream,
-    		@FormDataParam("dataset") String dataset) throws Exception {
-    	
-        AccessController.checkPermission(new AllPermission());
-        final MGraph graph = new SimpleMGraph();
-        
-        String message = "";
-       
-        if(mediaType.equals(SupportedFormat.RDF_XML)) {
-        	parser.parse(graph, stream, SupportedFormat.RDF_XML);
-        }
-        else {
-        	message = "Add header Content-Type: application/rdf+xml ";
-        }
-        
-        return message + "Added " + graph.size() + " triples  to dataset " + dataset + "\n";
-    }
+    
     
 	@Activate
     protected void activate(ComponentContext context) {
