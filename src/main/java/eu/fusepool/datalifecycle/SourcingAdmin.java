@@ -55,8 +55,12 @@ import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
+import org.apache.stanbol.commons.indexedgraph.IndexedMGraph;
 import org.apache.stanbol.commons.web.viewable.RdfViewable;
+import org.osgi.framework.BundleContext;
 import org.osgi.framework.Constants;
+import org.osgi.framework.InvalidSyntaxException;
+import org.osgi.framework.ServiceReference;
 import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -94,6 +98,8 @@ public class SourcingAdmin {
      * Using slf4j for normal logging
      */
     private static final Logger log = LoggerFactory.getLogger(SourcingAdmin.class);
+    
+    BundleContext bundleCtx = null;
 
     @Reference
     private Parser parser;
@@ -110,11 +116,15 @@ public class SourcingAdmin {
     @Reference
     private Interlinker interlinker;
     
-    @Reference(target="(extractorType=patent)")
-    private RdfDigester patentDigester;
+    // text etractors references (RdfDigester implementations) 
+    ServiceReference[] digestersRefs = null;
     
-    @Reference(target="(extractorType=pubmed)")
-    private RdfDigester pubmedDigester;
+    //@Reference(target="(extractorType=patent)")
+    //private RdfDigester patentDigester;
+    
+    //@Reference(target="(extractorType=pubmed)")
+    //private RdfDigester pubmedDigester;
+    
     /**
      * This is the name of the graph in which we "log" the requests
      */
@@ -141,8 +151,8 @@ public class SourcingAdmin {
     private final int PUBLISH_DATA = 6;
     
     // RDFdigester
-    private final String PUBMED_RDFDIGESTER = "pubmed";
-    private final String PATENT_RDFDIGESTER = "patent";
+    //private final String PUBMED_RDFDIGESTER = "pubmed";
+    //private final String PATENT_RDFDIGESTER = "patent";
     
     // RDFizer
     private final String PUBMED_RDFIZER = "pubmed";
@@ -177,7 +187,8 @@ public class SourcingAdmin {
     
     private UriRef pipeRef = null;
 
-    @Activate
+    @SuppressWarnings("unchecked")
+	@Activate
     protected void activate(ComponentContext context) {
 
         log.info("The Sourcing Admin Service is being activated");
@@ -187,6 +198,28 @@ public class SourcingAdmin {
         Dictionary<String,Object> dict = context.getProperties() ;
 		Object baseUriObj = dict.get(BASE_URI_NAME) ;
 		baseUri = baseUriObj.toString();
+		
+		// Get RDFDigesters
+		bundleCtx = context.getBundleContext();
+		
+		// Get RDFDigesters references
+		try {
+			 
+			digestersRefs = bundleCtx.getServiceReferences(RdfDigester.class.getName(),"(digesterImpl=*)");
+			if (digestersRefs != null) {
+				for (ServiceReference digesterRef : digestersRefs) {
+					String digesterImpl = (String) digesterRef.getProperty("digesterImpl");
+					log.info("SourcingAdmin RDFDigester services available: " + digesterImpl);
+					
+				}
+			}
+		} 
+		catch (InvalidSyntaxException e) {
+			
+			e.printStackTrace();
+		}
+		
+		
 		
         try {
             createDlcGraph();
@@ -210,7 +243,7 @@ public class SourcingAdmin {
     public RdfViewable serviceEntry(@Context final UriInfo uriInfo,
             @QueryParam("url") final UriRef url,
             @HeaderParam("user-agent") String userAgent) throws Exception {
-        //this maks sure we are nt invoked with a trailing slash which would affect
+        //this makes sure we are nt invoked with a trailing slash which would affect
         //relative resolution of links (e.g. css)
         TrailingSlash.enforcePresent(uriInfo);
 
@@ -224,14 +257,28 @@ public class SourcingAdmin {
         //central serviceUri in the response
         final UriRef serviceUri = new UriRef(resourcePath);
         //the in memory graph to which the triples for the response are added
-        //final MGraph responseGraph = new IndexedMGraph();
+        final MGraph responseGraph = new IndexedMGraph();
+        Lock rl = getDlcGraph().getLock().readLock();
+        rl.lock();
+        try {
+        	responseGraph.addAll(getDlcGraph());
+        }
+        finally {
+        	rl.unlock();
+        }
+        
+        // Add information about the available digester services
+        for (ServiceReference digesterRef : digestersRefs) {
+			String digesterImpl = (String) digesterRef.getProperty("digesterImpl");
+			responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.service, new UriRef("urn:x-temp:/" + digesterImpl)));			
+			responseGraph.add(new TripleImpl(new UriRef("urn:x-temp:/" + digesterImpl), RDFS.label, new PlainLiteralImpl(digesterImpl)));
+			
+		}
+        
         //This GraphNode represents the service within our result graph
-        //final GraphNode node = new GraphNode(serviceUri, responseGraph);
-        //node.addProperty(Ontology.graph, new UriRef("http://fusepool.com/graphs/patentdata"));
-        //node.addPropertyValue(RDFS.label, "A graph of patent data");
+        final GraphNode node = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, responseGraph);
+        
         //What we return is the GraphNode we created with a template path
-        final GraphNode node = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
-
         return new RdfViewable("SourcingAdmin", node, SourcingAdmin.class);
     }
     
@@ -447,7 +494,7 @@ public class SourcingAdmin {
                     message = smush(pipeRef);
                     break;            
                 case TEXT_EXTRACTION:
-                	message = extractText(pipeRef, rdfdigester);
+                	message = extractTextFromRdf(pipeRef, rdfdigester);
                 	break;                
                 case RDFIZE:
                 	message = transformXml(dataUrl, rdfizer);
@@ -749,18 +796,6 @@ public class SourcingAdmin {
 
     }
     
-    private String extractText(UriRef pipeRef, String rdfdigester) {
-    	String message = "";
-    	
-    	if(PATENT_RDFDIGESTER.equals(rdfdigester)){
-    		message = extractTextFromPatent(pipeRef);
-    	}
-    	else if (PUBMED_RDFDIGESTER.equals(rdfdigester)) {
-    		message = extractTextFromPubMed(pipeRef);
-    	}
-    	
-    	return message;
-    }
     
     /**
      * Extract text from dcterms:title and dcterms:abstract fields in the source graph and adds a sioc:content
@@ -771,6 +806,52 @@ public class SourcingAdmin {
      * @param pipeRef
      * @return
      */
+    private String extractTextFromRdf(UriRef pipeRef, String selectedDigester){
+    	
+    	String message = "";
+    	UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
+    	MGraph enhanceGraph = tcManager.getMGraph(enhanceGraphRef);
+    	UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+    	LockableMGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
+    	
+    	SimpleMGraph tempGraph = new SimpleMGraph();
+    	Lock rl = sourceGraph.getLock().readLock();
+        rl.lock();
+        try {
+        	tempGraph.addAll(sourceGraph);
+        }
+        finally {
+        	rl.unlock();
+        }
+    	
+    	enhanceGraph.addAll(tempGraph);
+    	
+    	for (ServiceReference digesterRef : digestersRefs) {
+			String digesterType = (String) digesterRef.getProperty("digesterImpl");
+			if(selectedDigester.equals(digesterType)) {
+				RdfDigester digester = (RdfDigester) bundleCtx.getService(digesterRef); 
+				digester.extractText(enhanceGraph);
+				message += "Extracted text from " + enhanceGraphRef.getUnicodeString() + " by " + digesterType + " digester";
+				
+			}
+			
+		}
+    	
+    	
+    	return message;
+    }
+    
+    
+    /**
+     * Extract text from dcterms:title and dcterms:abstract fields in the source graph and adds a sioc:content
+     * property with that text in the enhance graph. The text is used by the ECS for indexing. The keywords
+     * will be related to a patent (resource of type pmo:PatentPublication) so that the patent will be retrieved anytime 
+     * the keyword is searched. The extractor also takes all the entities extracted by NLP enhancement engines. These entities
+     * and a rdfs:label if available, are added to the patent resource using dcterms:subject property. 
+     * @param pipeRef
+     * @return
+     */
+    /*
     private String extractTextFromPatent(UriRef pipeRef){
     	String message = "Extracts text from patents and adds a sioc:content property.\n";
     	UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
@@ -795,7 +876,7 @@ public class SourcingAdmin {
     	
     	return message;
     }
-    
+    */
     /**
      * Extract text from dcterms:title and dcterms:abstract fields in the source graph and adds a sioc:content
      * property with that text in the enhance graph. The text is used by the ECS for indexing. The keywords
@@ -805,6 +886,7 @@ public class SourcingAdmin {
      * @param pipeRef
      * @return
      */
+    /*
     private String extractTextFromPubMed(UriRef pipeRef){
     	String message = "Extract text from PubMed articles and adding a sioc:content property.\n";
     	UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
@@ -829,6 +911,8 @@ public class SourcingAdmin {
     	
     	return message;
     }
+    
+    */
     
     /**
      * Moves data from smush.grah to content.graph. The triples (facts) in the two graphs must be coherent, i.e. the same. 
