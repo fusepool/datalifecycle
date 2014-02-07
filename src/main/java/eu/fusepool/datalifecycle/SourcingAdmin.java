@@ -150,9 +150,6 @@ public class SourcingAdmin {
     private final int SMUSH_GRAPH_OPERATION = 5;
     private final int PUBLISH_DATA = 6;
     
-    // RDFdigester
-    //private final String PUBMED_RDFDIGESTER = "pubmed";
-    //private final String PATENT_RDFDIGESTER = "patent";
     
     // RDFizer
     private final String PUBMED_RDFIZER = "pubmed";
