@@ -842,78 +842,7 @@ public class SourcingAdmin {
     }
     
     
-    /**
-     * Extract text from dcterms:title and dcterms:abstract fields in the source graph and adds a sioc:content
-     * property with that text in the enhance graph. The text is used by the ECS for indexing. The keywords
-     * will be related to a patent (resource of type pmo:PatentPublication) so that the patent will be retrieved anytime 
-     * the keyword is searched. The extractor also takes all the entities extracted by NLP enhancement engines. These entities
-     * and a rdfs:label if available, are added to the patent resource using dcterms:subject property. 
-     * @param pipeRef
-     * @return
-     */
-    /*
-    private String extractTextFromPatent(UriRef pipeRef){
-    	String message = "Extracts text from patents and adds a sioc:content property.\n";
-    	UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
-    	MGraph enhanceGraph = tcManager.getMGraph(enhanceGraphRef);
-    	UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
-    	LockableMGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
-    	
-    	SimpleMGraph tempGraph = new SimpleMGraph();
-    	Lock rl = sourceGraph.getLock().readLock();
-        rl.lock();
-        try {
-        	tempGraph.addAll(sourceGraph);
-        }
-        finally {
-        	rl.unlock();
-        }
-    	
-    	enhanceGraph.addAll(tempGraph);
-    		
-    	patentDigester.extractText(enhanceGraph);
-    	message += "Extracted text from " + enhanceGraphRef.getUnicodeString();
-    	
-    	return message;
-    }
-    */
-    /**
-     * Extract text from dcterms:title and dcterms:abstract fields in the source graph and adds a sioc:content
-     * property with that text in the enhance graph. The text is used by the ECS for indexing. The keywords
-     * will be related to a PubMed article (resource of type bibo:Document) so that the article will be retrieved any time 
-     * the keywords are searched. The extractor also takes all the entities extracted by NLP enhancement engines. These entities
-     * and a rdfs:label if available, are added to the article resource using dcterms:subject property. 
-     * @param pipeRef
-     * @return
-     */
-    /*
-    private String extractTextFromPubMed(UriRef pipeRef){
-    	String message = "Extract text from PubMed articles and adding a sioc:content property.\n";
-    	UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
-    	MGraph enhanceGraph = tcManager.getMGraph(enhanceGraphRef);
-    	UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
-    	LockableMGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
-    	
-    	SimpleMGraph tempGraph = new SimpleMGraph();
-    	Lock rl = sourceGraph.getLock().readLock();
-        rl.lock();
-        try {
-        	tempGraph.addAll(sourceGraph);
-        }
-        finally {
-        	rl.unlock();
-        }
-
-    	enhanceGraph.addAll(tempGraph);	
-		    		
-    	pubmedDigester.extractText(enhanceGraph);
-    	message += "Extracted text from " + enhanceGraphRef.getUnicodeString();
-    	
-    	return message;
-    }
-    
-    */
-    
+       
     /**
      * Moves data from smush.grah to content.graph. The triples (facts) in the two graphs must be coherent, i.e. the same. 
      * Before publishing the current smushed data must be compared with the last published data. New triples 
