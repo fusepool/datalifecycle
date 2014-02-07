@@ -77,6 +77,17 @@
         	</select>
         	<br>
         </li>
+        
+         <li>
+        	<input type="radio" name="operation_code" value="3">Select digester
+        	<select name="rdfdigester">
+        		<@ldpath path="wf:service">
+                  <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
+                </@ldpath>
+        	</select>
+        	<br>
+        </li>
+        
         <li><input type="radio" name="operation_code" value="4">Reconcile<br>
         	<label for="target_recon_graph">Target graph URI:</label>
         	<input type="text" name="data_url" value="" size="70">
