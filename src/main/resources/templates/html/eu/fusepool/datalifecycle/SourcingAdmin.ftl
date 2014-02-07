@@ -69,17 +69,9 @@
         <li><input type="radio" name="operation_code" value="2">Add triples from URL<br>
         	<input type="text" name="data_url" value="" size="70">
         </li>
-        <li>
-        	<input type="radio" name="operation_code" value="3">Extract text
-        	<select name="rdfdigester">
-        		<option value="patent">MAREC patents</option>
-        		<option value="pubmed">PubMed articles</option>
-        	</select>
-        	<br>
-        </li>
         
          <li>
-        	<input type="radio" name="operation_code" value="3">Select digester
+        	<input type="radio" name="operation_code" value="3">Extract text. Select digester
         	<select name="rdfdigester">
         		<@ldpath path="wf:service">
                   <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
