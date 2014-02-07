@@ -20,21 +20,26 @@ public class Ontology {
     /**
      * A simple workflow ontology
      */
-    // classes
+    // Classes
     public static final UriRef Pipe = new UriRef("http://example.com/ont/workflow/Pipe");
     public static final UriRef RdfTask = new UriRef("http://example.com/ont/workflow/RdfTask");
     public static final UriRef EnhanceTask = new UriRef("http://example.com/ont/workflow/enhanceTask");
     public static final UriRef InterlinkTask = new UriRef("http://example.com/ont/workflow/interlinkTask");
     public static final UriRef SmushTask = new UriRef("http://example.com/ont/workflow/smushTask");
     public static final UriRef PublishTask = new UriRef("http://example.com/ont/workflow/publishTask");
+    public static final UriRef Service = new UriRef("http://example.com/ont/workflow/Service");
     // a graph is a product of a task
     public static final UriRef Product = new UriRef("http://example.com/ont/workflow/Product");
-    // properties
+    
+    // Properties
+    
     public static final UriRef pipe = new UriRef("http://example.com/ont/workflow/pipe");
     // a pipe creates one or more tasks
     public static final UriRef creates = new UriRef("http://example.com/ont/workflow/creates");
     // a task delivers a product 
     public static final UriRef deliverable = new UriRef("http://example.com/ont/workflow/deliverable");
+    // a task delivers a product using a service
+    public static final UriRef service = new UriRef("http://example.com/ont/workflow/service");
     
     // VOID ontology
     // Dataset
