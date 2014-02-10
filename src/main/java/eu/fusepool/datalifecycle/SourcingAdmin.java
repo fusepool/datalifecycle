@@ -8,8 +8,10 @@ import java.security.AllPermission;
 import java.security.Permission;
 import java.util.Collections;
 import java.util.Dictionary;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
@@ -54,13 +56,12 @@ import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
+import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.stanbol.commons.indexedgraph.IndexedMGraph;
 import org.apache.stanbol.commons.web.viewable.RdfViewable;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Constants;
-import org.osgi.framework.InvalidSyntaxException;
-import org.osgi.framework.ServiceReference;
 import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -116,14 +117,14 @@ public class SourcingAdmin {
     @Reference
     private Interlinker interlinker;
     
-    // text etractors references (RdfDigester implementations) 
-    ServiceReference[] digestersRefs = null;
+    // This reference is used to bind different implementations of the interface.
+    // Each implementation should be stored in a collection.
+    @Reference(cardinality=ReferenceCardinality.OPTIONAL_MULTIPLE)
+    private RdfDigester digester;
     
-    //@Reference(target="(extractorType=patent)")
-    //private RdfDigester patentDigester;
+    // Stores bindings to different implementations of RdfDigester
+    private Map<String,RdfDigester> digestersStore = new HashMap<String,RdfDigester>();
     
-    //@Reference(target="(extractorType=pubmed)")
-    //private RdfDigester pubmedDigester;
     
     /**
      * This is the name of the graph in which we "log" the requests
@@ -196,28 +197,6 @@ public class SourcingAdmin {
 		Object baseUriObj = dict.get(BASE_URI_NAME) ;
 		baseUri = baseUriObj.toString();
 		
-		// Get RDFDigesters
-		bundleCtx = context.getBundleContext();
-		
-		// Get RDFDigesters references
-		try {
-			 
-			digestersRefs = bundleCtx.getServiceReferences(RdfDigester.class.getName(),"(digesterImpl=*)");
-			if (digestersRefs != null) {
-				for (ServiceReference digesterRef : digestersRefs) {
-					String digesterImpl = (String) digesterRef.getProperty("digesterImpl");
-					log.info("SourcingAdmin RDFDigester services available: " + digesterImpl);
-					
-				}
-			}
-		} 
-		catch (InvalidSyntaxException e) {
-			
-			e.printStackTrace();
-		}
-		
-		
-		
         try {
             createDlcGraph();
             log.info("Created Data Lifecycle Register Graph. This graph will reference all graphs during their lifecycle");
@@ -231,6 +210,32 @@ public class SourcingAdmin {
     protected void deactivate(ComponentContext context) {
         log.info("The Sourcing Admin Service is being deactivated");
     }
+    
+    /**
+     * Bind services used by this component
+     * @param digester
+     */
+    protected void bindDigester(RdfDigester digester){
+    	
+    	// Digesters binding
+    	log.info("Binding digester " + digester.getName());
+    	if( ! digestersStore.containsKey(digester.getName()) ) {
+    		digestersStore.put(digester.getName(), digester);
+    		log.info("Digester " + digester.getName() + " bound");
+    		this.digester = digester;
+    	}
+    	else {
+    		log.info("Digester " + digester.getName() + " already bound.");
+    	}
+    	
+    	
+    }
+    
+    protected void unbindDigester(RdfDigester digester) {
+    	this.digester = null;
+    }
+    
+    
 
     /**
      * This method return an RdfViewable, this is an RDF serviceUri with
@@ -264,13 +269,12 @@ public class SourcingAdmin {
         	rl.unlock();
         }
         
-        // Add information about the available digester services
-        for (ServiceReference digesterRef : digestersRefs) {
-			String digesterImpl = (String) digesterRef.getProperty("digesterImpl");
-			responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.service, new UriRef("urn:x-temp:/" + digesterImpl)));			
-			responseGraph.add(new TripleImpl(new UriRef("urn:x-temp:/" + digesterImpl), RDFS.label, new PlainLiteralImpl(digesterImpl)));
-			
-		}
+        Iterator<String> digestersNames = digestersStore.keySet().iterator();
+        while(digestersNames.hasNext()){
+        	String digesterName = digestersNames.next(); 
+        	responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.service, new UriRef("urn:x-temp:/" + digesterName)));			
+			responseGraph.add(new TripleImpl(new UriRef("urn:x-temp:/" + digesterName), RDFS.label, new PlainLiteralImpl(digesterName)));
+        }
         
         //This GraphNode represents the service within our result graph
         final GraphNode node = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, responseGraph);
@@ -822,7 +826,7 @@ public class SourcingAdmin {
         }
     	
     	enhanceGraph.addAll(tempGraph);
-    	
+    	/*
     	for (ServiceReference digesterRef : digestersRefs) {
 			String digesterType = (String) digesterRef.getProperty("digesterImpl");
 			if(selectedDigester.equals(digesterType)) {
@@ -833,6 +837,10 @@ public class SourcingAdmin {
 			}
 			
 		}
+		*/
+    	RdfDigester digester = digestersStore.get(selectedDigester);
+    	digester.extractText(enhanceGraph);
+		message += "Extracted text from " + enhanceGraphRef.getUnicodeString() + " by " + selectedDigester + " digester";
     	
     	
     	return message;
