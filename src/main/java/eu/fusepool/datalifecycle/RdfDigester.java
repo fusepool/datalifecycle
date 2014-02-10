@@ -15,5 +15,8 @@ import org.apache.clerezza.rdf.core.MGraph;
 public interface RdfDigester {
 	
 	public void extractText(MGraph graph);
+	
+	// returns the name of the service implementation
+	public String getName();
 
 }
