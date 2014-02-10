@@ -117,13 +117,10 @@ public class SourcingAdmin {
     @Reference
     private Interlinker interlinker;
     
-    // This reference is used to bind different implementations of the interface.
-    // Each implementation should be stored in a collection.
-    @Reference(cardinality=ReferenceCardinality.OPTIONAL_MULTIPLE)
-    private RdfDigester digester;
-    
     // Stores bindings to different implementations of RdfDigester
-    private Map<String,RdfDigester> digestersStore = new HashMap<String,RdfDigester>();
+    @Reference(cardinality=ReferenceCardinality.OPTIONAL_MULTIPLE,
+    		referenceInterface=eu.fusepool.datalifecycle.RdfDigester.class)
+    private Map<String,RdfDigester> digesters = null;
     
     
     /**
@@ -212,17 +209,21 @@ public class SourcingAdmin {
     }
     
     /**
-     * Bind services used by this component
+     * Bind digester used by this component
      * @param digester
      */
-    protected void bindDigester(RdfDigester digester){
+    protected void bindDigesters(RdfDigester digester){
     	
     	// Digesters binding
+    	if(digesters == null) {
+    		digesters = new HashMap<String,RdfDigester>();
+    	}
+    	
     	log.info("Binding digester " + digester.getName());
-    	if( ! digestersStore.containsKey(digester.getName()) ) {
-    		digestersStore.put(digester.getName(), digester);
+    	if( ! digesters.containsKey(digester.getName()) ) {
+    		digesters.put(digester.getName(), digester);
     		log.info("Digester " + digester.getName() + " bound");
-    		this.digester = digester;
+    		
     	}
     	else {
     		log.info("Digester " + digester.getName() + " already bound.");
@@ -231,8 +232,11 @@ public class SourcingAdmin {
     	
     }
     
-    protected void unbindDigester(RdfDigester digester) {
-    	this.digester = null;
+    protected void unbindDigesters(RdfDigester digester) {
+    	if( digesters.containsKey(digester.getName()) ) {
+    		digesters.remove(digester.getName());
+    		log.info("Digester " + digester.getName() + " unbound.");
+    	}
     }
     
     
@@ -269,7 +273,7 @@ public class SourcingAdmin {
         	rl.unlock();
         }
         
-        Iterator<String> digestersNames = digestersStore.keySet().iterator();
+        Iterator<String> digestersNames = digesters.keySet().iterator();
         while(digestersNames.hasNext()){
         	String digesterName = digestersNames.next(); 
         	responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.service, new UriRef("urn:x-temp:/" + digesterName)));			
@@ -838,7 +842,7 @@ public class SourcingAdmin {
 			
 		}
 		*/
-    	RdfDigester digester = digestersStore.get(selectedDigester);
+    	RdfDigester digester = digesters.get(selectedDigester);
     	digester.extractText(enhanceGraph);
 		message += "Extracted text from " + enhanceGraphRef.getUnicodeString() + " by " + selectedDigester + " digester";
     	
