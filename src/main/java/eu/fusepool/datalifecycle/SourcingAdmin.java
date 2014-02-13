@@ -1081,7 +1081,7 @@ public class SourcingAdmin {
         String nonHttpString = bestNonHttp.getUnicodeString();
         if (!nonHttpString.startsWith("urn:x-temp:")) {
             throw new RuntimeException("Sorry we current assume all non-http "
-                    + "URIs to be canonicalized to be urn:x-temp");
+                    + "URIs to be canonicalized to be urn:x-temp, cannot handle: "+nonHttpString);
         }
         String httpUriString = nonHttpString.replaceFirst("urn:x-temp:", baseUri);
         UriRef httpUriRef = new UriRef(httpUriString);
