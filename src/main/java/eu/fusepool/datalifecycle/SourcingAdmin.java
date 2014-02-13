@@ -57,6 +57,7 @@ import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
+import org.apache.felix.scr.annotations.ReferencePolicy;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.stanbol.commons.indexedgraph.IndexedMGraph;
 import org.apache.stanbol.commons.web.viewable.RdfViewable;
@@ -119,6 +120,7 @@ public class SourcingAdmin {
     
     // Stores bindings to different implementations of RdfDigester
     @Reference(cardinality=ReferenceCardinality.OPTIONAL_MULTIPLE,
+            policy = ReferencePolicy.DYNAMIC,
     		referenceInterface=eu.fusepool.datalifecycle.RdfDigester.class)
     private final Map<String,RdfDigester> digesters = new HashMap<String,RdfDigester>();;
     
