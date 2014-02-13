@@ -830,18 +830,7 @@ public class SourcingAdmin {
         }
     	
     	enhanceGraph.addAll(tempGraph);
-    	/*
-    	for (ServiceReference digesterRef : digestersRefs) {
-			String digesterType = (String) digesterRef.getProperty("digesterImpl");
-			if(selectedDigester.equals(digesterType)) {
-				RdfDigester digester = (RdfDigester) bundleCtx.getService(digesterRef); 
-				digester.extractText(enhanceGraph);
-				message += "Extracted text from " + enhanceGraphRef.getUnicodeString() + " by " + digesterType + " digester";
-				
-			}
-			
-		}
-		*/
+    	
     	RdfDigester digester = digesters.get(selectedDigester);
     	digester.extractText(enhanceGraph);
 		message += "Extracted text from " + enhanceGraphRef.getUnicodeString() + " by " + selectedDigester + " digester";
