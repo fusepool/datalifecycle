@@ -120,7 +120,7 @@ public class SourcingAdmin {
     // Stores bindings to different implementations of RdfDigester
     @Reference(cardinality=ReferenceCardinality.OPTIONAL_MULTIPLE,
     		referenceInterface=eu.fusepool.datalifecycle.RdfDigester.class)
-    private Map<String,RdfDigester> digesters = null;
+    private final Map<String,RdfDigester> digesters = new HashMap<String,RdfDigester>();;
     
     
     /**
@@ -213,11 +213,6 @@ public class SourcingAdmin {
      * @param digester
      */
     protected void bindDigesters(RdfDigester digester){
-    	
-    	// Digesters binding
-    	if(digesters == null) {
-    		digesters = new HashMap<String,RdfDigester>();
-    	}
     	
     	log.info("Binding digester " + digester.getName());
     	if( ! digesters.containsKey(digester.getName()) ) {
