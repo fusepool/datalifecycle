@@ -74,7 +74,7 @@
         	<input type="radio" name="operation_code" value="3">Extract text. Select digester
         	<select name="rdfdigester">
         		<@ldpath path="wf:service">
-                  <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
+                  <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
                 </@ldpath>
         	</select>
         	<br>
