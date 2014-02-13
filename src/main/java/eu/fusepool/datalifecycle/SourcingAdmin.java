@@ -953,16 +953,12 @@ public class SourcingAdmin {
             Triple triple = ismushTriples.next();
             UriRef subject = (UriRef) triple.getSubject();
             Resource object = triple.getObject();
-            Set<UriRef> singletonSetSubject = new HashSet<UriRef>();
-            Set<UriRef> singletonSetObject = new HashSet<UriRef>();
             // generate an http URI for both subject and object and add an equivalence link into the interlinking graph
             if( subject.getUnicodeString().startsWith("urn:x-temp:") ) {
-            	singletonSetSubject.add( (UriRef) triple.getSubject() );
-            	subject = generateNewHttpUri(singletonSetSubject);
+            	subject =generateNewHttpUri(Collections.singleton(subject));
             }
             if( object.toString().startsWith("urn:x-temp:") ) {
-            	singletonSetObject.add( (UriRef) triple.getObject() );
-            	object = generateNewHttpUri(singletonSetObject);
+            	object = generateNewHttpUri(Collections.singleton((UriRef)object));
             }            
             
             // add the triple with the http uris to the canonic graph
