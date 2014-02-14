@@ -66,6 +66,7 @@ import org.osgi.framework.Constants;
 import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.clerezza.rdf.utils.smushing.SameAsSmusher;
 
 
 /**
@@ -80,7 +81,7 @@ policy = ConfigurationPolicy.OPTIONAL)
 @Properties( value={
 		@Property(name = "javax.ws.rs", boolValue = true),
 		@Property(name=Constants.SERVICE_RANKING,intValue=SourcingAdmin.DEFAULT_SERVICE_RANKING),
-		@Property(name=SourcingAdmin.BASE_URI_NAME, value="", description=SourcingAdmin.BASE_URI_DESCRIPTION)
+		@Property(name=SourcingAdmin.BASE_URI_NAME, value=SourcingAdmin.DEFAULT_BASE_URI, description=SourcingAdmin.BASE_URI_DESCRIPTION)
 		})
 
 @Service(Object.class)
@@ -92,6 +93,10 @@ public class SourcingAdmin {
 	// URI for rewriting from urn scheme to http
 	// base uri service property name 
     public static final String BASE_URI_NAME = "base.uri";
+    
+    //Default base uri
+    public static final String DEFAULT_BASE_URI = "http://localhost:8080";
+    
     // base uri updated at service activation from the service property in the osgi console
     private String baseUri;
     
@@ -783,7 +788,8 @@ public class SourcingAdmin {
             tempEquivalenceSet.addAll(equivalenceSet);
             
             // smush and canonicalize uris
-            IriSmusher smusher = new CanonicalizingSameAsSmusher();
+            //IriSmusher smusher = new CanonicalizingSameAsSmusher();
+            SameAsSmusher smusher = new CanonicalizingSameAsSmusher();
             log.info("Smush task started.");
             smusher.smush(getSmushGraph(), tempEquivalenceSet, true);
             log.info("Smush task completed.");
@@ -843,7 +849,7 @@ public class SourcingAdmin {
      * Before publishing the current smushed data must be compared with the last published data. New triples 
      * in the smushed graph not in the published graph must be added while triples in the published graph absent
      * in the smushed graph must be removed.  The algorithm is as follows
-     * 1) make all URIs in smush.graph http dereferencable (uri canonicalization)
+     * 1) make all URIs in smush.graph http dereferencable (uri canonicalization)(*) currently not used
      * 2) find triples in smush.graph not in publish.graph (new triples)
      * 3) find triples in publish.graph not in smush.graph (old triples)
      * 4) add new triples to content.graph 
@@ -860,7 +866,7 @@ public class SourcingAdmin {
         MGraph triplesToRemove = new SimpleMGraph();
         
         // make all URIs in smush graph dereferencable
-        canonicalizeResources(getSmushGraph());
+        //canonicalizeResources(getSmushGraph());
         
         // triples to add to the content.graph
         Lock ls = getSmushGraph().getLock().readLock();
@@ -948,17 +954,18 @@ public class SourcingAdmin {
         	rl.unlock();
         }
         
-        Iterator<Triple> ismushTriples = graphCopy.iterator();            
+        Iterator<Triple> ismushTriples = graphCopy.iterator();  
+        CanonicalizingSameAsSmusher canonicalizer = new CanonicalizingSameAsSmusher();
         while (ismushTriples.hasNext()) {
             Triple triple = ismushTriples.next();
             UriRef subject = (UriRef) triple.getSubject();
             Resource object = triple.getObject();
             // generate an http URI for both subject and object and add an equivalence link into the interlinking graph
             if( subject.getUnicodeString().startsWith("urn:x-temp:") ) {
-            	subject =generateNewHttpUri(Collections.singleton(subject));
+            	subject = canonicalizer.generateNewHttpUri(Collections.singleton(subject));
             }
             if( object.toString().startsWith("urn:x-temp:") ) {
-            	object = generateNewHttpUri(Collections.singleton((UriRef)object));
+            	object = canonicalizer.generateNewHttpUri(Collections.singleton((UriRef)object));
             }            
             
             // add the triple with the http uris to the canonic graph
@@ -1063,47 +1070,12 @@ public class SourcingAdmin {
                                 "urn:x-localinstance:/content.graph", "read")));
         return dlcGraph;
     }
-
-    /**
-     * Generates a new http URI that will be used as the canonical one in place 
-     * of a set of equivalent non-http URIs. An owl:sameAs statement is added to
-     * the interlinking graph stating that the canonical http URI is equivalent 
-     * to one of the non-http URI in the set of equivalent URIs. 
-     * @param uriRefs
-     * @return
-     */
-    private UriRef generateNewHttpUri(Set<UriRef> uriRefs) {
-        UriRef bestNonHttp = chooseBest(uriRefs);
-        String nonHttpString = bestNonHttp.getUnicodeString();
-        if (!nonHttpString.startsWith("urn:x-temp:")) {
-            throw new RuntimeException("Sorry we current assume all non-http "
-                    + "URIs to be canonicalized to be urn:x-temp, cannot handle: "+nonHttpString);
-        }
-        String httpUriString = nonHttpString.replaceFirst("urn:x-temp:", baseUri);
-        UriRef httpUriRef = new UriRef(httpUriString);
-        // add an owl:sameAs statement in the interlinking graph 
-        getInterlinkGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, httpUriRef));
-        return httpUriRef;
-    }
-
-    private UriRef chooseBest(Set<UriRef> httpUri) {
-        Iterator<UriRef> iter = httpUri.iterator();
-        UriRef best = iter.next();
-        while (iter.hasNext()) {
-            UriRef next = iter.next();
-            if (next.getUnicodeString().compareTo(best.getUnicodeString()) < 0) {
-                best = next;
-            }
-        }
-        return best;
-    }
     
     /**
      * An inline class to canonicalize URI from urn to http scheme. A http URI is chosen 
      * among the equivalent ones.if no one http URI is available a new one is created. 
      */
-    private class CanonicalizingSameAsSmusher extends IriSmusher {
-
+    private class CanonicalizingSameAsSmusher extends SameAsSmusher {
         @Override
         protected UriRef getPreferedIri(Set<UriRef> uriRefs) {
             Set<UriRef> httpUri = new HashSet<UriRef>();
@@ -1125,7 +1097,79 @@ public class SourcingAdmin {
             }
             throw new Error("Negative size set.");
         }
+        
+        /**
+         * Generates a new http URI that will be used as the canonical one in place 
+         * of a set of equivalent non-http URIs. An owl:sameAs statement is added to
+         * the interlinking graph stating that the canonical http URI is equivalent 
+         * to one of the non-http URI in the set of equivalent URIs. 
+         * @param uriRefs
+         * @return
+         */
+        public UriRef generateNewHttpUri(Set<UriRef> uriRefs) {
+            UriRef bestNonHttp = chooseBest(uriRefs);
+            String nonHttpString = bestNonHttp.getUnicodeString();
+            if (!nonHttpString.startsWith("urn:x-temp:")) {
+                throw new RuntimeException("Sorry we current assume all non-http "
+                        + "URIs to be canonicalized to be urn:x-temp, cannot handle: "+nonHttpString);
+            }
+            String httpUriString = nonHttpString.replaceFirst("urn:x-temp:", baseUri);
+            UriRef httpUriRef = new UriRef(httpUriString);
+            // add an owl:sameAs statement in the interlinking graph 
+            getInterlinkGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, httpUriRef));
+            return httpUriRef;
+        }
+
+        private UriRef chooseBest(Set<UriRef> httpUri) {
+            Iterator<UriRef> iter = httpUri.iterator();
+            UriRef best = iter.next();
+            while (iter.hasNext()) {
+                UriRef next = iter.next();
+                if (next.getUnicodeString().compareTo(best.getUnicodeString()) < 0) {
+                    best = next;
+                }
+            }
+            return best;
+        }
 
     }
+    
+    /**
+     * Generates a new http URI that will be used as the canonical one in place 
+     * of a set of equivalent non-http URIs. An owl:sameAs statement is added to
+     * the interlinking graph stating that the canonical http URI is equivalent 
+     * to one of the non-http URI in the set of equivalent URIs. 
+     * @param uriRefs
+     * @return
+     */
+    /*
+    private UriRef generateNewHttpUri(Set<UriRef> uriRefs) {
+        UriRef bestNonHttp = chooseBest(uriRefs);
+        String nonHttpString = bestNonHttp.getUnicodeString();
+        if (!nonHttpString.startsWith("urn:x-temp:")) {
+            throw new RuntimeException("Sorry we current assume all non-http "
+                    + "URIs to be canonicalized to be urn:x-temp, cannot handle: "+nonHttpString);
+        }
+        String httpUriString = nonHttpString.replaceFirst("urn:x-temp:", baseUri);
+        UriRef httpUriRef = new UriRef(httpUriString);
+        // add an owl:sameAs statement in the interlinking graph 
+        getInterlinkGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, httpUriRef));
+        return httpUriRef;
+    }
+    */
+
+    /*
+    private UriRef chooseBest(Set<UriRef> httpUri) {
+        Iterator<UriRef> iter = httpUri.iterator();
+        UriRef best = iter.next();
+        while (iter.hasNext()) {
+            UriRef next = iter.next();
+            if (next.getUnicodeString().compareTo(best.getUnicodeString()) < 0) {
+                best = next;
+            }
+        }
+        return best;
+    }
+    */
 
 }
