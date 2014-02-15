@@ -36,6 +36,8 @@
     
     <div id="mainColumn">
     
+    <p><@ldpath path="rdfs:comment"/></p>
+    
     <div>
     <h2>Create a new dataset</h2>
     <form action="create_pipe" method="post">
