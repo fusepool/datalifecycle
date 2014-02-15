@@ -80,27 +80,31 @@ import org.apache.clerezza.rdf.utils.smushing.SameAsSmusher;
 policy = ConfigurationPolicy.OPTIONAL)
 @Properties( value={
 		@Property(name = "javax.ws.rs", boolValue = true),
-		@Property(name=Constants.SERVICE_RANKING,intValue=SourcingAdmin.DEFAULT_SERVICE_RANKING),
-		@Property(name=SourcingAdmin.BASE_URI_NAME, value=SourcingAdmin.DEFAULT_BASE_URI, description=SourcingAdmin.BASE_URI_DESCRIPTION)
+		@Property(name=Constants.SERVICE_RANKING,intValue=SourcingAdmin.DEFAULT_SERVICE_RANKING)
 		})
 
 @Service(Object.class)
 @Path("sourcing")
 public class SourcingAdmin {
 	
+	// Service property attributes
 	public static final int DEFAULT_SERVICE_RANKING = 101;
 	
-	// URI for rewriting from urn scheme to http
-	// base uri service property name 
-    public static final String BASE_URI_NAME = "base.uri";
-    
-    //Default base uri
-    public static final String DEFAULT_BASE_URI = "http://localhost:8080";
+	// Base URI property attributes. This property is used to canonicalize URIs of type urn:x-temp.
+	// The value of the property is updated at service activation from the service configuration panel.
+	public static final String BASE_URI_DESCRIPTION = "Base URI to be used when publishing data.";
+	public static final String BASE_URI_LABEL= "Base URI";
+	public static final String DEFAULT_BASE_URI = "http://localhost:8080"; 
+	@Property(label=BASE_URI_LABEL, value=DEFAULT_BASE_URI, description=BASE_URI_DESCRIPTION)
+    public static final String BASE_URI = "baseUri";
     
     // base uri updated at service activation from the service property in the osgi console
     private String baseUri;
     
-    public static final String BASE_URI_DESCRIPTION = "Base URI to be used when publishing data.";
+    // Scheme of non-http URI used
+    public static final String URN_SCHEME = "urn:x-temp:";
+    
+    
     /**
      * Using slf4j for normal logging
      */
@@ -188,7 +192,11 @@ public class SourcingAdmin {
     
     
     private UriRef pipeRef = null;
-
+    
+    // A message to show issues to the user
+    private String alertMessage = "";
+    // Validity of base Uri (enables interlinking, smushing and publishing tasks)
+    private boolean isValidBaseUri = false;
     @SuppressWarnings("unchecked")
 	@Activate
     protected void activate(ComponentContext context) {
@@ -198,8 +206,20 @@ public class SourcingAdmin {
         
         // Get the value of the base uri from the service property set in the Felix console
         Dictionary<String,Object> dict = context.getProperties() ;
-		Object baseUriObj = dict.get(BASE_URI_NAME) ;
+		Object baseUriObj = dict.get(BASE_URI) ;
 		baseUri = baseUriObj.toString();
+		if( ("".equals(baseUri)) || (! baseUri.startsWith("http://")) ){
+			
+			alertMessage = "A valid base URI has not been set. It can be set in the framework configuration panel (eu.fusepool.datalifecycle.SourcingAdmin)";
+		
+		}
+		else {
+			if(baseUri.endsWith("/")){
+				baseUri = baseUri.substring(0, baseUri.length() - 1);
+			}
+			isValidBaseUri = true;
+			log.info("Base URI: " + baseUri);
+		}
 		
         try {
             createDlcGraph();
@@ -212,7 +232,7 @@ public class SourcingAdmin {
 
     @Deactivate
     protected void deactivate(ComponentContext context) {
-        log.info("The Sourcing Admin Service is being deactivated");
+        log.info("The Sourcing Admin Service is being deactivated"); 
     }
     
     /**
@@ -284,6 +304,11 @@ public class SourcingAdmin {
         
         //This GraphNode represents the service within our result graph
         final GraphNode node = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, responseGraph);
+        
+        // Adds information about base uri configuration
+        if( ! isValidBaseUri ){
+        	responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, RDFS.comment, new PlainLiteralImpl(alertMessage)));
+        }
         
         //What we return is the GraphNode we created with a template path
         return new RdfViewable("SourcingAdmin", node, SourcingAdmin.class);
@@ -866,7 +891,7 @@ public class SourcingAdmin {
         MGraph triplesToRemove = new SimpleMGraph();
         
         // make all URIs in smush graph dereferencable
-        //canonicalizeResources(getSmushGraph());
+        canonicalizeResources(getSmushGraph());
         
         // triples to add to the content.graph
         Lock ls = getSmushGraph().getLock().readLock();
@@ -955,26 +980,33 @@ public class SourcingAdmin {
         }
         
         Iterator<Triple> ismushTriples = graphCopy.iterator();  
-        CanonicalizingSameAsSmusher canonicalizer = new CanonicalizingSameAsSmusher();
         while (ismushTriples.hasNext()) {
             Triple triple = ismushTriples.next();
             UriRef subject = (UriRef) triple.getSubject();
             Resource object = triple.getObject();
             // generate an http URI for both subject and object and add an equivalence link into the interlinking graph
-            if( subject.getUnicodeString().startsWith("urn:x-temp:") ) {
-            	subject = canonicalizer.generateNewHttpUri(Collections.singleton(subject));
+            if( subject.getUnicodeString().startsWith(URN_SCHEME) ) {
+            	subject = generateNewHttpUri(Collections.singleton(subject));
             }
-            if( object.toString().startsWith("urn:x-temp:") ) {
-            	object = canonicalizer.generateNewHttpUri(Collections.singleton((UriRef)object));
+            if( object.toString().startsWith("<" + URN_SCHEME) ) {
+            	object = generateNewHttpUri(Collections.singleton((UriRef)object));
             }            
             
             // add the triple with the http uris to the canonic graph
             canonicGraph.add(new TripleImpl(subject, triple.getPredicate(), object));
         }
         
-        graph.clear();
+        Lock wl = graph.getLock().writeLock();
+        wl.lock();
+        try {
+        	graph.clear();
+            graph.addAll(canonicGraph);
+        }
+        finally {
+        	wl.unlock();
+        }
         
-        graph.addAll(canonicGraph);
+        
     	
     }
     
@@ -1098,39 +1130,6 @@ public class SourcingAdmin {
             throw new Error("Negative size set.");
         }
         
-        /**
-         * Generates a new http URI that will be used as the canonical one in place 
-         * of a set of equivalent non-http URIs. An owl:sameAs statement is added to
-         * the interlinking graph stating that the canonical http URI is equivalent 
-         * to one of the non-http URI in the set of equivalent URIs. 
-         * @param uriRefs
-         * @return
-         */
-        public UriRef generateNewHttpUri(Set<UriRef> uriRefs) {
-            UriRef bestNonHttp = chooseBest(uriRefs);
-            String nonHttpString = bestNonHttp.getUnicodeString();
-            if (!nonHttpString.startsWith("urn:x-temp:")) {
-                throw new RuntimeException("Sorry we current assume all non-http "
-                        + "URIs to be canonicalized to be urn:x-temp, cannot handle: "+nonHttpString);
-            }
-            String httpUriString = nonHttpString.replaceFirst("urn:x-temp:", baseUri);
-            UriRef httpUriRef = new UriRef(httpUriString);
-            // add an owl:sameAs statement in the interlinking graph 
-            getInterlinkGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, httpUriRef));
-            return httpUriRef;
-        }
-
-        private UriRef chooseBest(Set<UriRef> httpUri) {
-            Iterator<UriRef> iter = httpUri.iterator();
-            UriRef best = iter.next();
-            while (iter.hasNext()) {
-                UriRef next = iter.next();
-                if (next.getUnicodeString().compareTo(best.getUnicodeString()) < 0) {
-                    best = next;
-                }
-            }
-            return best;
-        }
 
     }
     
@@ -1142,23 +1141,20 @@ public class SourcingAdmin {
      * @param uriRefs
      * @return
      */
-    /*
     private UriRef generateNewHttpUri(Set<UriRef> uriRefs) {
         UriRef bestNonHttp = chooseBest(uriRefs);
         String nonHttpString = bestNonHttp.getUnicodeString();
-        if (!nonHttpString.startsWith("urn:x-temp:")) {
+        if (!nonHttpString.startsWith(URN_SCHEME)) {
             throw new RuntimeException("Sorry we current assume all non-http "
                     + "URIs to be canonicalized to be urn:x-temp, cannot handle: "+nonHttpString);
         }
-        String httpUriString = nonHttpString.replaceFirst("urn:x-temp:", baseUri);
+        String httpUriString = nonHttpString.replaceFirst(URN_SCHEME, baseUri);
         UriRef httpUriRef = new UriRef(httpUriString);
         // add an owl:sameAs statement in the interlinking graph 
         getInterlinkGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, httpUriRef));
         return httpUriRef;
     }
-    */
 
-    /*
     private UriRef chooseBest(Set<UriRef> httpUri) {
         Iterator<UriRef> iter = httpUri.iterator();
         UriRef best = iter.next();
@@ -1170,6 +1166,5 @@ public class SourcingAdmin {
         }
         return best;
     }
-    */
 
 }
