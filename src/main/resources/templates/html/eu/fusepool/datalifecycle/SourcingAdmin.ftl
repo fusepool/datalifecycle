@@ -56,24 +56,25 @@
            </@ldpath>           
         </select>
         
+        <h2>Upload data</h2>
+        <ul>
+        <li><input type="radio" name="operation_code" value="2">Upload RDF data<br></li>
+        URL: <input type="text" name="data_url" value="" size="60">
+        </ul>
+        
         <h2>Select a task</h2>
         <ol>
         <li>
-        	<input type="radio" name="operation_code" value="1">RDFize
+        	<input type="radio" name="operation_code" value="1">Transform. Select rdfizer
         	<select name="rdfizer">
         		<option value="patent">MAREC patent</option>
         		<option value="pubmed">PubMed article</option>
         	</select>
-        	<br>
-        	URL of XML file: <input type="text" name="xml_url" value="" size="70">
         	
-        </li>
-        <li><input type="radio" name="operation_code" value="2">Add triples from URL<br>
-        	<input type="text" name="data_url" value="" size="70">
         </li>
         
          <li>
-        	<input type="radio" name="operation_code" value="3">Extract text. Select digester
+        	<input type="radio" name="operation_code" value="3">Enhance. Select digester
         	<select name="rdfdigester">
         		<@ldpath path="wf:service">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
@@ -82,11 +83,7 @@
         	<br>
         </li>
         
-        <li><input type="radio" name="operation_code" value="4">Reconcile<br>
-        	<label for="target_recon_graph">Target graph URI:</label>
-        	<input type="text" name="data_url" value="" size="70">
-        </li>
-        </li>
+        <li><input type="radio" name="operation_code" value="4">Reconcile<br></li>
         <li><input type="radio" name="operation_code" value="5">Smush<br></li>
         <li><input type="radio" name="operation_code" value="6">Publish<br></li>
         </ol>
