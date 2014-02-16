@@ -803,8 +803,8 @@ public class SourcingAdmin {
     		getSmushGraph().clear();
     	}    	
     	
-    	Lock rl = getEnhanceGraph().getLock().readLock();
-        rl.lock();
+    	Lock erl = getEnhanceGraph().getLock().readLock();
+        erl.lock();
         try {
         	// add triples from enhance graph to smush graph
         	getSmushGraph().addAll(getEnhanceGraph());
@@ -812,18 +812,37 @@ public class SourcingAdmin {
         	SimpleMGraph tempEquivalenceSet = new SimpleMGraph();
             tempEquivalenceSet.addAll(equivalenceSet);
             
-            // smush and canonicalize uris
-            //IriSmusher smusher = new CanonicalizingSameAsSmusher();
+            // smush and canonicalize equivalent uris
             SameAsSmusher smusher = new CanonicalizingSameAsSmusher();
             log.info("Smush task started.");
             smusher.smush(getSmushGraph(), tempEquivalenceSet, true);
             log.info("Smush task completed.");
         }
         finally {
-        	rl.unlock();
+        	erl.unlock();
         }
             
-        //serializer.serialize(System.out, getSmushGraph(), SupportedFormat.RDF_XML);
+        // Remove from smush graph equivalences between temporary uri (urn:x-temp) and http uri that are added by the clerezza smusher.
+        // These equivalences must be removed as only equivalences between known entities (http uri) must be maintained and then published
+        MGraph equivToRemove = new SimpleMGraph();
+        Lock srl = getSmushGraph().getLock().readLock();
+        srl.lock();
+        try {        	
+        	Iterator<Triple> isameas = getSmushGraph().filter(null, OWL.sameAs, null);
+            while (isameas.hasNext()) {
+                Triple sameas = isameas.next();
+                NonLiteral subject = sameas.getSubject();                
+                Resource object = sameas.getObject();
+                if( subject.toString().startsWith("<" + URN_SCHEME) || object.toString().startsWith("<" + URN_SCHEME)) {
+                	equivToRemove.add(sameas);
+                }
+            }
+        }
+        finally {
+          srl.unlock();	
+        }
+        
+        getSmushGraph().removeAll(equivToRemove);
         
         return getSmushGraph();
 
@@ -874,7 +893,7 @@ public class SourcingAdmin {
      * Before publishing the current smushed data must be compared with the last published data. New triples 
      * in the smushed graph not in the published graph must be added while triples in the published graph absent
      * in the smushed graph must be removed.  The algorithm is as follows
-     * 1) make all URIs in smush.graph http dereferencable (uri canonicalization)(*) currently not used
+     * 1) make all URIs in smush.graph http dereferencable (uri canonicalization)
      * 2) find triples in smush.graph not in publish.graph (new triples)
      * 3) find triples in publish.graph not in smush.graph (old triples)
      * 4) add new triples to content.graph 
