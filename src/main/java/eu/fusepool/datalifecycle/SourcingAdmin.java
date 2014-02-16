@@ -520,7 +520,7 @@ public class SourcingAdmin {
                     message = addTriples(pipeRef, dataUrl, mediaType);
                     break;                       
                 case RECONCILE_GRAPH_OPERATION:
-                    message = reconcile(pipeRef, null);
+                    message = reconcile(pipeRef);
                     break;
                 case SMUSH_GRAPH_OPERATION:
                     message = smush(pipeRef);
@@ -658,14 +658,13 @@ public class SourcingAdmin {
     }
 
     /**
-     * Reconciles a graph with a target graph. The result of the reconciliation is an equivalence set 
-     * stored in the interlink graph of the pipe. The graph used as source is the source rdf graph 
+     * Reconciles a source graph against itself and against the content graph. The result of the reconciliation is an equivalence set 
+     * stored in the interlink graph of the pipe.  
      * @param sourceGraphRef the URI of the referenced graph, i.e. the graph for which the reconciliation should be performed.
-     * @param targetGraphRef the URI of the target graph. If null the target graph is the same as the source graph.
-     * @return
+     * @return String 
      * @throws Exception 
      */
-    private String reconcile(UriRef pipeRef, UriRef targetGraphRef) throws Exception {
+    private String reconcile(UriRef pipeRef) throws Exception {
         String message = "";
         
         // Identifier of the link rules within the Silk config file
@@ -673,31 +672,55 @@ public class SourcingAdmin {
         
         UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
         
-        if (graphExists(sourceGraphRef)) {            
+        if (graphExists(sourceGraphRef) && getSourceGraph().size() > 0) {            
             
-            //if target graph is not provided the reconciliation will be done against the source graph itself
-            if(targetGraphRef == null){
-            	targetGraphRef = sourceGraphRef;
-            }
+        	// size of interlink graph before reconciliations
+        	int interlinkGraphInitSize = getInterlinkGraph().size();
+        	
+        	// reconcile the source graph against itself 
+            reconcileCommand(pipeRef, sourceGraphRef, sourceGraphRef, linkSpecId);
             
-            // reconcile the source graph with the target graph 
-            UriRef interlinkGraphRef =  reconcileCommand(pipeRef, sourceGraphRef, targetGraphRef, linkSpecId);
+            // size of interlink graph after reconciliation of source graph against itself 
+            int interlinkSourceGraphSize = getInterlinkGraph().size();
             
-            TripleCollection interlinkGraph = tcManager.getMGraph(interlinkGraphRef);
+            // new interlinks within source graph
+            int numSourceInterlinks = interlinkSourceGraphSize - interlinkGraphInitSize; 
 
-            if (interlinkGraph.size() > 0) {
+            if (numSourceInterlinks > 0) {
 
-                message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + targetGraphRef.getUnicodeString() + ".\n"
-                        + interlinkGraph.size() + " owl:sameAs statements have been created and stored in " + interlinkGraphRef.getUnicodeString();
+                message = "A reconciliation task has been done on " + sourceGraphRef.getUnicodeString() + "\n"
+                        + numSourceInterlinks + " owl:sameAs statements have been created.";
             } 
             else {
-                message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + targetGraphRef.getUnicodeString() + ".\n"
-                        + "No equivalent entities have been found.";
+                message = "A reconciliation task has been done on " + sourceGraphRef.getUnicodeString()
+                        + ". No equivalent entities have been found.\n";
+            }
+            
+            // reconcile the source graph against the content graph 
+            if(getContentGraph().size() > 0) {
+	            
+            	reconcileCommand(pipeRef, sourceGraphRef, CONTENT_GRAPH_REF, linkSpecId);
+            	
+            	// size of interlink graph after reconciliation of source graph against content graph 
+                int interlinkContentGraphSize = getInterlinkGraph().size();
+                
+                // new interlinks with content graph
+                int numContentInterlinks = interlinkContentGraphSize - interlinkSourceGraphSize;      
+	
+	            if (numContentInterlinks > 0) {
+	
+	                message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
+	                        + numContentInterlinks + " owl:sameAs statements have been created.";
+	            } 
+	            else {
+	            	message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
+	                        + ". No equivalent entities have been found.\n";
+	            }
             }
             
         } 
         else {
-            message = "The source graph does not exist.";
+            message = "The source graph does not exist or is empty.";
         }
         
         log.info(message);
@@ -705,7 +728,12 @@ public class SourcingAdmin {
 
     }
     
-    private UriRef reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef, String linkSpecId) throws Exception {
+    /**
+     * Reconciles a source graph with a target graph. The result of the reconciliation is an equivalence set 
+     * stored in the interlink graph of the pipe. The graph used as source is the source rdf graph. 
+     * @throws Exception 
+     */
+    private void reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef, String linkSpecId) throws Exception {
     	
     	TripleCollection owlSameAs = null;
     	
@@ -760,8 +788,6 @@ public class SourcingAdmin {
                
             }         
     	}
-            
-        return interlinkGraphRef;
 
     }
 
@@ -1074,7 +1100,8 @@ public class SourcingAdmin {
 
     /**
      * Checks if a graph exists and returns a boolean value.
-     *
+     * true if graph exist
+     * false if graph does not exist
      * @param graph_ref
      * @return
      */
