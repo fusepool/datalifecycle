@@ -62,6 +62,7 @@
 			</table>
 			<form action="delete_pipe" method="post">
 				<input type="submit" value="Delete Dataset">
+				Unpublish <input type="checkbox" name="unpublish" value="true">
 				<input type="hidden" name="pipe" value="<@ldpath path="."/>">					
 			</form>
 			
