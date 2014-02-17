@@ -1,3 +1,19 @@
+/*
+* Copyright 2013 Fusepool Project.
+*
+* Licensed under the Apache License, Version 2.0 (the "License");
+* you may not use this file except in compliance with the License.
+* You may obtain a copy of the License at
+*
+*      http://www.apache.org/licenses/LICENSE-2.0
+*
+* Unless required by applicable law or agreed to in writing, software
+* distributed under the License is distributed on an "AS IS" BASIS,
+* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+* See the License for the specific language governing permissions and
+* limitations under the License.
+*/
+
 package eu.fusepool.datalifecycle;
 
 import java.security.AccessController;
@@ -126,21 +142,42 @@ public class PipesAdmin {
     @Path("delete_pipe")
     @Produces("text/plain")
     public String deletePipe(@Context final UriInfo uriInfo,  
-    		@FormParam("pipe") final String pipeName) throws Exception {
+    		@FormParam("pipe") final String pipeName,
+    		@FormParam("unpublish") final boolean unpublish) throws Exception {
         AccessController.checkPermission(new AllPermission());
         String message = "";
-        
-        // remove pipe metadata
-        removePipeMetaData(pipeName);
         
         // remove graphs
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.SOURCE_GRAPH_URN_SUFFIX));
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX));
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.INTERLINK_GRAPH_URN_SUFFIX));
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.SMUSH_GRAPH_URN_SUFFIX));
+        
+        MGraph publishGraph = tcManager.getMGraph(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
+        
+        // Unpublish data. Removes published data from content graph.
+        if(unpublish) {            
+            LockableMGraph contentGraph = tcManager.getMGraph(new UriRef(SourcingAdmin.CONTENT_GRAPH_NAME));
+            Lock wl = contentGraph.getLock().writeLock();
+            wl.lock();
+            try {
+              contentGraph.removeAll(publishGraph);
+            }
+            finally {
+                wl.unlock();
+            }            
+        }
+        
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
         
-        message += "Pipe: " + pipeName + " deleted";
+        // remove pipe metadata
+        removePipeMetaData(pipeName);
+        
+        message += "Dataset: " + pipeName + " deleted.\n";
+        
+        if(unpublish) {
+            message += "All triples removed from content graph.";
+        }
         
         return message;
     }
