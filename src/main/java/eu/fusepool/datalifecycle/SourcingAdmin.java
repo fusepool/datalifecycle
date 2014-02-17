@@ -189,12 +189,12 @@ public class SourcingAdmin {
     public static final String SMUSH_GRAPH_URN_SUFFIX = "/smush.graph";
     // published graph suffix
     public static final String PUBLISH_GRAPH_URN_SUFFIX = "/publish.graph";
-    
+    //mesage to show when base URI is invalid
+    private final String INVALID_BASE_URI_ALERT = "A valid base URI has not been set. It can be set in the framework configuration panel (eu.fusepool.datalifecycle.SourcingAdmin)";
     
     private UriRef pipeRef = null;
+   
     
-    // A message to show issues to the user
-    private String alertMessage = "";
     // Validity of base Uri (enables interlinking, smushing and publishing tasks)
     private boolean isValidBaseUri = false;
     @SuppressWarnings("unchecked")
@@ -208,17 +208,14 @@ public class SourcingAdmin {
         Dictionary<String,Object> dict = context.getProperties() ;
         Object baseUriObj = dict.get(BASE_URI) ;
         baseUri = baseUriObj.toString();
-        if( ("".equals(baseUri)) || (! baseUri.startsWith("http://")) ){
-            
-            alertMessage = "A valid base URI has not been set. It can be set in the framework configuration panel (eu.fusepool.datalifecycle.SourcingAdmin)";
-        
-        }
-        else {
+        if( (!"".equals(baseUri)) && ( baseUri.startsWith("http://")) ){
             if(baseUri.endsWith("/")){
                 baseUri = baseUri.substring(0, baseUri.length() - 1);
             }
             isValidBaseUri = true;
-            log.info("Base URI: " + baseUri);
+            log.info("Base URI: {}", baseUri);
+        } else { 
+            isValidBaseUri = false;
         }
         
         try {
@@ -307,7 +304,7 @@ public class SourcingAdmin {
         
         // Adds information about base uri configuration
         if( ! isValidBaseUri ){
-            responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, RDFS.comment, new PlainLiteralImpl(alertMessage)));
+            responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, RDFS.comment, new PlainLiteralImpl(INVALID_BASE_URI_ALERT)));
         }
         
         //What we return is the GraphNode we created with a template path
