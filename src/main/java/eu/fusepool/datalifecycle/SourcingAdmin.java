@@ -79,23 +79,23 @@ import org.apache.clerezza.rdf.utils.smushing.SameAsSmusher;
 @Component(immediate = true, metatype = true,
 policy = ConfigurationPolicy.OPTIONAL)
 @Properties( value={
-		@Property(name = "javax.ws.rs", boolValue = true),
-		@Property(name=Constants.SERVICE_RANKING,intValue=SourcingAdmin.DEFAULT_SERVICE_RANKING)
-		})
+        @Property(name = "javax.ws.rs", boolValue = true),
+        @Property(name=Constants.SERVICE_RANKING,intValue=SourcingAdmin.DEFAULT_SERVICE_RANKING)
+        })
 
 @Service(Object.class)
 @Path("sourcing")
 public class SourcingAdmin {
-	
-	// Service property attributes
-	public static final int DEFAULT_SERVICE_RANKING = 101;
-	
-	// Base URI property attributes. This property is used to canonicalize URIs of type urn:x-temp.
-	// The value of the property is updated at service activation from the service configuration panel.
-	public static final String BASE_URI_DESCRIPTION = "Base URI to be used when publishing data.";
-	public static final String BASE_URI_LABEL= "Base URI";
-	public static final String DEFAULT_BASE_URI = "http://localhost:8080"; 
-	@Property(label=BASE_URI_LABEL, value=DEFAULT_BASE_URI, description=BASE_URI_DESCRIPTION)
+    
+    // Service property attributes
+    public static final int DEFAULT_SERVICE_RANKING = 101;
+    
+    // Base URI property attributes. This property is used to canonicalize URIs of type urn:x-temp.
+    // The value of the property is updated at service activation from the service configuration panel.
+    public static final String BASE_URI_DESCRIPTION = "Base URI to be used when publishing data.";
+    public static final String BASE_URI_LABEL= "Base URI";
+    public static final String DEFAULT_BASE_URI = "http://localhost:8080"; 
+    @Property(label=BASE_URI_LABEL, value=DEFAULT_BASE_URI, description=BASE_URI_DESCRIPTION)
     public static final String BASE_URI = "baseUri";
     
     // base uri updated at service activation from the service property in the osgi console
@@ -130,7 +130,7 @@ public class SourcingAdmin {
     // Stores bindings to different implementations of RdfDigester
     @Reference(cardinality=ReferenceCardinality.OPTIONAL_MULTIPLE,
             policy = ReferencePolicy.DYNAMIC,
-    		referenceInterface=eu.fusepool.datalifecycle.RdfDigester.class)
+            referenceInterface=eu.fusepool.datalifecycle.RdfDigester.class)
     private final Map<String,RdfDigester> digesters = new HashMap<String,RdfDigester>();;
     
     
@@ -198,7 +198,7 @@ public class SourcingAdmin {
     // Validity of base Uri (enables interlinking, smushing and publishing tasks)
     private boolean isValidBaseUri = false;
     @SuppressWarnings("unchecked")
-	@Activate
+    @Activate
     protected void activate(ComponentContext context) {
 
         log.info("The Sourcing Admin Service is being activated");
@@ -206,21 +206,21 @@ public class SourcingAdmin {
         
         // Get the value of the base uri from the service property set in the Felix console
         Dictionary<String,Object> dict = context.getProperties() ;
-		Object baseUriObj = dict.get(BASE_URI) ;
-		baseUri = baseUriObj.toString();
-		if( ("".equals(baseUri)) || (! baseUri.startsWith("http://")) ){
-			
-			alertMessage = "A valid base URI has not been set. It can be set in the framework configuration panel (eu.fusepool.datalifecycle.SourcingAdmin)";
-		
-		}
-		else {
-			if(baseUri.endsWith("/")){
-				baseUri = baseUri.substring(0, baseUri.length() - 1);
-			}
-			isValidBaseUri = true;
-			log.info("Base URI: " + baseUri);
-		}
-		
+        Object baseUriObj = dict.get(BASE_URI) ;
+        baseUri = baseUriObj.toString();
+        if( ("".equals(baseUri)) || (! baseUri.startsWith("http://")) ){
+            
+            alertMessage = "A valid base URI has not been set. It can be set in the framework configuration panel (eu.fusepool.datalifecycle.SourcingAdmin)";
+        
+        }
+        else {
+            if(baseUri.endsWith("/")){
+                baseUri = baseUri.substring(0, baseUri.length() - 1);
+            }
+            isValidBaseUri = true;
+            log.info("Base URI: " + baseUri);
+        }
+        
         try {
             createDlcGraph();
             log.info("Created Data Lifecycle Register Graph. This graph will reference all graphs during their lifecycle");
@@ -240,25 +240,25 @@ public class SourcingAdmin {
      * @param digester
      */
     protected void bindDigesters(RdfDigester digester){
-    	
-    	log.info("Binding digester " + digester.getName());
-    	if( ! digesters.containsKey(digester.getName()) ) {
-    		digesters.put(digester.getName(), digester);
-    		log.info("Digester " + digester.getName() + " bound");
-    		
-    	}
-    	else {
-    		log.info("Digester " + digester.getName() + " already bound.");
-    	}
-    	
-    	
+        
+        log.info("Binding digester " + digester.getName());
+        if( ! digesters.containsKey(digester.getName()) ) {
+            digesters.put(digester.getName(), digester);
+            log.info("Digester " + digester.getName() + " bound");
+            
+        }
+        else {
+            log.info("Digester " + digester.getName() + " already bound.");
+        }
+        
+        
     }
     
     protected void unbindDigesters(RdfDigester digester) {
-    	if( digesters.containsKey(digester.getName()) ) {
-    		digesters.remove(digester.getName());
-    		log.info("Digester " + digester.getName() + " unbound.");
-    	}
+        if( digesters.containsKey(digester.getName()) ) {
+            digesters.remove(digester.getName());
+            log.info("Digester " + digester.getName() + " unbound.");
+        }
     }
     
     
@@ -289,17 +289,17 @@ public class SourcingAdmin {
         Lock rl = getDlcGraph().getLock().readLock();
         rl.lock();
         try {
-        	responseGraph.addAll(getDlcGraph());
+            responseGraph.addAll(getDlcGraph());
         }
         finally {
-        	rl.unlock();
+            rl.unlock();
         }
         
         Iterator<String> digestersNames = digesters.keySet().iterator();
         while(digestersNames.hasNext()){
-        	String digesterName = digestersNames.next(); 
-        	responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.service, new UriRef("urn:x-temp:/" + digesterName)));			
-			responseGraph.add(new TripleImpl(new UriRef("urn:x-temp:/" + digesterName), RDFS.label, new PlainLiteralImpl(digesterName)));
+            String digesterName = digestersNames.next(); 
+            responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.service, new UriRef("urn:x-temp:/" + digesterName)));            
+            responseGraph.add(new TripleImpl(new UriRef("urn:x-temp:/" + digesterName), RDFS.label, new PlainLiteralImpl(digesterName)));
         }
         
         //This GraphNode represents the service within our result graph
@@ -307,7 +307,7 @@ public class SourcingAdmin {
         
         // Adds information about base uri configuration
         if( ! isValidBaseUri ){
-        	responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, RDFS.comment, new PlainLiteralImpl(alertMessage)));
+            responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, RDFS.comment, new PlainLiteralImpl(alertMessage)));
         }
         
         //What we return is the GraphNode we created with a template path
@@ -315,26 +315,26 @@ public class SourcingAdmin {
     }
     
     private void setPipeRef(UriRef pipeRef) {
-    	this.pipeRef = pipeRef;
+        this.pipeRef = pipeRef;
     }
     
     private LockableMGraph getSourceGraph() {
-    	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX));
+        return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX));
     }
     private LockableMGraph getEnhanceGraph() {
-    	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX));
+        return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX));
     }
     private LockableMGraph getInterlinkGraph() {
-    	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX));
+        return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX));
     }
     private LockableMGraph getSmushGraph() {
-    	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + SMUSH_GRAPH_URN_SUFFIX));
+        return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + SMUSH_GRAPH_URN_SUFFIX));
     }
     private LockableMGraph getPublishGraph() {
-    	return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + PUBLISH_GRAPH_URN_SUFFIX));
+        return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + PUBLISH_GRAPH_URN_SUFFIX));
     }
     private LockableMGraph getContentGraph() {
-    	return tcManager.getMGraph( CONTENT_GRAPH_REF );
+        return tcManager.getMGraph( CONTENT_GRAPH_REF );
     }
 
     /**
@@ -396,80 +396,80 @@ public class SourcingAdmin {
         boolean graphExists = false;
         
         try {
-        	String timeStamp = String.valueOf(System.currentTimeMillis());
-        	
-        	// create a pipe 
-        	UriRef pipeRef = new UriRef(GRAPH_URN_PREFIX + timeStamp);
-        	getDlcGraph().add(new TripleImpl(pipeRef, RDF.type, Ontology.Pipe));
-        	if(pipeLabel != null & ! "".equals(pipeLabel)) {
-        		getDlcGraph().add(new TripleImpl(pipeRef, RDFS.label, new PlainLiteralImpl(pipeLabel)));
-        	}
-        	getDlcGraph().add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, pipeRef));
-        	
-        	// create tasks
-        	//rdf task
-        	UriRef rdfTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/rdf");
-        	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, rdfTaskRef));
-        	getDlcGraph().add(new TripleImpl(rdfTaskRef, RDF.type, Ontology.RdfTask));
-        	// enhance task
-        	UriRef enhanceTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/enhance");
-        	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, enhanceTaskRef));
-        	getDlcGraph().add(new TripleImpl(enhanceTaskRef, RDF.type, Ontology.EnhanceTask));
-        	// interlink task
-        	UriRef interlinkTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/interlink");
-        	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, interlinkTaskRef));
-        	getDlcGraph().add(new TripleImpl(interlinkTaskRef, RDF.type, Ontology.InterlinkTask));
-        	// smush task
-        	UriRef smushTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/smush");
-        	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, smushTaskRef));
-        	getDlcGraph().add(new TripleImpl(smushTaskRef, RDF.type, Ontology.SmushTask));
-        	// publish task
-        	UriRef publishTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/publish");
-        	getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, publishTaskRef));
-        	getDlcGraph().add(new TripleImpl(smushTaskRef, RDF.type, Ontology.PublishTask));
-        	
-        	// create the source graph for the dataset (result of transformation in RDF)
-        	String sourceGraphName = GRAPH_URN_PREFIX + timeStamp + SOURCE_GRAPH_URN_SUFFIX;
-        	UriRef sourceGraphRef = new UriRef(sourceGraphName);
-        	tcManager.createMGraph(sourceGraphRef);
+            String timeStamp = String.valueOf(System.currentTimeMillis());
+            
+            // create a pipe 
+            UriRef pipeRef = new UriRef(GRAPH_URN_PREFIX + timeStamp);
+            getDlcGraph().add(new TripleImpl(pipeRef, RDF.type, Ontology.Pipe));
+            if(pipeLabel != null & ! "".equals(pipeLabel)) {
+                getDlcGraph().add(new TripleImpl(pipeRef, RDFS.label, new PlainLiteralImpl(pipeLabel)));
+            }
+            getDlcGraph().add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, pipeRef));
+            
+            // create tasks
+            //rdf task
+            UriRef rdfTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/rdf");
+            getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, rdfTaskRef));
+            getDlcGraph().add(new TripleImpl(rdfTaskRef, RDF.type, Ontology.RdfTask));
+            // enhance task
+            UriRef enhanceTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/enhance");
+            getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, enhanceTaskRef));
+            getDlcGraph().add(new TripleImpl(enhanceTaskRef, RDF.type, Ontology.EnhanceTask));
+            // interlink task
+            UriRef interlinkTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/interlink");
+            getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, interlinkTaskRef));
+            getDlcGraph().add(new TripleImpl(interlinkTaskRef, RDF.type, Ontology.InterlinkTask));
+            // smush task
+            UriRef smushTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/smush");
+            getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, smushTaskRef));
+            getDlcGraph().add(new TripleImpl(smushTaskRef, RDF.type, Ontology.SmushTask));
+            // publish task
+            UriRef publishTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/publish");
+            getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, publishTaskRef));
+            getDlcGraph().add(new TripleImpl(smushTaskRef, RDF.type, Ontology.PublishTask));
+            
+            // create the source graph for the dataset (result of transformation in RDF)
+            String sourceGraphName = GRAPH_URN_PREFIX + timeStamp + SOURCE_GRAPH_URN_SUFFIX;
+            UriRef sourceGraphRef = new UriRef(sourceGraphName);
+            tcManager.createMGraph(sourceGraphRef);
             //GraphNode dlcGraphNode = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
             //dlcGraphNode.addProperty(DCTERMS.hasPart, graphRef);
-        	getDlcGraph().add(new TripleImpl(rdfTaskRef, Ontology.deliverable, sourceGraphRef));
+            getDlcGraph().add(new TripleImpl(rdfTaskRef, Ontology.deliverable, sourceGraphRef));
             getDlcGraph().add(new TripleImpl(sourceGraphRef, RDF.type, Ontology.voidDataset));
             
             
             
             // create the graph to store text and enhancements
             String enhancementsGraphName = GRAPH_URN_PREFIX + timeStamp + ENHANCE_GRAPH_URN_SUFFIX;
-        	UriRef enhancementsGraphRef = new UriRef(enhancementsGraphName);
-        	tcManager.createMGraph(enhancementsGraphRef);
-        	getDlcGraph().add(new TripleImpl(enhanceTaskRef, Ontology.deliverable, enhancementsGraphRef));
-        	getDlcGraph().add(new TripleImpl(enhancementsGraphRef, RDFS.label, new PlainLiteralImpl("Contains a sioc:content property with text " +
-        			"for indexing and references to entities found in the text by NLP enhancement engines")));
-        	
-        	// create the graph to store the result of the interlinking task
-        	String interlinkGraphName = GRAPH_URN_PREFIX + timeStamp + INTERLINK_GRAPH_URN_SUFFIX;
-        	UriRef interlinkGraphRef = new UriRef(interlinkGraphName);
-        	tcManager.createMGraph(interlinkGraphRef);
-        	getDlcGraph().add(new TripleImpl(interlinkTaskRef, Ontology.deliverable, interlinkGraphRef));
-        	getDlcGraph().add(new TripleImpl(interlinkGraphRef, RDF.type, Ontology.voidLinkset));
-        	getDlcGraph().add(new TripleImpl(interlinkGraphRef,Ontology.voidSubjectsTarget, sourceGraphRef));
-        	getDlcGraph().add(new TripleImpl(interlinkGraphRef,Ontology.voidLinkPredicate, OWL.sameAs));
-        	getDlcGraph().add(new TripleImpl(interlinkGraphRef, RDFS.label, new PlainLiteralImpl("Contains equivalence links")));
-        	
-        	// create the graph to store the result of the smushing task
-        	String smushGraphName = GRAPH_URN_PREFIX + timeStamp + SMUSH_GRAPH_URN_SUFFIX;
-        	UriRef smushGraphRef = new UriRef(smushGraphName);
-        	tcManager.createMGraph(smushGraphRef);
-        	getDlcGraph().add(new TripleImpl(smushTaskRef, Ontology.deliverable, smushGraphRef));
-        	
-        	// create the graph to store the result of the publishing task
-        	String publishGraphName = GRAPH_URN_PREFIX + timeStamp + PUBLISH_GRAPH_URN_SUFFIX;
-        	UriRef publishGraphRef = new UriRef(publishGraphName);
-        	tcManager.createMGraph(publishGraphRef);
-        	getDlcGraph().add(new TripleImpl(publishTaskRef, Ontology.deliverable, publishGraphRef));
-        	
-        	setPipeRef(pipeRef);
+            UriRef enhancementsGraphRef = new UriRef(enhancementsGraphName);
+            tcManager.createMGraph(enhancementsGraphRef);
+            getDlcGraph().add(new TripleImpl(enhanceTaskRef, Ontology.deliverable, enhancementsGraphRef));
+            getDlcGraph().add(new TripleImpl(enhancementsGraphRef, RDFS.label, new PlainLiteralImpl("Contains a sioc:content property with text " +
+                    "for indexing and references to entities found in the text by NLP enhancement engines")));
+            
+            // create the graph to store the result of the interlinking task
+            String interlinkGraphName = GRAPH_URN_PREFIX + timeStamp + INTERLINK_GRAPH_URN_SUFFIX;
+            UriRef interlinkGraphRef = new UriRef(interlinkGraphName);
+            tcManager.createMGraph(interlinkGraphRef);
+            getDlcGraph().add(new TripleImpl(interlinkTaskRef, Ontology.deliverable, interlinkGraphRef));
+            getDlcGraph().add(new TripleImpl(interlinkGraphRef, RDF.type, Ontology.voidLinkset));
+            getDlcGraph().add(new TripleImpl(interlinkGraphRef,Ontology.voidSubjectsTarget, sourceGraphRef));
+            getDlcGraph().add(new TripleImpl(interlinkGraphRef,Ontology.voidLinkPredicate, OWL.sameAs));
+            getDlcGraph().add(new TripleImpl(interlinkGraphRef, RDFS.label, new PlainLiteralImpl("Contains equivalence links")));
+            
+            // create the graph to store the result of the smushing task
+            String smushGraphName = GRAPH_URN_PREFIX + timeStamp + SMUSH_GRAPH_URN_SUFFIX;
+            UriRef smushGraphRef = new UriRef(smushGraphName);
+            tcManager.createMGraph(smushGraphRef);
+            getDlcGraph().add(new TripleImpl(smushTaskRef, Ontology.deliverable, smushGraphRef));
+            
+            // create the graph to store the result of the publishing task
+            String publishGraphName = GRAPH_URN_PREFIX + timeStamp + PUBLISH_GRAPH_URN_SUFFIX;
+            UriRef publishGraphRef = new UriRef(publishGraphName);
+            tcManager.createMGraph(publishGraphRef);
+            getDlcGraph().add(new TripleImpl(publishTaskRef, Ontology.deliverable, publishGraphRef));
+            
+            setPipeRef(pipeRef);
  
             
         } 
@@ -504,17 +504,17 @@ public class SourcingAdmin {
     }
 
     private String operateOnPipe(UriRef pipeRef, 
-    		int operationCode, 
-    		URL dataUrl, 
-    		String rdfizer,
-    		String rdfdigester,
-    		String mediaType) throws Exception {
+            int operationCode, 
+            URL dataUrl, 
+            String rdfizer,
+            String rdfdigester,
+            String mediaType) throws Exception {
         AccessController.checkPermission(new AllPermission());
         String message = "";
         if (pipeExists(pipeRef)) {
-        	
-        	setPipeRef(pipeRef);
-        	
+            
+            setPipeRef(pipeRef);
+            
             switch (operationCode) {
                 case ADD_TRIPLES_OPERATION:
                     message = addTriples(pipeRef, dataUrl, mediaType);
@@ -526,14 +526,14 @@ public class SourcingAdmin {
                     message = smush(pipeRef);
                     break;            
                 case TEXT_EXTRACTION:
-                	message = extractTextFromRdf(pipeRef, rdfdigester);
-                	break;                
+                    message = extractTextFromRdf(pipeRef, rdfdigester);
+                    break;                
                 case RDFIZE:
-                	message = transformXml(dataUrl, rdfizer);
-                	break;     
+                    message = transformXml(dataUrl, rdfizer);
+                    break;     
                 case PUBLISH_DATA:
-                	message = publishData(pipeRef);
-                	break;
+                    message = publishData(pipeRef);
+                    break;
             }
         } else {
             message = "The pipe does not exist.";
@@ -544,29 +544,29 @@ public class SourcingAdmin {
     }
     
     private String transformXml(URL dataUrl, String rdfizer) {
-    	String message = "";
-    	
-    	if(PUBMED_RDFIZER.equals(rdfizer)){
-    		message = transformPubMedXml(dataUrl);
-    	}
-    	else if (PATENT_RDFIZER.equals(rdfizer)) {
-    		message = transformPatentXml(dataUrl);
-    	}
-    	
-    	return message;
-    	
+        String message = "";
+        
+        if(PUBMED_RDFIZER.equals(rdfizer)){
+            message = transformPubMedXml(dataUrl);
+        }
+        else if (PATENT_RDFIZER.equals(rdfizer)) {
+            message = transformPatentXml(dataUrl);
+        }
+        
+        return message;
+        
     }
     
     private String transformPubMedXml(URL dataUrl) {
-    	String message = "PubMed XML->RDF transformation to be implemented.";
-    	
-    	return message;
+        String message = "PubMed XML->RDF transformation to be implemented.";
+        
+        return message;
     }
     
     private String transformPatentXml(URL dataUrl) {
-    	String message = "Marec Patent XML->RDF transformation to be implemented";
-    	
-    	return message;
+        String message = "Marec Patent XML->RDF transformation to be implemented";
+        
+        return message;
     }
     
     /**
@@ -578,7 +578,7 @@ public class SourcingAdmin {
      * adding entities found by NLP components (in the default chain) as subject
      */
     private String addTriples(UriRef pipeRef, URL dataUrl, String mediaType) throws Exception {
-    	AccessController.checkPermission(new AllPermission());
+        AccessController.checkPermission(new AllPermission());
         String message = "";
         
         // look up the pipe's rdf graph to which add the data
@@ -586,8 +586,8 @@ public class SourcingAdmin {
         
         // add the triples of the temporary graph into the graph selected by the user
         if (isValidUrl(dataUrl)) {
-        	
-        	MGraph updatedGraph = addTriplesCommand(graphRef, dataUrl, mediaType);
+            
+            MGraph updatedGraph = addTriplesCommand(graphRef, dataUrl, mediaType);
 
             message = "Added " + updatedGraph.size() + " triples to " + graphRef.getUnicodeString() + "\n";
 
@@ -597,7 +597,7 @@ public class SourcingAdmin {
        
         log.info(message);
         return message;
-    	
+        
     }
 
     private MGraph addTriplesCommand(UriRef graphRef, URL dataUrl, String mediaType) throws Exception {
@@ -674,10 +674,10 @@ public class SourcingAdmin {
         
         if (graphExists(sourceGraphRef) && getSourceGraph().size() > 0) {            
             
-        	// size of interlink graph before reconciliations
-        	int interlinkGraphInitSize = getInterlinkGraph().size();
-        	
-        	// reconcile the source graph against itself 
+            // size of interlink graph before reconciliations
+            int interlinkGraphInitSize = getInterlinkGraph().size();
+            
+            // reconcile the source graph against itself 
             reconcileCommand(pipeRef, sourceGraphRef, sourceGraphRef, linkSpecId);
             
             // size of interlink graph after reconciliation of source graph against itself 
@@ -698,24 +698,24 @@ public class SourcingAdmin {
             
             // reconcile the source graph against the content graph 
             if(getContentGraph().size() > 0) {
-	            
-            	reconcileCommand(pipeRef, sourceGraphRef, CONTENT_GRAPH_REF, linkSpecId);
-            	
-            	// size of interlink graph after reconciliation of source graph against content graph 
+                
+                reconcileCommand(pipeRef, sourceGraphRef, CONTENT_GRAPH_REF, linkSpecId);
+                
+                // size of interlink graph after reconciliation of source graph against content graph 
                 int interlinkContentGraphSize = getInterlinkGraph().size();
                 
                 // new interlinks with content graph
                 int numContentInterlinks = interlinkContentGraphSize - interlinkSourceGraphSize;      
-	
-	            if (numContentInterlinks > 0) {
-	
-	                message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
-	                        + numContentInterlinks + " owl:sameAs statements have been created.";
-	            } 
-	            else {
-	            	message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
-	                        + ". No equivalent entities have been found.\n";
-	            }
+    
+                if (numContentInterlinks > 0) {
+    
+                    message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
+                            + numContentInterlinks + " owl:sameAs statements have been created.";
+                } 
+                else {
+                    message = "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
+                            + ". No equivalent entities have been found.\n";
+                }
             }
             
         } 
@@ -734,25 +734,25 @@ public class SourcingAdmin {
      * @throws Exception 
      */
     private void reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef, String linkSpecId) throws Exception {
-    	
-    	TripleCollection owlSameAs = null;
-    	
-    	// get the pipe's interlink graph to store the result of the reconciliation task        
-    	UriRef interlinkGraphRef = new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX);
         
-    	if (graphExists(sourceGraphRef)) {
+        TripleCollection owlSameAs = null;
+        
+        // get the pipe's interlink graph to store the result of the reconciliation task        
+        UriRef interlinkGraphRef = new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX);
+        
+        if (graphExists(sourceGraphRef)) {
             
-    		// Get the source graph from the triple store
+            // Get the source graph from the triple store
             LockableMGraph sourceGrah = tcManager.getMGraph(sourceGraphRef);
             // Copy the graph
             MGraph copySourceGraph = new SimpleMGraph();
             Lock rl = sourceGrah.getLock().readLock();
             rl.lock();
             try {
-            	copySourceGraph.addAll(sourceGrah);
+                copySourceGraph.addAll(sourceGrah);
             }
             finally {
-            	rl.unlock();
+                rl.unlock();
             }
             
             
@@ -768,17 +768,17 @@ public class SourcingAdmin {
                 Lock l = sameAsGraph.getLock().readLock();
                 l.lock();
                 try {
-	                Iterator<Triple> isameas = owlSameAs.iterator();
-	                while (isameas.hasNext()) {
-	                    Triple t = isameas.next();
-	                    NonLiteral s = t.getSubject();
-	                    UriRef p = t.getPredicate();
-	                    Resource o = t.getObject();
-	                    log.info(s.toString() + p.getUnicodeString() + o.toString() + " .\n");
-	                }
+                    Iterator<Triple> isameas = owlSameAs.iterator();
+                    while (isameas.hasNext()) {
+                        Triple t = isameas.next();
+                        NonLiteral s = t.getSubject();
+                        UriRef p = t.getPredicate();
+                        Resource o = t.getObject();
+                        log.info(s.toString() + p.getUnicodeString() + o.toString() + " .\n");
+                    }
                 }
                 finally {
-                	l.unlock();
+                    l.unlock();
                 }
                 
                 // add a reference of the equivalence set to the source graph 
@@ -787,7 +787,7 @@ public class SourcingAdmin {
                 getDlcGraph().add(new TripleImpl(interlinkGraphRef, Ontology.voidObjectsTarget, targetGraphRef));
                
             }         
-    	}
+        }
 
     }
 
@@ -808,15 +808,15 @@ public class SourcingAdmin {
         
         if(getInterlinkGraph().size() > 0 & getEnhanceGraph().size() > 0) {
                 
-        	LockableMGraph smushedGraph = smushCommand(enhanceGraphRef, getInterlinkGraph());
+            LockableMGraph smushedGraph = smushCommand(enhanceGraphRef, getInterlinkGraph());
         
-        	message = "Smushing of " + enhanceGraphRef.getUnicodeString()
+            message = "Smushing of " + enhanceGraphRef.getUnicodeString()
                     + " with equivalence set completed. "
                     + "Smushed graph size = " + smushedGraph.size() + "\n";
         }
         else {
-        	message = "No equivalence links available for " + enhanceGraphRef.getUnicodeString() + "\n"
-        			+ "or the enhancement graph is empty.\n"
+            message = "No equivalence links available for " + enhanceGraphRef.getUnicodeString() + "\n"
+                    + "or the enhancement graph is empty.\n"
                     + "The smushing task is applied to the enhancement graph using the equivalence set in the interlinking graph.";
         }
                 
@@ -825,17 +825,17 @@ public class SourcingAdmin {
     
     private LockableMGraph smushCommand(UriRef enhanceGraphRef, LockableMGraph equivalenceSet) {
         
-    	if(getSmushGraph().size() > 0) {
-    		getSmushGraph().clear();
-    	}    	
-    	
-    	Lock erl = getEnhanceGraph().getLock().readLock();
+        if(getSmushGraph().size() > 0) {
+            getSmushGraph().clear();
+        }        
+        
+        Lock erl = getEnhanceGraph().getLock().readLock();
         erl.lock();
         try {
-        	// add triples from enhance graph to smush graph
-        	getSmushGraph().addAll(getEnhanceGraph());
-        	log.info("Copied " + getEnhanceGraph().size() + " triples from the enhancement graph into the smush graph.");
-        	SimpleMGraph tempEquivalenceSet = new SimpleMGraph();
+            // add triples from enhance graph to smush graph
+            getSmushGraph().addAll(getEnhanceGraph());
+            log.info("Copied " + getEnhanceGraph().size() + " triples from the enhancement graph into the smush graph.");
+            SimpleMGraph tempEquivalenceSet = new SimpleMGraph();
             tempEquivalenceSet.addAll(equivalenceSet);
             
             // smush and canonicalize equivalent uris
@@ -845,7 +845,7 @@ public class SourcingAdmin {
             log.info("Smush task completed.");
         }
         finally {
-        	erl.unlock();
+            erl.unlock();
         }
             
         // Remove from smush graph equivalences between temporary uri (urn:x-temp) and http uri that are added by the clerezza smusher.
@@ -853,19 +853,19 @@ public class SourcingAdmin {
         MGraph equivToRemove = new SimpleMGraph();
         Lock srl = getSmushGraph().getLock().readLock();
         srl.lock();
-        try {        	
-        	Iterator<Triple> isameas = getSmushGraph().filter(null, OWL.sameAs, null);
+        try {            
+            Iterator<Triple> isameas = getSmushGraph().filter(null, OWL.sameAs, null);
             while (isameas.hasNext()) {
                 Triple sameas = isameas.next();
                 NonLiteral subject = sameas.getSubject();                
                 Resource object = sameas.getObject();
                 if( subject.toString().startsWith("<" + URN_SCHEME) || object.toString().startsWith("<" + URN_SCHEME)) {
-                	equivToRemove.add(sameas);
+                    equivToRemove.add(sameas);
                 }
             }
         }
         finally {
-          srl.unlock();	
+          srl.unlock();    
         }
         
         getSmushGraph().removeAll(equivToRemove);
@@ -885,31 +885,31 @@ public class SourcingAdmin {
      * @return
      */
     private String extractTextFromRdf(UriRef pipeRef, String selectedDigester){
-    	
-    	String message = "";
-    	UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
-    	MGraph enhanceGraph = tcManager.getMGraph(enhanceGraphRef);
-    	UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
-    	LockableMGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
-    	
-    	SimpleMGraph tempGraph = new SimpleMGraph();
-    	Lock rl = sourceGraph.getLock().readLock();
+        
+        String message = "";
+        UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
+        MGraph enhanceGraph = tcManager.getMGraph(enhanceGraphRef);
+        UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+        LockableMGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
+        
+        SimpleMGraph tempGraph = new SimpleMGraph();
+        Lock rl = sourceGraph.getLock().readLock();
         rl.lock();
         try {
-        	tempGraph.addAll(sourceGraph);
+            tempGraph.addAll(sourceGraph);
         }
         finally {
-        	rl.unlock();
+            rl.unlock();
         }
-    	
-    	enhanceGraph.addAll(tempGraph);
-    	
-    	RdfDigester digester = digesters.get(selectedDigester);
-    	digester.extractText(enhanceGraph);
-		message += "Extracted text from " + enhanceGraphRef.getUnicodeString() + " by " + selectedDigester + " digester";
-    	
-    	
-    	return message;
+        
+        enhanceGraph.addAll(tempGraph);
+        
+        RdfDigester digester = digesters.get(selectedDigester);
+        digester.extractText(enhanceGraph);
+        message += "Extracted text from " + enhanceGraphRef.getUnicodeString() + " by " + selectedDigester + " digester";
+        
+        
+        return message;
     }
     
     
@@ -928,8 +928,8 @@ public class SourcingAdmin {
      * 7) copy triples from smush.graph to publish.graph
      */
     private String publishData(UriRef pipeRef) {
-    	String message = "";
-    	
+        String message = "";
+        
         // add these triples to the content.graph 
         MGraph triplesToAdd = new SimpleMGraph();
         // remove these triples from the content.graph
@@ -942,18 +942,18 @@ public class SourcingAdmin {
         Lock ls = getSmushGraph().getLock().readLock();
         ls.lock();
         try {
-        	
+            
             Iterator<Triple> ismush = getSmushGraph().iterator();            
             while (ismush.hasNext()) {
                 Triple smushTriple = ismush.next();                
                 if( ! getPublishGraph().contains(smushTriple) ) {
-                	triplesToAdd.add(smushTriple);
+                    triplesToAdd.add(smushTriple);
                 }
                 
             }
         }
         finally {
-        	ls.unlock();
+            ls.unlock();
         }
         
         // triples to remove from the content.graph
@@ -964,28 +964,28 @@ public class SourcingAdmin {
             while (ipublish.hasNext()) {
                 Triple publishTriple = ipublish.next();
                 if( ! getSmushGraph().contains(publishTriple) ) {
-                	triplesToRemove.add(publishTriple);
+                    triplesToRemove.add(publishTriple);
                 }
                 
             }
         }
         finally {
-        	lp.unlock();
+            lp.unlock();
         }
         
         if(triplesToRemove.size() > 0) {
-        	getContentGraph().removeAll(triplesToRemove);
-        	log.info("Removed " + triplesToRemove.size() + " triples from " + CONTENT_GRAPH_REF.getUnicodeString());
+            getContentGraph().removeAll(triplesToRemove);
+            log.info("Removed " + triplesToRemove.size() + " triples from " + CONTENT_GRAPH_REF.getUnicodeString());
         }
         else {
-        	log.info("No triples to remove from " + CONTENT_GRAPH_REF.getUnicodeString());
+            log.info("No triples to remove from " + CONTENT_GRAPH_REF.getUnicodeString());
         }
         if(triplesToAdd.size() > 0) {
-        	getContentGraph().addAll(triplesToAdd);
-        	log.info("Added " + triplesToAdd.size() + " triples to " + CONTENT_GRAPH_REF.getUnicodeString());
+            getContentGraph().addAll(triplesToAdd);
+            log.info("Added " + triplesToAdd.size() + " triples to " + CONTENT_GRAPH_REF.getUnicodeString());
         }
         else {
-        	log.info("No triples to add to " + CONTENT_GRAPH_REF.getUnicodeString());
+            log.info("No triples to add to " + CONTENT_GRAPH_REF.getUnicodeString());
         }
         
         getPublishGraph().clear();
@@ -993,15 +993,15 @@ public class SourcingAdmin {
         Lock rl = getSmushGraph().getLock().readLock();
         rl.lock();
         try {
-        	getPublishGraph().addAll( getSmushGraph() );
+            getPublishGraph().addAll( getSmushGraph() );
         }
         finally {
-        	rl.unlock();
+            rl.unlock();
         }
-    	
-    	message = "Copied " + triplesToAdd.size() + " triples from " + pipeRef.getUnicodeString() + " to content-graph";
-    	
-    	return message;
+        
+        message = "Copied " + triplesToAdd.size() + " triples from " + pipeRef.getUnicodeString() + " to content-graph";
+        
+        return message;
     }
     
     /**
@@ -1011,17 +1011,17 @@ public class SourcingAdmin {
      * resource (subject and object) that has been changed.
      */
     private void canonicalizeResources(LockableMGraph graph) {
-    	
-    	MGraph graphCopy = new SimpleMGraph();
-    	// graph containing the same triple with the http URI for each subject and object
-    	MGraph canonicGraph = new SimpleMGraph();
-    	Lock rl = graph.getLock().readLock();
+        
+        MGraph graphCopy = new SimpleMGraph();
+        // graph containing the same triple with the http URI for each subject and object
+        MGraph canonicGraph = new SimpleMGraph();
+        Lock rl = graph.getLock().readLock();
         rl.lock();
         try {
-        	graphCopy.addAll(graph);
+            graphCopy.addAll(graph);
         }
         finally {
-        	rl.unlock();
+            rl.unlock();
         }
         
         Iterator<Triple> ismushTriples = graphCopy.iterator();  
@@ -1031,10 +1031,10 @@ public class SourcingAdmin {
             Resource object = triple.getObject();
             // generate an http URI for both subject and object and add an equivalence link into the interlinking graph
             if( subject.getUnicodeString().startsWith(URN_SCHEME) ) {
-            	subject = generateNewHttpUri(Collections.singleton(subject));
+                subject = generateNewHttpUri(Collections.singleton(subject));
             }
             if( object.toString().startsWith("<" + URN_SCHEME) ) {
-            	object = generateNewHttpUri(Collections.singleton((UriRef)object));
+                object = generateNewHttpUri(Collections.singleton((UriRef)object));
             }            
             
             // add the triple with the http uris to the canonic graph
@@ -1044,15 +1044,15 @@ public class SourcingAdmin {
         Lock wl = graph.getLock().writeLock();
         wl.lock();
         try {
-        	graph.clear();
+            graph.clear();
             graph.addAll(canonicGraph);
         }
         finally {
-        	wl.unlock();
+            wl.unlock();
         }
         
         
-    	
+        
     }
     
     /**
@@ -1060,13 +1060,13 @@ public class SourcingAdmin {
      * A valid URL must start with file:/// or http://
      */
     private boolean isValidUrl(URL url) {
-    	boolean isValidUrl = false;
-    	if(url != null) {
-	    	if( url.toString().startsWith("http://") || url.toString().startsWith("file:/")) {
-	    		isValidUrl = true;
-	    	}
-    	}
-    	
+        boolean isValidUrl = false;
+        if(url != null) {
+            if( url.toString().startsWith("http://") || url.toString().startsWith("file:/")) {
+                isValidUrl = true;
+            }
+        }
+        
         return isValidUrl;
     }
 
@@ -1123,17 +1123,17 @@ public class SourcingAdmin {
      * Checks whether a pipe exists
      */
     private boolean pipeExists(UriRef pipeRef) {
-    	boolean result = false;
-    	
-    	if (pipeRef != null) {
-	    	GraphNode pipeNode = new GraphNode(pipeRef, getDlcGraph());
-	    	if(pipeNode != null) {
-	    		result = true;
-	    	}
-    	}
-    	
-    	return result;
-    	
+        boolean result = false;
+        
+        if (pipeRef != null) {
+            GraphNode pipeNode = new GraphNode(pipeRef, getDlcGraph());
+            if(pipeNode != null) {
+                result = true;
+            }
+        }
+        
+        return result;
+        
     }
 
     /**
