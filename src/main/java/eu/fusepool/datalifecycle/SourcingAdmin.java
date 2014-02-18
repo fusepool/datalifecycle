@@ -350,8 +350,14 @@ public class SourcingAdmin {
     }
 
     /**
-     * Creates a new empty graph
-     *
+     * Creates a new pipe with tasks and product graphs and adds its uri and a label to the data life cycle graph. 
+     * A graph will contain the RDF data uploaded or sent by a transformation task 
+     * that have to be processed (text extraction, NLP processing, reconciliation, smushing).
+     * The following graphs are created to store the results of the processing tasks
+     * enhance.graph
+     * interlink.graph
+     * smush.graph
+     * These graphs will be empty at the beginning. 
      * @param uriInfo
      * @param graphName
      * @return
@@ -362,86 +368,98 @@ public class SourcingAdmin {
     @Produces("text/plain")
     public Response createPipeRequest(@Context final UriInfo uriInfo,            
             @FormParam("pipe_label") final String pipeLabel) throws Exception {
-        AccessController.checkPermission(new AllPermission());
-        //some simplicistic (and too restrictive) validation
-        /*
-        try {
-            new URI(graphName);
-        } catch (URISyntaxException e) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Graphname is not a valid URI: " + e.getReason()).build();
-        }
-        if (!graphName.contains(":")) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Graphname is not a valid URI: No colon separating scheme").build();
-        }
-        */
-        
-        // Set up the pipe's graphs
         
         AccessController.checkPermission(new AllPermission());
         
-        if (createPipe(pipeLabel)) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("Cannot create graph" + pipeLabel).build();
-        } else {
+        // use dataset label as name after validation
+        String datasetName = getValidDatasetName(pipeLabel); 
+        
+        if (datasetName != null && initializePipe(datasetName)) {
             return RedirectUtil.createSeeOtherResponse("./", uriInfo);
-
+        } 
+        else {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Cannot create graph " + pipeLabel).build();
         }
 
     }
-
+    
     /**
-     * Creates a new pipe with tasks and product graphs and adds its uri and a label to the data life cycle graph. 
-     * A graph will contain the RDF data uploaded or sent by a transformation task 
-     * that have to be processed (text extraction, NLP processing, reconciliation, smushing).
-     * The following graphs are created to store the results of the processing tasks
-     * enhance.graph
-     * interlink.graph
-     * smush.graph
-     * These graphs will be empty at the beginning. 
-     * 
-     *
-     * @return
+     * Check whether a label can be used as a dataset name. To be a valid name a label must be: 
+     * 1) not null and at least one character long
+     * 2) without white spaces 
+     * 3) unique (no two dataset can have the same name) 
+     * @return String
      */
-    private boolean createPipe(String pipeLabel) {
-        boolean graphExists = false;
+    private String getValidDatasetName(String label) {
+        String newDatasetName = null;
+        //check validity 
+        if(label == null || "".equals(label)){
+            return null;
+        }
+        
+        // replace white space if present
+        newDatasetName = label.replace(' ', '-');
+        
+        //check uniqueness of name
+        Lock rl = getDlcGraph().getLock().readLock();
+        rl.lock();
+        try {
+          Iterator<Triple> idatasets = getDlcGraph().filter(null, RDF.type, Ontology.Pipe);          
+          while(idatasets.hasNext()) {
+              GraphNode datasetNode = new GraphNode((UriRef)idatasets.next().getSubject(), getDlcGraph());
+              String datasetName = datasetNode.getLiterals(RDFS.label).next().getLexicalForm();
+              if(newDatasetName.equals(datasetName)) {
+                  return null;
+              }
+          }
+        }
+        finally {
+            rl.unlock();
+        }
+        
+        return newDatasetName;
+    }
+        
+    /**
+     * Initialize the dataset creating the graphs for each task in the pipe line
+     */
+    private boolean initializePipe(String datasetName) {
+        
+        boolean result = false;
         
         try {
-            String timeStamp = String.valueOf(System.currentTimeMillis());
-            
             // create a pipe 
-            UriRef pipeRef = new UriRef(GRAPH_URN_PREFIX + timeStamp);
+            UriRef pipeRef = new UriRef(GRAPH_URN_PREFIX + datasetName);
             getDlcGraph().add(new TripleImpl(pipeRef, RDF.type, Ontology.Pipe));
-            if(pipeLabel != null & ! "".equals(pipeLabel)) {
-                getDlcGraph().add(new TripleImpl(pipeRef, RDFS.label, new PlainLiteralImpl(pipeLabel)));
+            if(datasetName != null & ! "".equals(datasetName)) {
+                getDlcGraph().add(new TripleImpl(pipeRef, RDFS.label, new PlainLiteralImpl(datasetName)));
             }
             getDlcGraph().add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, pipeRef));
             
             // create tasks
             //rdf task
-            UriRef rdfTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/rdf");
+            UriRef rdfTaskRef = new UriRef(GRAPH_URN_PREFIX + datasetName + "/rdf");
             getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, rdfTaskRef));
             getDlcGraph().add(new TripleImpl(rdfTaskRef, RDF.type, Ontology.RdfTask));
             // enhance task
-            UriRef enhanceTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/enhance");
+            UriRef enhanceTaskRef = new UriRef(GRAPH_URN_PREFIX + datasetName + "/enhance");
             getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, enhanceTaskRef));
             getDlcGraph().add(new TripleImpl(enhanceTaskRef, RDF.type, Ontology.EnhanceTask));
             // interlink task
-            UriRef interlinkTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/interlink");
+            UriRef interlinkTaskRef = new UriRef(GRAPH_URN_PREFIX + datasetName + "/interlink");
             getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, interlinkTaskRef));
             getDlcGraph().add(new TripleImpl(interlinkTaskRef, RDF.type, Ontology.InterlinkTask));
             // smush task
-            UriRef smushTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/smush");
+            UriRef smushTaskRef = new UriRef(GRAPH_URN_PREFIX + datasetName + "/smush");
             getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, smushTaskRef));
             getDlcGraph().add(new TripleImpl(smushTaskRef, RDF.type, Ontology.SmushTask));
             // publish task
-            UriRef publishTaskRef = new UriRef(GRAPH_URN_PREFIX + timeStamp + "/publish");
+            UriRef publishTaskRef = new UriRef(GRAPH_URN_PREFIX + datasetName + "/publish");
             getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, publishTaskRef));
             getDlcGraph().add(new TripleImpl(smushTaskRef, RDF.type, Ontology.PublishTask));
             
             // create the source graph for the dataset (result of transformation in RDF)
-            String sourceGraphName = GRAPH_URN_PREFIX + timeStamp + SOURCE_GRAPH_URN_SUFFIX;
+            String sourceGraphName = GRAPH_URN_PREFIX + datasetName + SOURCE_GRAPH_URN_SUFFIX;
             UriRef sourceGraphRef = new UriRef(sourceGraphName);
             tcManager.createMGraph(sourceGraphRef);
             //GraphNode dlcGraphNode = new GraphNode(DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
@@ -452,7 +470,7 @@ public class SourcingAdmin {
             
             
             // create the graph to store text and enhancements
-            String enhancementsGraphName = GRAPH_URN_PREFIX + timeStamp + ENHANCE_GRAPH_URN_SUFFIX;
+            String enhancementsGraphName = GRAPH_URN_PREFIX + datasetName + ENHANCE_GRAPH_URN_SUFFIX;
             UriRef enhancementsGraphRef = new UriRef(enhancementsGraphName);
             tcManager.createMGraph(enhancementsGraphRef);
             getDlcGraph().add(new TripleImpl(enhanceTaskRef, Ontology.deliverable, enhancementsGraphRef));
@@ -460,7 +478,7 @@ public class SourcingAdmin {
                     "for indexing and references to entities found in the text by NLP enhancement engines")));
             
             // create the graph to store the result of the interlinking task
-            String interlinkGraphName = GRAPH_URN_PREFIX + timeStamp + INTERLINK_GRAPH_URN_SUFFIX;
+            String interlinkGraphName = GRAPH_URN_PREFIX + datasetName + INTERLINK_GRAPH_URN_SUFFIX;
             UriRef interlinkGraphRef = new UriRef(interlinkGraphName);
             tcManager.createMGraph(interlinkGraphRef);
             getDlcGraph().add(new TripleImpl(interlinkTaskRef, Ontology.deliverable, interlinkGraphRef));
@@ -470,27 +488,32 @@ public class SourcingAdmin {
             getDlcGraph().add(new TripleImpl(interlinkGraphRef, RDFS.label, new PlainLiteralImpl("Contains equivalence links")));
             
             // create the graph to store the result of the smushing task
-            String smushGraphName = GRAPH_URN_PREFIX + timeStamp + SMUSH_GRAPH_URN_SUFFIX;
+            String smushGraphName = GRAPH_URN_PREFIX + datasetName + SMUSH_GRAPH_URN_SUFFIX;
             UriRef smushGraphRef = new UriRef(smushGraphName);
             tcManager.createMGraph(smushGraphRef);
             getDlcGraph().add(new TripleImpl(smushTaskRef, Ontology.deliverable, smushGraphRef));
             
             // create the graph to store the result of the publishing task
-            String publishGraphName = GRAPH_URN_PREFIX + timeStamp + PUBLISH_GRAPH_URN_SUFFIX;
+            String publishGraphName = GRAPH_URN_PREFIX + datasetName + PUBLISH_GRAPH_URN_SUFFIX;
             UriRef publishGraphRef = new UriRef(publishGraphName);
             tcManager.createMGraph(publishGraphRef);
             getDlcGraph().add(new TripleImpl(publishTaskRef, Ontology.deliverable, publishGraphRef));
             
             setPipeRef(pipeRef);
+            
+            result = true;
  
             
         } 
         catch (UnsupportedOperationException uoe) {
             log.error("Error while creating a graph");
         }
-
-        return graphExists;
+        
+        return result;
+        
     }
+    
+    
 
     /**
      * Applies one of the following operations to a graph: - add triples
@@ -554,7 +577,12 @@ public class SourcingAdmin {
         return message;
 
     }
-    
+    /**
+     * Transforms Patent or PubMed XML data into RDF
+     * @param dataUrl
+     * @param rdfizer
+     * @return
+     */
     private String transformXml(URL dataUrl, String rdfizer) {
         String message = "";
         
