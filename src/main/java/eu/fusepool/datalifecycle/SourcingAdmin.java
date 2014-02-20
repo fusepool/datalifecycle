@@ -107,7 +107,7 @@ public class SourcingAdmin {
     
     // Base URI property attributes. This property is used to canonicalize URIs of type urn:x-temp.
     // The value of the property is updated at service activation from the service configuration panel.
-    public static final String BASE_URI_DESCRIPTION = "Base URI to be used when publishing data.";
+    public static final String BASE_URI_DESCRIPTION = "Base http URI to be used when publishing data ( e.g. http://mydomain.com )";
     public static final String BASE_URI_LABEL= "Base URI";
     public static final String DEFAULT_BASE_URI = "http://localhost:8080"; 
     @Property(label=BASE_URI_LABEL, value=DEFAULT_BASE_URI, description=BASE_URI_DESCRIPTION)
