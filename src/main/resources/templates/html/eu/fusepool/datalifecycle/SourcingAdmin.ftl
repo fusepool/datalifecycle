@@ -60,7 +60,7 @@
         <ul>
         <li><input type="radio" name="operation_code" value="2">Upload RDF data<br></li>
         <li>
-        	<input type="radio" name="operation_code" value="1">Transform. Select rdfizer
+        	<input type="radio" name="operation_code" value="1">Upload XML data. Transform to RDF using 
         	<select name="rdfizer">
         		<@ldpath path="wf:rdfizeService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
