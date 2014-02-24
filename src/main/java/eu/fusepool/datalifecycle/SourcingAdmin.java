@@ -15,6 +15,8 @@
 */
 package eu.fusepool.datalifecycle;
 
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
@@ -146,7 +148,13 @@ public class SourcingAdmin {
     @Reference(cardinality=ReferenceCardinality.OPTIONAL_MULTIPLE,
             policy = ReferencePolicy.DYNAMIC,
             referenceInterface=eu.fusepool.datalifecycle.RdfDigester.class)
-    private final Map<String,RdfDigester> digesters = new HashMap<String,RdfDigester>();;
+    private final Map<String,RdfDigester> digesters = new HashMap<String,RdfDigester>();
+    
+ // Stores bindings to different implementations of Rdfizer
+    @Reference(cardinality=ReferenceCardinality.OPTIONAL_MULTIPLE,
+            policy = ReferencePolicy.DYNAMIC,
+            referenceInterface=eu.fusepool.datalifecycle.Rdfizer.class)
+    private final Map<String,Rdfizer> rdfizers = new HashMap<String,Rdfizer>();
     
     
     /**
@@ -174,10 +182,6 @@ public class SourcingAdmin {
     private final int SMUSH_GRAPH_OPERATION = 5;
     private final int PUBLISH_DATA = 6;
     
-    
-    // RDFizer
-    private final String PUBMED_RDFIZER = "pubmed";
-    private final String PATENT_RDFIZER = "patent";
     
     /**
      * For each rdf triple collection uploaded 5 graphs are created.
@@ -248,7 +252,7 @@ public class SourcingAdmin {
     }
     
     /**
-     * Bind digester used by this component
+     * Bind digesters used by this component. Adds a digester to an hashmap 
      * @param digester
      */
     protected void bindDigesters(RdfDigester digester){
@@ -265,7 +269,10 @@ public class SourcingAdmin {
         
         
     }
-    
+    /**
+     * Unbind digesters used by this component. Removes a digester from the hash map.
+     * @param digester
+     */
     protected void unbindDigesters(RdfDigester digester) {
         if( digesters.containsKey(digester.getName()) ) {
             digesters.remove(digester.getName());
@@ -273,6 +280,30 @@ public class SourcingAdmin {
         }
     }
     
+    /**
+     * Bind rdfizers used by this component
+     */
+    protected void bindRdfizers(Rdfizer rdfizer) {
+        log.info("Binding rdfizer " + rdfizer.getName());
+        if( ! rdfizers.containsKey(rdfizer.getName()) ) {
+            rdfizers.put(rdfizer.getName(), rdfizer);
+            log.info("Rdfizer " + rdfizer.getName() + " bound");
+            
+        }
+        else {
+            log.info("Rdfizer " + rdfizer.getName() + " already bound.");
+        }
+        
+    }
+    
+    protected void unbindRdfizers(Rdfizer rdfizer) {
+        
+        if( rdfizers.containsKey(rdfizer.getName()) ) {
+            rdfizers.remove(rdfizer.getName());
+            log.info("Rdfizer " + rdfizer.getName() + " unbound.");
+        }
+        
+    }
     
 
     /**
@@ -307,11 +338,20 @@ public class SourcingAdmin {
             rl.unlock();
         }
         
+        // add available digesters 
         Iterator<String> digestersNames = digesters.keySet().iterator();
         while(digestersNames.hasNext()){
             String digesterName = digestersNames.next(); 
-            responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.service, new UriRef("urn:x-temp:/" + digesterName)));            
+            responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.enhanceService, new UriRef("urn:x-temp:/" + digesterName)));            
             responseGraph.add(new TripleImpl(new UriRef("urn:x-temp:/" + digesterName), RDFS.label, new PlainLiteralImpl(digesterName)));
+        }
+        
+        // add available rdfizers 
+        Iterator<String> rdfizersNames = rdfizers.keySet().iterator();
+        while(rdfizersNames.hasNext()){
+            String rdfizerName = rdfizersNames.next(); 
+            responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.rdfizeService, new UriRef("urn:x-temp:/" + rdfizerName)));            
+            responseGraph.add(new TripleImpl(new UriRef("urn:x-temp:/" + rdfizerName), RDFS.label, new PlainLiteralImpl(rdfizerName)));
         }
         
         //This GraphNode represents the service within our result graph
@@ -357,6 +397,7 @@ public class SourcingAdmin {
      * enhance.graph
      * interlink.graph
      * smush.graph
+     * publish.graph
      * These graphs will be empty at the beginning. 
      * @param uriInfo
      * @param graphName
@@ -578,36 +619,65 @@ public class SourcingAdmin {
 
     }
     /**
-     * Transforms Patent or PubMed XML data into RDF
+     * Transforms Patent or PubMed XML data into RDF. 
      * @param dataUrl
      * @param rdfizer
      * @return
      */
-    private String transformXml(URL dataUrl, String rdfizer) {
+    private String transformXml(URL dataUrl, String selectedRdfizer) throws IOException {
+        AccessController.checkPermission(new AllPermission());
         String message = "";
         
-        if(PUBMED_RDFIZER.equals(rdfizer)){
-            message = transformPubMedXml(dataUrl);
+        // create a graph to store the data after the document transformation        
+        MGraph documentGraph = null;
+        
+        InputStream xmldata = null;
+        
+        if (isValidUrl(dataUrl)) {
+        
+            try {
+                URLConnection connection = dataUrl.openConnection();
+                connection.addRequestProperty("Accept", "application/xml; q=1");
+                xmldata = connection.getInputStream();
+            } catch(FileNotFoundException ex) {
+                message += "The file " + dataUrl.toString() + " has not been found.\n";
+               log.error(message);  
+            }
         }
-        else if (PATENT_RDFIZER.equals(rdfizer)) {
-            message = transformPatentXml(dataUrl);
+        else {
+               message += "The URL " + dataUrl.toString() + " is not a valid one.\n";
         }
+            
+        
+        int numberOfTriples = 0;
+        
+        if (xmldata != null) {
+            
+            Rdfizer rdfizer = rdfizers.get(selectedRdfizer);
+            documentGraph = rdfizer.transform(xmldata);
+            numberOfTriples = documentGraph.size();
+           
+        }
+        
+        if(documentGraph != null && documentGraph.size() > 0) {
+            // add the triples of the document graph to the source graph of the selected dataset
+            Lock wl = getSourceGraph().getLock().writeLock();            
+            wl.lock();
+            try {
+                getSourceGraph().addAll(documentGraph);
+            }
+            finally {
+                wl.unlock();
+            }
+            
+            message += numberOfTriples + " triples have been added to " + pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX + "\n";
+        }
+        
         
         return message;
         
     }
     
-    private String transformPubMedXml(URL dataUrl) {
-        String message = "PubMed XML->RDF transformation to be implemented.";
-        
-        return message;
-    }
-    
-    private String transformPatentXml(URL dataUrl) {
-        String message = "Marec Patent XML->RDF transformation to be implemented";
-        
-        return message;
-    }
     
     /**
      * Load RDF data into an existing graph from a URL (schemes: "file://" or "http://"). 
@@ -1124,8 +1194,11 @@ public class SourcingAdmin {
             contentType = "text/turtle";
         } else if (url.getFile().endsWith("nt")) {
             contentType = "text/turtle";
-        } else {
+        } else if (url.getFile().endsWith("rdf")){
             contentType = "application/rdf+xml";
+        }
+        else if(url.getFile().endsWith("xml")) {
+            contentType = "application/xml";
         }
         return contentType;
     }
