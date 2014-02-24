@@ -59,24 +59,24 @@
         <h2>Upload data</h2>
         <ul>
         <li><input type="radio" name="operation_code" value="2">Upload RDF data<br></li>
+        <li>
+        	<input type="radio" name="operation_code" value="1">Transform. Select rdfizer
+        	<select name="rdfizer">
+        		<@ldpath path="wf:rdfizeService">
+                  <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
+                </@ldpath>
+        	</select>
+        	
+        </li>
         URL: <input type="text" name="data_url" value="" size="60">
         </ul>
         
         <h2>Select a task</h2>
         <ol>
-        <li>
-        	<input type="radio" name="operation_code" value="1">Transform. Select rdfizer
-        	<select name="rdfizer">
-        		<option value="patent">MAREC patent</option>
-        		<option value="pubmed">PubMed article</option>
-        	</select>
-        	
-        </li>
-        
          <li>
         	<input type="radio" name="operation_code" value="3">Enhance. Select digester
         	<select name="rdfdigester">
-        		<@ldpath path="wf:service">
+        		<@ldpath path="wf:enhanceService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
                 </@ldpath>
         	</select>
