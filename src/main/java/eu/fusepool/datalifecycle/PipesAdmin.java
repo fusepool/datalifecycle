@@ -131,6 +131,52 @@ public class PipesAdmin {
     }
     
     /**
+     * Removes the published triples from the content graph. More precisely the same triples stored in the publish.graph of a dataset
+     * will be removed from the content graph. Then all the triples in publish.graph are deleted so that data could be published again
+     * starting from smush.graph
+     */
+    @POST
+    @Path("unpublish_dataset")
+    @Produces("text/plain")
+    public String unpublishDataset(@Context final UriInfo uriInfo,  
+                       @FormParam("pipe") final String pipeName) {
+        String message = "";
+        LockableMGraph publishGraph = tcManager.getMGraph(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
+        int numberOfTriples = publishGraph.size(); 
+        if(numberOfTriples > 0) {
+        
+            // remove published triples from content graph
+            LockableMGraph contentGraph = tcManager.getMGraph(new UriRef(SourcingAdmin.CONTENT_GRAPH_NAME));
+            Lock cwl = contentGraph.getLock().writeLock();
+            cwl.lock();
+            try {
+              contentGraph.removeAll(publishGraph);
+            }
+            finally {
+                cwl.unlock();
+            }     
+            
+            // removes all the triples in publish.graph
+            Lock pwl = publishGraph.getLock().writeLock();
+            pwl.lock();
+            try {
+                publishGraph.clear();
+              
+            }
+            finally {
+                pwl.unlock();
+            } 
+            
+            message += "All " + numberOfTriples + " triples have been removed from the content graph.";
+        }
+        else {
+            message += "There are no triples in " + pipeName;
+        }
+        
+        return message;
+    }
+    
+    /**
      * Deletes all the graphs created with the pipe: rdf.graph, enhance.graph, interlink.graph, smush.graph, publish.graph.
      * Removes from the DLC meta graph all the pipe metadata.
      * @param uriInfo
