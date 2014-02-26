@@ -83,7 +83,14 @@
         	<br>
         </li>
         
-        <li><input type="radio" name="operation_code" value="4">Reconcile<br></li>
+        <li><input type="radio" name="operation_code" value="4">Reconcile. Select interlinker
+        	<select name="interlinker">
+        		<@ldpath path="wf:interlinkService">
+                  <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
+                </@ldpath>
+        	</select>
+        	<br>
+        </li>
         <li><input type="radio" name="operation_code" value="5">Smush<br></li>
         <li><input type="radio" name="operation_code" value="6">Publish<br></li>
         </ol>
