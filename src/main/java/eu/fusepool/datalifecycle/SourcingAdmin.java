@@ -114,7 +114,7 @@ public class SourcingAdmin {
     public static final String DEFAULT_BASE_URI = "http://localhost:8080"; 
     @Property(label=BASE_URI_LABEL, value=DEFAULT_BASE_URI, description=BASE_URI_DESCRIPTION)
     public static final String BASE_URI = "baseUri";
-    
+ 
     // base uri updated at service activation from the service property in the osgi console
     private String baseUri;
     
@@ -140,9 +140,6 @@ public class SourcingAdmin {
      */
     @Reference
     private TcManager tcManager;
-
-    @Reference
-    private Interlinker interlinker;
     
     // Stores bindings to different implementations of RdfDigester
     @Reference(cardinality=ReferenceCardinality.OPTIONAL_MULTIPLE,
@@ -150,11 +147,18 @@ public class SourcingAdmin {
             referenceInterface=eu.fusepool.datalifecycle.RdfDigester.class)
     private final Map<String,RdfDigester> digesters = new HashMap<String,RdfDigester>();
     
- // Stores bindings to different implementations of Rdfizer
+    // Stores bindings to different implementations of Rdfizer
     @Reference(cardinality=ReferenceCardinality.OPTIONAL_MULTIPLE,
             policy = ReferencePolicy.DYNAMIC,
             referenceInterface=eu.fusepool.datalifecycle.Rdfizer.class)
     private final Map<String,Rdfizer> rdfizers = new HashMap<String,Rdfizer>();
+    
+    // Stores bindings to different instances of Interlinker
+    @Reference(cardinality=ReferenceCardinality.OPTIONAL_MULTIPLE,
+            policy = ReferencePolicy.DYNAMIC,
+            referenceInterface=eu.fusepool.datalifecycle.Interlinker.class)
+    private final Map<String,Interlinker> interlinkers = new HashMap<String,Interlinker>();
+    
     
     
     /**
@@ -281,6 +285,34 @@ public class SourcingAdmin {
     }
     
     /**
+     * Bind interlinkers used by this component
+     */
+    protected void bindInterlinkers(Interlinker interlinker) {
+        log.info("Binding interlinker " + interlinker.getName());
+        if( ! interlinkers.containsKey(interlinker.getName()) ) {
+            interlinkers.put(interlinker.getName(), interlinker);
+            log.info("Interlinker " + interlinker.getName() + " bound");
+            
+        }
+        else {
+            log.info("Interlinker " + interlinker.getName() + " already bound.");
+        }
+        
+    }
+    
+    /**
+     * Unbind interlinkers
+     */
+    protected void unbindInterlinkers(Interlinker interlinker) {
+        
+        if( interlinkers.containsKey(interlinker.getName()) ) {
+            interlinkers.remove(interlinker.getName());
+            log.info("Interlinker " + interlinker.getName() + " unbound.");
+        }
+        
+    }
+    
+    /**
      * Bind rdfizers used by this component
      */
     protected void bindRdfizers(Rdfizer rdfizer) {
@@ -296,6 +328,9 @@ public class SourcingAdmin {
         
     }
     
+    /**
+     * Unbind rdfizers
+     */
     protected void unbindRdfizers(Rdfizer rdfizer) {
         
         if( rdfizers.containsKey(rdfizer.getName()) ) {
@@ -352,6 +387,14 @@ public class SourcingAdmin {
             String rdfizerName = rdfizersNames.next(); 
             responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.rdfizeService, new UriRef("urn:x-temp:/" + rdfizerName)));            
             responseGraph.add(new TripleImpl(new UriRef("urn:x-temp:/" + rdfizerName), RDFS.label, new PlainLiteralImpl(rdfizerName)));
+        }
+        
+        // add available interlinkers 
+        Iterator<String> interlinkersNames = interlinkers.keySet().iterator();
+        while(interlinkersNames.hasNext()){
+            String interlinkerName = interlinkersNames.next(); 
+            responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.interlinkingService, new UriRef("urn:x-temp:/" + interlinkerName)));            
+            responseGraph.add(new TripleImpl(new UriRef("urn:x-temp:/" + interlinkerName), RDFS.label, new PlainLiteralImpl(interlinkerName)));
         }
         
         //This GraphNode represents the service within our result graph
@@ -571,11 +614,12 @@ public class SourcingAdmin {
             @FormParam("data_url") final URL dataUrl,
             @FormParam("rdfizer") final String rdfizer,
             @FormParam("rdfdigester") final String rdfdigester,
+            @FormParam("interlinker") final String interlinker,
             @HeaderParam("Content-Type") String mediaType) throws Exception {
         AccessController.checkPermission(new AllPermission());
 
         // validate arguments and handle all the connection exceptions
-        return operateOnPipe(pipeRef, operationCode, dataUrl, rdfizer, rdfdigester, mediaType);
+        return operateOnPipe(pipeRef, operationCode, dataUrl, rdfizer, rdfdigester, interlinker, mediaType);
 
     }
 
@@ -584,6 +628,7 @@ public class SourcingAdmin {
             URL dataUrl, 
             String rdfizer,
             String rdfdigester,
+            String interlinker,
             String mediaType) throws Exception {
         AccessController.checkPermission(new AllPermission());
         String message = "";
@@ -596,7 +641,7 @@ public class SourcingAdmin {
                     message = addTriples(pipeRef, dataUrl, mediaType);
                     break;                       
                 case RECONCILE_GRAPH_OPERATION:
-                    message = reconcile(pipeRef);
+                    message = reconcile(pipeRef, interlinker);
                     break;
                 case SMUSH_GRAPH_OPERATION:
                     message = smush(pipeRef);
@@ -776,11 +821,8 @@ public class SourcingAdmin {
      * @return String 
      * @throws Exception 
      */
-    private String reconcile(UriRef pipeRef) throws Exception {
+    private String reconcile(UriRef pipeRef, String selectedInterlinker) throws Exception {
         String message = "";
-        
-        // Identifier of the link rules within the Silk config file
-        String linkSpecId = "agents";
         
         UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
         
@@ -790,7 +832,7 @@ public class SourcingAdmin {
             int interlinkGraphInitSize = getInterlinkGraph().size();
             
             // reconcile the source graph against itself 
-            reconcileCommand(pipeRef, sourceGraphRef, sourceGraphRef, linkSpecId);
+            reconcileCommand(pipeRef, sourceGraphRef, sourceGraphRef, selectedInterlinker);
             
             // size of interlink graph after reconciliation of source graph against itself 
             int interlinkSourceGraphSize = getInterlinkGraph().size();
@@ -811,7 +853,7 @@ public class SourcingAdmin {
             // reconcile the source graph against the content graph 
             if(getContentGraph().size() > 0) {
                 
-                reconcileCommand(pipeRef, sourceGraphRef, CONTENT_GRAPH_REF, linkSpecId);
+                reconcileCommand(pipeRef, sourceGraphRef, CONTENT_GRAPH_REF, selectedInterlinker);
                 
                 // size of interlink graph after reconciliation of source graph against content graph 
                 int interlinkContentGraphSize = getInterlinkGraph().size();
@@ -845,7 +887,7 @@ public class SourcingAdmin {
      * stored in the interlink graph of the pipe. The graph used as source is the source rdf graph. 
      * @throws Exception 
      */
-    private void reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef, String linkSpecId) throws Exception {
+    private void reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef, String selectedInterlinker) throws Exception {
         
         TripleCollection owlSameAs = null;
         
@@ -869,7 +911,7 @@ public class SourcingAdmin {
             
             
             // reconcile the source graph with the target graph 
-            owlSameAs =  interlinker.interlink(copySourceGraph, targetGraphRef, linkSpecId);
+            owlSameAs =  interlinkers.get(selectedInterlinker).interlink(copySourceGraph, targetGraphRef);
 
             if (owlSameAs.size() > 0) {
 
