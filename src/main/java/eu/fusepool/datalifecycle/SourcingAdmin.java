@@ -393,7 +393,7 @@ public class SourcingAdmin {
         Iterator<String> interlinkersNames = interlinkers.keySet().iterator();
         while(interlinkersNames.hasNext()){
             String interlinkerName = interlinkersNames.next(); 
-            responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.interlinkingService, new UriRef("urn:x-temp:/" + interlinkerName)));            
+            responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.interlinkService, new UriRef("urn:x-temp:/" + interlinkerName)));            
             responseGraph.add(new TripleImpl(new UriRef("urn:x-temp:/" + interlinkerName), RDFS.label, new PlainLiteralImpl(interlinkerName)));
         }
         
