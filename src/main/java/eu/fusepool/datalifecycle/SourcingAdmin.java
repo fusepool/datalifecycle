@@ -898,20 +898,15 @@ public class SourcingAdmin {
             
             // Get the source graph from the triple store
             LockableMGraph sourceGrah = tcManager.getMGraph(sourceGraphRef);
-            // Copy the graph
-            MGraph copySourceGraph = new SimpleMGraph();
             Lock rl = sourceGrah.getLock().readLock();
             rl.lock();
             try {
-                copySourceGraph.addAll(sourceGrah);
+                // reconcile the source graph with the target graph 
+                owlSameAs =  interlinkers.get(selectedInterlinker).interlink(sourceGrah, targetGraphRef);    
             }
             finally {
                 rl.unlock();
             }
-            
-            
-            // reconcile the source graph with the target graph 
-            owlSameAs =  interlinkers.get(selectedInterlinker).interlink(copySourceGraph, targetGraphRef);
 
             if (owlSameAs.size() > 0) {
 
