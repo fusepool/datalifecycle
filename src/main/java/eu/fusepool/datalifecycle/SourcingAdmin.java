@@ -889,7 +889,6 @@ public class SourcingAdmin {
      */
     private void reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef, String selectedInterlinker) throws Exception {
         
-        TripleCollection owlSameAs = null;
         
         // get the pipe's interlink graph to store the result of the reconciliation task        
         UriRef interlinkGraphRef = new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX);
@@ -898,38 +897,14 @@ public class SourcingAdmin {
             
             // Get the source graph from the triple store
             LockableMGraph sourceGrah = tcManager.getMGraph(sourceGraphRef);
-            Lock rl = sourceGrah.getLock().readLock();
-            rl.lock();
-            try {
-                // reconcile the source graph with the target graph 
-                owlSameAs =  interlinkers.get(selectedInterlinker).interlink(sourceGrah, targetGraphRef);    
-            }
-            finally {
-                rl.unlock();
-            }
+            // reconcile the source graph with the target graph 
+            TripleCollection owlSameAs =  interlinkers.get(selectedInterlinker).interlink(sourceGrah, targetGraphRef);    
+   
 
             if (owlSameAs.size() > 0) {
 
                 LockableMGraph sameAsGraph = tcManager.getMGraph(interlinkGraphRef);
-                sameAsGraph.addAll(owlSameAs);
-
-                // log the result (the equivalence set should be serialized and stored)
-                Lock l = sameAsGraph.getLock().readLock();
-                l.lock();
-                try {
-                    Iterator<Triple> isameas = owlSameAs.iterator();
-                    while (isameas.hasNext()) {
-                        Triple t = isameas.next();
-                        NonLiteral s = t.getSubject();
-                        UriRef p = t.getPredicate();
-                        Resource o = t.getObject();
-                        log.info(s.toString() + p.getUnicodeString() + o.toString() + " .\n");
-                    }
-                }
-                finally {
-                    l.unlock();
-                }
-                
+                sameAsGraph.addAll(owlSameAs);                
                 // add a reference of the equivalence set to the source graph 
                 getDlcGraph().add(new TripleImpl(interlinkGraphRef, Ontology.voidSubjectsTarget, sourceGraphRef));
                 // add a reference of the equivalence set to the target graph                
