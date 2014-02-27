@@ -61,6 +61,8 @@ public class Ontology {
     public static final UriRef rdfizeService = new UriRef("http://example.com/ont/workflow/rdfizeService");
     // a service sub property for data enhancements
     public static final UriRef enhanceService = new UriRef("http://example.com/ont/workflow/enhanceService");
+    // a service sub property for interlinking
+    public static final UriRef interlinkService = new UriRef("http://example.com/ont/workflow/interlinkService");
     
     // VOID ontology
     // Dataset
