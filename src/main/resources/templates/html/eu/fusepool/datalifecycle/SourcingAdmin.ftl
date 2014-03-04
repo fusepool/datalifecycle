@@ -83,7 +83,7 @@
         	<br>
         </li>
         
-        <li><input type="radio" name="operation_code" value="4">Reconcile. Select interlinker
+        <li><input type="radio" name="operation_code" value="4">Interlink. Select interlinker
         	<select name="interlinker">
         		<@ldpath path="wf:interlinkService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
@@ -95,7 +95,39 @@
         <li><input type="radio" name="operation_code" value="6">Publish<br></li>
         </ol>
         
-        <input type="submit" value="Apply" />
+        <input type="submit" value="Run task" />
+        
+       </form>
+        
+        <form action="runsequence" method="post">
+        <h2>Select a task sequence</h2>
+        <ul>
+         <li>
+        	<input type="radio" name="sequence_code" value="1">
+        	Upload RDF data, enhance and interlink. Select dataset 
+        	<select name="pipe">
+            <@ldpath path="wf:pipe">
+               <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
+            </@ldpath>           
+            </select>
+        	Select digester
+        	<select name="digester">
+        		<@ldpath path="wf:enhanceService">
+                  <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
+                </@ldpath>
+        	</select>
+        	Select interlinker
+        	<select name="interlinker">
+        		<@ldpath path="wf:interlinkService">
+                  <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
+                </@ldpath>
+        	</select>
+        	<br>
+        </li>
+        URL: <input type="text" name="data_url" value="" size="60">
+        </ul>
+        
+        <input type="submit" value="Run sequence" />
         
     </form>
     </div>
