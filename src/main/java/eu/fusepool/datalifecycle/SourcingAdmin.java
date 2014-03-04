@@ -178,13 +178,16 @@ public class SourcingAdmin {
 
     private UriRef CONTENT_GRAPH_REF = new UriRef(CONTENT_GRAPH_NAME);
 
-    // Operation codes
+    // Single task codes
     private final int RDFIZE = 1;
     private final int ADD_TRIPLES_OPERATION = 2;
     private final int TEXT_EXTRACTION = 3;
     private final int RECONCILE_GRAPH_OPERATION = 4;
     private final int SMUSH_GRAPH_OPERATION = 5;
     private final int PUBLISH_DATA = 6;
+    
+    // Task sequence codes
+    private final int RDF_UPLOAD_INTERLINK = 1;
     
     
     /**
@@ -664,7 +667,44 @@ public class SourcingAdmin {
                     break;
             }
         } else {
-            message = "The pipe does not exist.";
+            message = "The dataset does not exist.";
+        }
+
+        return message;
+
+    }
+    
+    @POST
+    @Path("runsequence")
+    @Produces("text/plain")
+    public String runSequence(@Context final UriInfo uriInfo,
+            @FormParam("pipe") final UriRef pipeRef,
+            @FormParam("sequence_code") final int sequenceCode,
+            @FormParam("data_url") final URL dataUrl,
+            @FormParam("rdfizer") final String rdfizer,
+            @FormParam("digester") final String digester,
+            @FormParam("interlinker") final String interlinker,
+            @HeaderParam("Content-Type") String mediaType) throws Exception {
+        
+        AccessController.checkPermission(new AllPermission());
+        
+        String message = "Pipe: " + pipeRef.getUnicodeString() + " Sequence code: " + sequenceCode + " Data Url: " + dataUrl.toString() + 
+                " Rdfizer: " + rdfizer + " Digester: " + digester + " Interlinker: " + interlinker + "\n";
+        
+        if (pipeExists(pipeRef)) {
+            
+            setPipeRef(pipeRef);
+            
+            switch (sequenceCode) {
+                case RDF_UPLOAD_INTERLINK:
+                    message += rdfUploadInterlink(pipeRef, dataUrl, digester, interlinker, mediaType);
+                    break;                       
+                
+            }
+            
+        } 
+        else {
+            message += "The dataset does not exist.";
         }
 
         return message;
@@ -1131,6 +1171,30 @@ public class SourcingAdmin {
         }
         
         message = "Copied " + triplesToAdd.size() + " triples from " + pipeRef.getUnicodeString() + " to content-graph";
+        
+        return message;
+    }
+    
+    /**
+     * Performs the following tasks in sequence
+     * - RDF data upload
+     * - Enhance
+     * - Interlink
+     * @param pipeRef
+     * @param dataUrl
+     * @param digester
+     * @param interlinker
+     * @param mediaType
+     * @return
+     */
+    private String rdfUploadInterlink(UriRef pipeRef, URL dataUrl, String digester, String interlinker, String mediaType) throws Exception {
+        String message = "";
+        
+        message = addTriples(pipeRef, dataUrl, mediaType) + "\n";
+        
+        message += extractTextFromRdf(pipeRef, digester) + "\n";
+        
+        message += reconcile(pipeRef, interlinker) + "\n";
         
         return message;
     }
