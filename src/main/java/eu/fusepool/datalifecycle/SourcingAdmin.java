@@ -926,11 +926,11 @@ public class SourcingAdmin {
     private String smush(UriRef pipeRef) {
         String message = "Smushing task.\n";
         // As the smush.graph must be published it has to contain the sioc.content property and all the subject
-        // extracted during the extraction phase that are stored in the enhance.graph with all the triples from 
+        // extracted during the enhancement phase that are stored in the enhance.graph with all the triples from 
         // the rdf
         UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
         
-        if(getInterlinkGraph().size() > 0 & getEnhanceGraph().size() > 0) {
+        if( getEnhanceGraph().size() > 0 ) {
                 
             LockableMGraph smushedGraph = smushCommand(enhanceGraphRef, getInterlinkGraph());
         
