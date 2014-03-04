@@ -1276,7 +1276,7 @@ public class SourcingAdmin {
      */
     private MGraph createDlcGraph() {
         MGraph dlcGraph = tcManager.createMGraph(DATA_LIFECYCLE_GRAPH_REFERENCE);
-        TcAccessController tca = new TcAccessController(tcManager);
+        TcAccessController tca = tcManager.getTcAccessController();
         tca.setRequiredReadPermissions(DATA_LIFECYCLE_GRAPH_REFERENCE,
                 Collections.singleton((Permission) new TcPermission(
                                 "urn:x-localinstance:/content.graph", "read")));
