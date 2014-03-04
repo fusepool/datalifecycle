@@ -217,9 +217,9 @@ public class SourcingAdmin {
     
     private UriRef pipeRef = null;
    
-    
     // Validity of base Uri (enables interlinking, smushing and publishing tasks)
     private boolean isValidBaseUri = false;
+    
     @SuppressWarnings("unchecked")
     @Activate
     protected void activate(ComponentContext context) {
@@ -403,6 +403,13 @@ public class SourcingAdmin {
         // Adds information about base uri configuration
         if( ! isValidBaseUri ){
             responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, RDFS.comment, new PlainLiteralImpl(INVALID_BASE_URI_ALERT)));
+        }
+        
+        // The DLC service uri should be the same as the base uri (otherwise there might be a base uri config error)
+        String platformBaseuri = uriInfo.getBaseUri().getScheme() + "://" + uriInfo.getBaseUri().getHost() + ":" + uriInfo.getBaseUri().getPort();
+        if( ! platformBaseuri.equals((baseUri)) ) {
+            String message = "The DLC service URI " + platformBaseuri + " is different from the base URI " + baseUri + " set in the component configuration.";
+            responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, RDFS.comment, new PlainLiteralImpl(message)));
         }
         
         //What we return is the GraphNode we created with a template path
