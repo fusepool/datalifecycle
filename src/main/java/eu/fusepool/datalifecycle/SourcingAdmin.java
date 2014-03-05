@@ -606,9 +606,7 @@ public class SourcingAdmin {
         return result;
         
     }
-    
-    
-
+ 
     /**
      * Applies one of the following operations to a graph: - add triples
      * (operation code: 1) - remove all triples (operation code: 2) - delete
