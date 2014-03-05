@@ -178,16 +178,13 @@ public class SourcingAdmin {
 
     private UriRef CONTENT_GRAPH_REF = new UriRef(CONTENT_GRAPH_NAME);
 
-    // Single task codes
+    // Operation codes
     private final int RDFIZE = 1;
     private final int ADD_TRIPLES_OPERATION = 2;
     private final int TEXT_EXTRACTION = 3;
     private final int RECONCILE_GRAPH_OPERATION = 4;
     private final int SMUSH_GRAPH_OPERATION = 5;
     private final int PUBLISH_DATA = 6;
-    
-    // Task sequence codes
-    private final int RDF_UPLOAD_INTERLINK = 1;
     
     
     /**
@@ -606,7 +603,9 @@ public class SourcingAdmin {
         return result;
         
     }
- 
+    
+    
+
     /**
      * Applies one of the following operations to a graph: - add triples
      * (operation code: 1) - remove all triples (operation code: 2) - delete
@@ -665,44 +664,7 @@ public class SourcingAdmin {
                     break;
             }
         } else {
-            message = "The dataset does not exist.";
-        }
-
-        return message;
-
-    }
-    
-    @POST
-    @Path("runsequence")
-    @Produces("text/plain")
-    public String runSequence(@Context final UriInfo uriInfo,
-            @FormParam("pipe") final UriRef pipeRef,
-            @FormParam("sequence_code") final int sequenceCode,
-            @FormParam("data_url") final URL dataUrl,
-            @FormParam("rdfizer") final String rdfizer,
-            @FormParam("digester") final String digester,
-            @FormParam("interlinker") final String interlinker,
-            @HeaderParam("Content-Type") String mediaType) throws Exception {
-        
-        AccessController.checkPermission(new AllPermission());
-        
-        String message = "Pipe: " + pipeRef.getUnicodeString() + " Sequence code: " + sequenceCode + " Data Url: " + dataUrl.toString() + 
-                " Rdfizer: " + rdfizer + " Digester: " + digester + " Interlinker: " + interlinker + "\n";
-        
-        if (pipeExists(pipeRef)) {
-            
-            setPipeRef(pipeRef);
-            
-            switch (sequenceCode) {
-                case RDF_UPLOAD_INTERLINK:
-                    message += rdfUploadInterlink(pipeRef, dataUrl, digester, interlinker, mediaType);
-                    break;                       
-                
-            }
-            
-        } 
-        else {
-            message += "The dataset does not exist.";
+            message = "The pipe does not exist.";
         }
 
         return message;
@@ -1174,30 +1136,6 @@ public class SourcingAdmin {
     }
     
     /**
-     * Performs the following tasks in sequence
-     * - RDF data upload
-     * - Enhance
-     * - Interlink
-     * @param pipeRef
-     * @param dataUrl
-     * @param digester
-     * @param interlinker
-     * @param mediaType
-     * @return
-     */
-    private String rdfUploadInterlink(UriRef pipeRef, URL dataUrl, String digester, String interlinker, String mediaType) throws Exception {
-        String message = "";
-        
-        message = addTriples(pipeRef, dataUrl, mediaType) + "\n";
-        
-        message += extractTextFromRdf(pipeRef, digester) + "\n";
-        
-        message += reconcile(pipeRef, interlinker) + "\n";
-        
-        return message;
-    }
-    
-    /**
      * All the resources in the smush graph must be http dereferencable when published. 
      * All the triples in the smush graph are copied into a temporary graph. For each triple the subject and the object
      * that have a non-http URI are changed in http uri and an equivalence link is added in the interlinking graph for each
@@ -1338,7 +1276,7 @@ public class SourcingAdmin {
      */
     private MGraph createDlcGraph() {
         MGraph dlcGraph = tcManager.createMGraph(DATA_LIFECYCLE_GRAPH_REFERENCE);
-        TcAccessController tca = new TcAccessController(tcManager);
+        TcAccessController tca = tcManager.getTcAccessController();
         tca.setRequiredReadPermissions(DATA_LIFECYCLE_GRAPH_REFERENCE,
                 Collections.singleton((Permission) new TcPermission(
                                 "urn:x-localinstance:/content.graph", "read")));
