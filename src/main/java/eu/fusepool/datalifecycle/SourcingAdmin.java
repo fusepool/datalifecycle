@@ -18,6 +18,8 @@ package eu.fusepool.datalifecycle;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.AccessController;
@@ -628,48 +630,50 @@ public class SourcingAdmin {
         AccessController.checkPermission(new AllPermission());
 
         // validate arguments and handle all the connection exceptions
-        return operateOnPipe(pipeRef, operationCode, dataUrl, rdfizer, rdfdigester, interlinker, mediaType);
+        StringWriter stringWriter = new StringWriter();
+        PrintWriter messageWriter = new PrintWriter(stringWriter);
+        operateOnPipe(pipeRef, operationCode, dataUrl, rdfizer, rdfdigester, interlinker, mediaType, messageWriter);
+        return stringWriter.toString();
 
     }
 
-    private String operateOnPipe(UriRef pipeRef, 
+    private void operateOnPipe(UriRef pipeRef, 
             int operationCode, 
             URL dataUrl, 
             String rdfizer,
             String rdfdigester,
             String interlinker,
-            String mediaType) throws Exception {
+            String mediaType, 
+            PrintWriter messageWriter) throws Exception {
         AccessController.checkPermission(new AllPermission());
-        String message = "";
         if (pipeExists(pipeRef)) {
             
             setPipeRef(pipeRef);
             
             switch (operationCode) {
                 case ADD_TRIPLES_OPERATION:
-                    message = addTriples(pipeRef, dataUrl, mediaType);
+                    addTriples(pipeRef, dataUrl, mediaType, messageWriter);
                     break;                       
                 case RECONCILE_GRAPH_OPERATION:
-                    message = reconcile(pipeRef, interlinker);
+                    reconcile(pipeRef, interlinker, messageWriter);
                     break;
                 case SMUSH_GRAPH_OPERATION:
-                    message = smush(pipeRef);
+                    smush(pipeRef, messageWriter);
                     break;            
                 case TEXT_EXTRACTION:
-                    message = extractTextFromRdf(pipeRef, rdfdigester);
+                    extractTextFromRdf(pipeRef, rdfdigester, messageWriter);
                     break;                
                 case RDFIZE:
-                    message = transformXml(dataUrl, rdfizer);
+                    transformXml(dataUrl, rdfizer, messageWriter);
                     break;     
                 case PUBLISH_DATA:
-                    message = publishData(pipeRef);
+                    publishData(pipeRef, messageWriter);
                     break;
             }
         } else {
-            message = "The pipe does not exist.";
+            messageWriter.println("The pipe does not exist.");
         }
 
-        return message;
 
     }
     
@@ -687,26 +691,23 @@ public class SourcingAdmin {
         
         AccessController.checkPermission(new AllPermission());
         
-        String message = "Pipe: " + pipeRef.getUnicodeString() + " Sequence code: " + sequenceCode + " Data Url: " + dataUrl.toString() + 
-                " Rdfizer: " + rdfizer + " Digester: " + digester + " Interlinker: " + interlinker + "\n";
+        StringWriter stringWriter = new StringWriter();
+                    PrintWriter messageWriter = new PrintWriter(stringWriter);
+        messageWriter.println("Pipe: " + pipeRef.getUnicodeString() + " Sequence code: " + sequenceCode + " Data Url: " + dataUrl.toString() + 
+                " Rdfizer: " + rdfizer + " Digester: " + digester + " Interlinker: " + interlinker);
         
         if (pipeExists(pipeRef)) {
             
             setPipeRef(pipeRef);
-            
-            switch (sequenceCode) {
-                case RDF_UPLOAD_INTERLINK:
-                    message += rdfUploadInterlink(pipeRef, dataUrl, digester, interlinker, mediaType);
-                    break;                       
-                
-            }
-            
+  
+            rdfUploadInterlink(pipeRef, dataUrl, digester, interlinker, mediaType, messageWriter);
+
         } 
         else {
-            message += "The dataset does not exist.";
+            messageWriter.println("The dataset does not exist.");
         }
 
-        return message;
+        return stringWriter.toString(); 
 
     }
     
@@ -716,9 +717,8 @@ public class SourcingAdmin {
      * @param rdfizer
      * @return
      */
-    private String transformXml(URL dataUrl, String selectedRdfizer) throws IOException {
+    private void transformXml(URL dataUrl, String selectedRdfizer, PrintWriter messageWriter) throws IOException {
         AccessController.checkPermission(new AllPermission());
-        String message = "";
         
         // create a graph to store the data after the document transformation        
         MGraph documentGraph = null;
@@ -732,12 +732,12 @@ public class SourcingAdmin {
                 connection.addRequestProperty("Accept", "application/xml; q=1");
                 xmldata = connection.getInputStream();
             } catch(FileNotFoundException ex) {
-                message += "The file " + dataUrl.toString() + " has not been found.\n";
-               log.error(message);  
+                messageWriter.println("The file " + dataUrl.toString() + " has not been found.");
+                throw ex;
             }
         }
         else {
-               message += "The URL " + dataUrl.toString() + " is not a valid one.\n";
+               messageWriter.println("The URL " + dataUrl.toString() + " is not a valid one.\n");
         }
             
         
@@ -762,11 +762,9 @@ public class SourcingAdmin {
                 wl.unlock();
             }
             
-            message += numberOfTriples + " triples have been added to " + pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX + "\n";
+            messageWriter.println(numberOfTriples + " triples have been added to " + pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
         }
-        
-        
-        return message;
+
         
     }
     
@@ -779,9 +777,8 @@ public class SourcingAdmin {
      * After the upload the input graph is sent to a digester to extract text for indexing and 
      * adding entities found by NLP components (in the default chain) as subject
      */
-    private String addTriples(UriRef pipeRef, URL dataUrl, String mediaType) throws Exception {
+    private void addTriples(UriRef pipeRef, URL dataUrl, String mediaType, PrintWriter messageWriter) throws Exception {
         AccessController.checkPermission(new AllPermission());
-        String message = "";
         
         // look up the pipe's rdf graph to which add the data
         UriRef graphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
@@ -791,20 +788,18 @@ public class SourcingAdmin {
             
             MGraph updatedGraph = addTriplesCommand(graphRef, dataUrl, mediaType);
 
-            message = "Added " + updatedGraph.size() + " triples to " + graphRef.getUnicodeString() + "\n";
+            messageWriter.println("Added " + updatedGraph.size() + " triples to " + graphRef.getUnicodeString());
 
         } else {
-            message = "The URL of the data is not a valid one.\n";
+            messageWriter.println("The URL of the data is not a valid one.");
         }
        
-        log.info(message);
-        return message;
         
     }
 
     private MGraph addTriplesCommand(UriRef graphRef, URL dataUrl, String mediaType) throws Exception {
         AccessController.checkPermission(new AllPermission());
-        MGraph graph = null;
+
         URLConnection connection = dataUrl.openConnection();
         connection.addRequestProperty("Accept", "application/rdf+xml; q=.9, text/turte;q=1");
 
@@ -820,7 +815,7 @@ public class SourcingAdmin {
 
             // add the triples of the temporary graph into the graph selected by the user
             if (graphExists(graphRef)) {
-                graph = tcManager.getMGraph(graphRef);
+                MGraph graph = tcManager.getMGraph(graphRef);
 
                 graph.addAll(tempGraph);
                 
@@ -868,9 +863,7 @@ public class SourcingAdmin {
      * @return String 
      * @throws Exception 
      */
-    private String reconcile(UriRef pipeRef, String selectedInterlinker) throws Exception {
-        String message = "";
-        
+    private void reconcile(UriRef pipeRef, String selectedInterlinker, PrintWriter messageWriter) throws Exception {
         UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
         
         if (graphExists(sourceGraphRef) && getSourceGraph().size() > 0) {            
@@ -889,12 +882,12 @@ public class SourcingAdmin {
 
             if (numSourceInterlinks > 0) {
 
-                message = "A reconciliation task has been done on " + sourceGraphRef.getUnicodeString() + "\n"
-                        + numSourceInterlinks + " owl:sameAs statements have been created.";
+                messageWriter.println("A reconciliation task has been done on " + sourceGraphRef.getUnicodeString() + "\n"
+                        + numSourceInterlinks + " owl:sameAs statements have been created.");
             } 
             else {
-                message = "A reconciliation task has been done on " + sourceGraphRef.getUnicodeString()
-                        + ". No equivalent entities have been found.\n";
+                messageWriter.println("A reconciliation task has been done on " + sourceGraphRef.getUnicodeString()
+                        + ". No equivalent entities have been found.");
             }
             
             // reconcile the source graph against the content graph 
@@ -910,22 +903,20 @@ public class SourcingAdmin {
     
                 if (numContentInterlinks > 0) {
     
-                    message += "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
-                            + numContentInterlinks + " owl:sameAs statements have been created.";
+                    messageWriter.println("A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
+                            + numContentInterlinks + " owl:sameAs statements have been created.");
                 } 
                 else {
-                    message += "A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
-                            + ". No equivalent entities have been found.\n";
+                    messageWriter.println("A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
+                            + ". No equivalent entities have been found.");
                 }
             }
             
         } 
         else {
-            message = "The source graph does not exist or is empty.";
+            messageWriter.println("The source graph does not exist or is empty.");
         }
         
-        log.info(message);
-        return message;
 
     }
     
@@ -970,8 +961,8 @@ public class SourcingAdmin {
      * @param graphToSmushRef
      * @return
      */
-    private String smush(UriRef pipeRef) {
-        String message = "Smushing task.\n";
+    private void smush(UriRef pipeRef, PrintWriter messageWriter) {
+        messageWriter.println("Smushing task.");
         // As the smush.graph must be published it has to contain the sioc.content property and all the subject
         // extracted during the enhancement phase that are stored in the enhance.graph with all the triples from 
         // the rdf
@@ -981,17 +972,16 @@ public class SourcingAdmin {
                 
             LockableMGraph smushedGraph = smushCommand(enhanceGraphRef, getInterlinkGraph());
         
-            message = "Smushing of " + enhanceGraphRef.getUnicodeString()
+            messageWriter.println("Smushing of " + enhanceGraphRef.getUnicodeString()
                     + " with equivalence set completed. "
-                    + "Smushed graph size = " + smushedGraph.size() + "\n";
+                    + "Smushed graph size = " + smushedGraph.size());
         }
         else {
-            message = "No equivalence links available for " + enhanceGraphRef.getUnicodeString() + "\n"
+            messageWriter.println("No equivalence links available for " + enhanceGraphRef.getUnicodeString() + "\n"
                     + "or the enhancement graph is empty.\n"
-                    + "The smushing task is applied to the enhancement graph using the equivalence set in the interlinking graph.";
+                    + "The smushing task is applied to the enhancement graph using the equivalence set in the interlinking graph.");
         }
-                
-        return message;
+
     }
     
     private LockableMGraph smushCommand(UriRef enhanceGraphRef, LockableMGraph equivalenceSet) {
@@ -1055,9 +1045,8 @@ public class SourcingAdmin {
      * @param pipeRef
      * @return
      */
-    private String extractTextFromRdf(UriRef pipeRef, String selectedDigester){
-        
-        String message = "";
+    private void extractTextFromRdf(UriRef pipeRef, String selectedDigester, PrintWriter messageWriter){
+
         UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
         MGraph enhanceGraph = tcManager.getMGraph(enhanceGraphRef);
         UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
@@ -1077,10 +1066,8 @@ public class SourcingAdmin {
         
         RdfDigester digester = digesters.get(selectedDigester);
         digester.extractText(enhanceGraph);
-        message += "Extracted text from " + enhanceGraphRef.getUnicodeString() + " by " + selectedDigester + " digester";
-        
-        
-        return message;
+        messageWriter.println("Extracted text from " + enhanceGraphRef.getUnicodeString() + " by " + selectedDigester + " digester");
+
     }
     
     
@@ -1098,9 +1085,8 @@ public class SourcingAdmin {
      * 6) delete all triples in publish.graph
      * 7) copy triples from smush.graph to publish.graph
      */
-    private String publishData(UriRef pipeRef) {
-        String message = "";
-        
+    private void publishData(UriRef pipeRef, PrintWriter messageWriter) {
+
         // add these triples to the content.graph 
         MGraph triplesToAdd = new SimpleMGraph();
         // remove these triples from the content.graph
@@ -1170,9 +1156,8 @@ public class SourcingAdmin {
             rl.unlock();
         }
         
-        message = "Copied " + triplesToAdd.size() + " triples from " + pipeRef.getUnicodeString() + " to content-graph";
-        
-        return message;
+        messageWriter.println("Copied " + triplesToAdd.size() + " triples from " + pipeRef.getUnicodeString() + " to content-graph");
+
     }
     
     /**
@@ -1187,16 +1172,13 @@ public class SourcingAdmin {
      * @param mediaType
      * @return
      */
-    private String rdfUploadInterlink(UriRef pipeRef, URL dataUrl, String digester, String interlinker, String mediaType) throws Exception {
-        String message = "";
+    private void rdfUploadInterlink(UriRef pipeRef, URL dataUrl, String digester, String interlinker, String mediaType, PrintWriter messageWriter) throws Exception {
         
-        message = addTriples(pipeRef, dataUrl, mediaType) + "\n";
+        addTriples(pipeRef, dataUrl, mediaType, messageWriter);  
+        extractTextFromRdf(pipeRef, digester, messageWriter);    
+        reconcile(pipeRef, interlinker, messageWriter);
         
-        message += extractTextFromRdf(pipeRef, digester) + "\n";
-        
-        message += reconcile(pipeRef, interlinker) + "\n";
-        
-        return message;
+
     }
     
     /**
