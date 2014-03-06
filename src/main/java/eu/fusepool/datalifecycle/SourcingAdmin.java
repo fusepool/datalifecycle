@@ -352,7 +352,7 @@ public class SourcingAdmin {
     @GET
     public RdfViewable serviceEntry(@Context final UriInfo uriInfo,
             @QueryParam("url") final UriRef url,
-            @HeaderParam("user-agent") String userAgent) throws Exception {
+            @HeaderParam("user-agent") String userAgent) {
         //this makes sure we are nt invoked with a trailing slash which would affect
         //relative resolution of links (e.g. css)
         TrailingSlash.enforcePresent(uriInfo);
@@ -456,13 +456,12 @@ public class SourcingAdmin {
      * @param uriInfo
      * @param graphName
      * @return
-     * @throws Exception
      */
     @POST
     @Path("create_pipe")
     @Produces("text/plain")
     public Response createPipeRequest(@Context final UriInfo uriInfo,            
-            @FormParam("pipe_label") final String pipeLabel) throws Exception {
+            @FormParam("pipe_label") final String pipeLabel) {
         
         AccessController.checkPermission(new AllPermission());
         
@@ -625,7 +624,7 @@ public class SourcingAdmin {
             @FormParam("data_url") final URL dataUrl,
             @FormParam("rdfizer") final String rdfizer,
             @FormParam("rdfdigester") final String rdfdigester,
-            @FormParam("interlinker") final String interlinker) throws Exception {
+            @FormParam("interlinker") final String interlinker) throws IOException {
         AccessController.checkPermission(new AllPermission());
 
         // validate arguments and handle all the connection exceptions
@@ -642,7 +641,7 @@ public class SourcingAdmin {
             String rdfizer,
             String rdfdigester,
             String interlinker,
-            PrintWriter messageWriter) throws Exception {
+            PrintWriter messageWriter) throws IOException {
         AccessController.checkPermission(new AllPermission());
         if (pipeExists(pipeRef)) {
             
@@ -684,7 +683,7 @@ public class SourcingAdmin {
             @FormParam("data_url") final URL dataUrl,
             @FormParam("rdfizer") final String rdfizer,
             @FormParam("digester") final String digester,
-            @FormParam("interlinker") final String interlinker) throws Exception {
+            @FormParam("interlinker") final String interlinker) throws IOException {
         
         AccessController.checkPermission(new AllPermission());
         
@@ -774,7 +773,7 @@ public class SourcingAdmin {
      * After the upload the input graph is sent to a digester to extract text for indexing and 
      * adding entities found by NLP components (in the default chain) as subject
      */
-    private void addTriples(UriRef pipeRef, URL dataUrl, PrintWriter messageWriter) throws Exception {
+    private void addTriples(UriRef pipeRef, URL dataUrl, PrintWriter messageWriter) throws IOException {
         AccessController.checkPermission(new AllPermission());
         
         // look up the pipe's rdf graph to which add the data
@@ -798,7 +797,7 @@ public class SourcingAdmin {
      * 
      * Add triples to graph
      */
-    private MGraph addTriplesCommand(UriRef graphRef, URL dataUrl) throws Exception {
+    private MGraph addTriplesCommand(UriRef graphRef, URL dataUrl) throws IOException {
         AccessController.checkPermission(new AllPermission());
 
         URLConnection connection = dataUrl.openConnection();
@@ -861,9 +860,8 @@ public class SourcingAdmin {
      * stored in the interlink graph of the pipe.  
      * @param sourceGraphRef the URI of the referenced graph, i.e. the graph for which the reconciliation should be performed.
      * @return String 
-     * @throws Exception 
      */
-    private void reconcile(UriRef pipeRef, String selectedInterlinker, PrintWriter messageWriter) throws Exception {
+    private void reconcile(UriRef pipeRef, String selectedInterlinker, PrintWriter messageWriter) {
         UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
         
         if (graphExists(sourceGraphRef) && getSourceGraph().size() > 0) {            
@@ -923,9 +921,8 @@ public class SourcingAdmin {
     /**
      * Reconciles a source graph with a target graph. The result of the reconciliation is an equivalence set 
      * stored in the interlink graph of the pipe. The graph used as source is the source rdf graph. 
-     * @throws Exception 
      */
-    private void reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef, String selectedInterlinker) throws Exception {
+    private void reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef, String selectedInterlinker) {
         
         
         // get the pipe's interlink graph to store the result of the reconciliation task        
@@ -1172,7 +1169,7 @@ public class SourcingAdmin {
      * @param mediaType
      * @return
      */
-    private void rdfUploadInterlink(UriRef pipeRef, URL dataUrl, String digester, String interlinker, PrintWriter messageWriter) throws Exception {
+    private void rdfUploadInterlink(UriRef pipeRef, URL dataUrl, String digester, String interlinker, PrintWriter messageWriter) throws IOException {
         
         addTriples(pipeRef, dataUrl, messageWriter);  
         extractTextFromRdf(pipeRef, digester, messageWriter);    
