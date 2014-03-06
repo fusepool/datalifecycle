@@ -625,14 +625,13 @@ public class SourcingAdmin {
             @FormParam("data_url") final URL dataUrl,
             @FormParam("rdfizer") final String rdfizer,
             @FormParam("rdfdigester") final String rdfdigester,
-            @FormParam("interlinker") final String interlinker,
-            @HeaderParam("Content-Type") String mediaType) throws Exception {
+            @FormParam("interlinker") final String interlinker) throws Exception {
         AccessController.checkPermission(new AllPermission());
 
         // validate arguments and handle all the connection exceptions
         StringWriter stringWriter = new StringWriter();
         PrintWriter messageWriter = new PrintWriter(stringWriter);
-        operateOnPipe(pipeRef, operationCode, dataUrl, rdfizer, rdfdigester, interlinker, mediaType, messageWriter);
+        operateOnPipe(pipeRef, operationCode, dataUrl, rdfizer, rdfdigester, interlinker, messageWriter);
         return stringWriter.toString();
 
     }
@@ -643,7 +642,6 @@ public class SourcingAdmin {
             String rdfizer,
             String rdfdigester,
             String interlinker,
-            String mediaType, 
             PrintWriter messageWriter) throws Exception {
         AccessController.checkPermission(new AllPermission());
         if (pipeExists(pipeRef)) {
@@ -652,7 +650,7 @@ public class SourcingAdmin {
             
             switch (operationCode) {
                 case ADD_TRIPLES_OPERATION:
-                    addTriples(pipeRef, dataUrl, mediaType, messageWriter);
+                    addTriples(pipeRef, dataUrl, messageWriter);
                     break;                       
                 case RECONCILE_GRAPH_OPERATION:
                     reconcile(pipeRef, interlinker, messageWriter);
@@ -686,8 +684,7 @@ public class SourcingAdmin {
             @FormParam("data_url") final URL dataUrl,
             @FormParam("rdfizer") final String rdfizer,
             @FormParam("digester") final String digester,
-            @FormParam("interlinker") final String interlinker,
-            @HeaderParam("Content-Type") String mediaType) throws Exception {
+            @FormParam("interlinker") final String interlinker) throws Exception {
         
         AccessController.checkPermission(new AllPermission());
         
@@ -700,7 +697,7 @@ public class SourcingAdmin {
             
             setPipeRef(pipeRef);
   
-            rdfUploadInterlink(pipeRef, dataUrl, digester, interlinker, mediaType, messageWriter);
+            rdfUploadInterlink(pipeRef, dataUrl, digester, interlinker, messageWriter);
 
         } 
         else {
@@ -777,7 +774,7 @@ public class SourcingAdmin {
      * After the upload the input graph is sent to a digester to extract text for indexing and 
      * adding entities found by NLP components (in the default chain) as subject
      */
-    private void addTriples(UriRef pipeRef, URL dataUrl, String mediaType, PrintWriter messageWriter) throws Exception {
+    private void addTriples(UriRef pipeRef, URL dataUrl, PrintWriter messageWriter) throws Exception {
         AccessController.checkPermission(new AllPermission());
         
         // look up the pipe's rdf graph to which add the data
@@ -786,7 +783,7 @@ public class SourcingAdmin {
         // add the triples of the temporary graph into the graph selected by the user
         if (isValidUrl(dataUrl)) {
             
-            MGraph updatedGraph = addTriplesCommand(graphRef, dataUrl, mediaType);
+            MGraph updatedGraph = addTriplesCommand(graphRef, dataUrl);
 
             messageWriter.println("Added " + updatedGraph.size() + " triples to " + graphRef.getUnicodeString());
 
@@ -797,7 +794,11 @@ public class SourcingAdmin {
         
     }
 
-    private MGraph addTriplesCommand(UriRef graphRef, URL dataUrl, String mediaType) throws Exception {
+    /**
+     * 
+     * Add triples to graph
+     */
+    private MGraph addTriplesCommand(UriRef graphRef, URL dataUrl) throws Exception {
         AccessController.checkPermission(new AllPermission());
 
         URLConnection connection = dataUrl.openConnection();
@@ -805,14 +806,13 @@ public class SourcingAdmin {
 
         // create a temporary graph to store the data        
         SimpleMGraph tempGraph = new SimpleMGraph();
-
+        String mediaType = connection.getHeaderField("Content-type");
+        if ((mediaType == null) || mediaType.equals("application/octet-stream")) {
+            mediaType = guessContentTypeFromUri(dataUrl);
+        }
         InputStream data = connection.getInputStream();
         if (data != null) {
-            if (mediaType.equals("application/x-www-form-urlencoded")) {
-                mediaType = getContentTypeFromUrl(dataUrl);
-            }
             parser.parse(tempGraph, data, mediaType);
-
             // add the triples of the temporary graph into the graph selected by the user
             if (graphExists(graphRef)) {
                 MGraph graph = tcManager.getMGraph(graphRef);
@@ -1172,9 +1172,9 @@ public class SourcingAdmin {
      * @param mediaType
      * @return
      */
-    private void rdfUploadInterlink(UriRef pipeRef, URL dataUrl, String digester, String interlinker, String mediaType, PrintWriter messageWriter) throws Exception {
+    private void rdfUploadInterlink(UriRef pipeRef, URL dataUrl, String digester, String interlinker, PrintWriter messageWriter) throws Exception {
         
-        addTriples(pipeRef, dataUrl, mediaType, messageWriter);  
+        addTriples(pipeRef, dataUrl, messageWriter);  
         extractTextFromRdf(pipeRef, digester, messageWriter);    
         reconcile(pipeRef, interlinker, messageWriter);
         
@@ -1253,7 +1253,7 @@ public class SourcingAdmin {
      * @param url
      * @return
      */
-    private String getContentTypeFromUrl(URL url) {
+    private String guessContentTypeFromUri(URL url) {
         String contentType = null;
         if (url.getFile().endsWith("ttl")) {
             contentType = "text/turtle";
