@@ -185,19 +185,6 @@ public class SourcingAdmin {
     // Task sequence codes
     private final int RDF_UPLOAD_INTERLINK = 1;
 
-    /**
-     * For each rdf triple collection uploaded 5 graphs are created. 1) a source
-     * graph to store the rdf data 2) an enhancements graph to store the text
-     * extracted for indexing and the entities extracted from the text by NLP
-     * engines in the default enhancement chain 3) a graph to store the result
-     * of the interlinking task 4) a graph to store the smushed graph 5) a graph
-     * to store the published graph i.e. the smushed graph in a coherent state
-     * with data in the content graph The name convention for these graphs is
-     * GRAPH_URN_PREFIX + timestamp + SUFFIX where SUFFIX can be one of
-     * SOURCE_GRAPH_URN_SUFFIX, ENHANCE_GRAPH_URN_SUFFIX,
-     * INTERLINK_GRAPH_URN_SUFFIX, SMUSH_GRAPH_URN_SUFFIX,
-     * PUBLISH_GRAPH_URN_SUFFIX
-     */
     // base graph uri
     public static final String GRAPH_URN_PREFIX = "urn:x-localinstance:/dlc/";
     // graph suffix
@@ -213,7 +200,6 @@ public class SourcingAdmin {
     //mesage to show when base URI is invalid
     private final String INVALID_BASE_URI_ALERT = "A valid base URI has not been set. It can be set in the framework configuration panel (eu.fusepool.datalifecycle.SourcingAdmin)";
 
-    private UriRef pipeRef = null;
 
     // Validity of base Uri (enables interlinking, smushing and publishing tasks)
     private boolean isValidBaseUri = false;
@@ -412,30 +398,6 @@ public class SourcingAdmin {
         return new RdfViewable("SourcingAdmin", node, SourcingAdmin.class);
     }
 
-    private void setPipeRef(UriRef pipeRef) {
-        this.pipeRef = pipeRef;
-    }
-
-    private LockableMGraph getSourceGraph() {
-        return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX));
-    }
-
-    private LockableMGraph getEnhanceGraph() {
-        return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX));
-    }
-
-    private LockableMGraph getInterlinkGraph() {
-        return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX));
-    }
-
-    private LockableMGraph getSmushGraph() {
-        return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + SMUSH_GRAPH_URN_SUFFIX));
-    }
-
-    private LockableMGraph getPublishGraph() {
-        return tcManager.getMGraph(new UriRef(pipeRef.getUnicodeString() + PUBLISH_GRAPH_URN_SUFFIX));
-    }
-
     private LockableMGraph getContentGraph() {
         return tcManager.getMGraph(CONTENT_GRAPH_REF);
     }
@@ -585,7 +547,6 @@ public class SourcingAdmin {
             tcManager.createMGraph(publishGraphRef);
             getDlcGraph().add(new TripleImpl(publishTaskRef, Ontology.deliverable, publishGraphRef));
 
-            setPipeRef(pipeRef);
 
             result = true;
 
@@ -632,27 +593,26 @@ public class SourcingAdmin {
             PrintWriter messageWriter) throws IOException {
         AccessController.checkPermission(new AllPermission());
         if (pipeExists(pipeRef)) {
-
-            setPipeRef(pipeRef);
+            DataSet dataSet = new DataSet((pipeRef));
 
             switch (operationCode) {
                 case ADD_TRIPLES_OPERATION:
-                    addTriples(pipeRef, dataUrl, messageWriter);
+                    addTriples(dataSet, dataUrl, messageWriter);
                     break;
                 case RECONCILE_GRAPH_OPERATION:
-                    reconcile(pipeRef, interlinker, messageWriter);
+                    reconcile(dataSet, interlinker, messageWriter);
                     break;
                 case SMUSH_GRAPH_OPERATION:
-                    smush(pipeRef, messageWriter);
+                    smush(dataSet, messageWriter);
                     break;
                 case TEXT_EXTRACTION:
-                    extractTextFromRdf(pipeRef, rdfdigester, messageWriter);
+                    extractTextFromRdf(dataSet, rdfdigester, messageWriter);
                     break;
                 case RDFIZE:
-                    transformXml(dataUrl, rdfizer, messageWriter);
+                    transformXml(dataSet, dataUrl, rdfizer, messageWriter);
                     break;
                 case PUBLISH_DATA:
-                    publishData(pipeRef, messageWriter);
+                    publishData(dataSet, messageWriter);
                     break;
             }
         } else {
@@ -680,10 +640,8 @@ public class SourcingAdmin {
                 + " Rdfizer: " + rdfizer + " Digester: " + digester + " Interlinker: " + interlinker);
 
         if (pipeExists(pipeRef)) {
-
-            setPipeRef(pipeRef);
-
-            rdfUploadInterlink(pipeRef, dataUrl, digester, interlinker, messageWriter);
+            DataSet dataSet = new DataSet(pipeRef);
+            rdfUploadInterlink(dataSet, dataUrl, digester, interlinker, messageWriter);
 
         } else {
             messageWriter.println("The dataset does not exist.");
@@ -700,7 +658,7 @@ public class SourcingAdmin {
      * @param rdfizer
      * @return
      */
-    private void transformXml(URL dataUrl, String selectedRdfizer, PrintWriter messageWriter) throws IOException {
+    private void transformXml(DataSet dataSet, URL dataUrl, String selectedRdfizer, PrintWriter messageWriter) throws IOException {
         AccessController.checkPermission(new AllPermission());
 
         // create a graph to store the data after the document transformation        
@@ -734,15 +692,15 @@ public class SourcingAdmin {
 
         if (documentGraph != null && documentGraph.size() > 0) {
             // add the triples of the document graph to the source graph of the selected dataset
-            Lock wl = getSourceGraph().getLock().writeLock();
+            Lock wl = dataSet.getSourceGraph().getLock().writeLock();
             wl.lock();
             try {
-                getSourceGraph().addAll(documentGraph);
+                dataSet.getSourceGraph().addAll(documentGraph);
             } finally {
                 wl.unlock();
             }
 
-            messageWriter.println(numberOfTriples + " triples have been added to " + pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+            messageWriter.println(numberOfTriples + " triples have been added to " + dataSet.getUri().getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
         }
 
     }
@@ -756,18 +714,16 @@ public class SourcingAdmin {
      *
      * @return the added triples
      */
-    private MGraph addTriples(UriRef pipeRef, URL dataUrl, PrintWriter messageWriter) throws IOException {
+    private MGraph addTriples(DataSet dataSet, URL dataUrl, PrintWriter messageWriter) throws IOException {
         AccessController.checkPermission(new AllPermission());
 
-        // look up the pipe's rdf graph to which add the data
-        UriRef graphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
 
         // add the triples of the temporary graph into the graph selected by the user
         if (isValidUrl(dataUrl)) {
 
-            MGraph updatedGraph = addTriplesCommand(graphRef, dataUrl);
+            MGraph updatedGraph = addTriplesCommand(dataSet.getSourceGraphRef(), dataUrl);
 
-            messageWriter.println("Added " + updatedGraph.size() + " triples to " + graphRef.getUnicodeString());
+            messageWriter.println("Added " + updatedGraph.size() + " triples to " + dataSet.getSourceGraphRef().getUnicodeString());
             return updatedGraph;
 
         } else {
@@ -845,49 +801,48 @@ public class SourcingAdmin {
      * which the reconciliation should be performed.
      * @return String
      */
-    private void reconcile(UriRef pipeRef, String selectedInterlinker, PrintWriter messageWriter) {
-        UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+    private void reconcile(DataSet dataSet, String selectedInterlinker, PrintWriter messageWriter) {
 
-        if (graphExists(sourceGraphRef) && getSourceGraph().size() > 0) {
+        if (dataSet.getSourceGraph().size() > 0) {
 
             // size of interlink graph before reconciliations
-            int interlinkGraphInitSize = getInterlinkGraph().size();
+            int interlinkGraphInitSize = dataSet.getInterlinksGraph().size();
 
             // reconcile the source graph against itself 
-            reconcileCommand(pipeRef, sourceGraphRef, sourceGraphRef, selectedInterlinker);
+            reconcileCommand(dataSet, dataSet.getSourceGraphRef(), dataSet.getSourceGraphRef(), selectedInterlinker);
 
             // size of interlink graph after reconciliation of source graph against itself 
-            int interlinkSourceGraphSize = getInterlinkGraph().size();
+            int interlinkSourceGraphSize = dataSet.getInterlinksGraph().size();
 
             // new interlinks within source graph
             int numSourceInterlinks = interlinkSourceGraphSize - interlinkGraphInitSize;
 
             if (numSourceInterlinks > 0) {
 
-                messageWriter.println("A reconciliation task has been done on " + sourceGraphRef.getUnicodeString() + "\n"
+                messageWriter.println("A reconciliation task has been done on " + dataSet.getSourceGraphRef().getUnicodeString() + "\n"
                         + numSourceInterlinks + " owl:sameAs statements have been created.");
             } else {
-                messageWriter.println("A reconciliation task has been done on " + sourceGraphRef.getUnicodeString()
+                messageWriter.println("A reconciliation task has been done on " + dataSet.getSourceGraphRef().getUnicodeString()
                         + ". No equivalent entities have been found.");
             }
 
             // reconcile the source graph against the content graph 
             if (getContentGraph().size() > 0) {
 
-                reconcileCommand(pipeRef, sourceGraphRef, CONTENT_GRAPH_REF, selectedInterlinker);
+                reconcileCommand(dataSet, dataSet.getSourceGraphRef(), CONTENT_GRAPH_REF, selectedInterlinker);
 
                 // size of interlink graph after reconciliation of source graph against content graph 
-                int interlinkContentGraphSize = getInterlinkGraph().size();
+                int interlinkContentGraphSize = dataSet.getInterlinksGraph().size();
 
                 // new interlinks with content graph
                 int numContentInterlinks = interlinkContentGraphSize - interlinkSourceGraphSize;
 
                 if (numContentInterlinks > 0) {
 
-                    messageWriter.println("A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
+                    messageWriter.println("A reconciliation task has been done between " + dataSet.getSourceGraphRef().getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
                             + numContentInterlinks + " owl:sameAs statements have been created.");
                 } else {
-                    messageWriter.println("A reconciliation task has been done between " + sourceGraphRef.getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
+                    messageWriter.println("A reconciliation task has been done between " + dataSet.getSourceGraphRef().getUnicodeString() + " and " + CONTENT_GRAPH_NAME + "\n"
                             + ". No equivalent entities have been found.");
                 }
             }
@@ -903,26 +858,24 @@ public class SourcingAdmin {
      * reconciliation is an equivalence set stored in the interlink graph of the
      * pipe. The graph used as source is the source rdf graph.
      */
-    private void reconcileCommand(UriRef pipeRef, UriRef sourceGraphRef, UriRef targetGraphRef, String selectedInterlinker) {
+    private void reconcileCommand(DataSet dataSet, UriRef sourceGraphRef, UriRef targetGraphRef, String selectedInterlinker) {
 
-        // get the pipe's interlink graph to store the result of the reconciliation task        
-        UriRef interlinkGraphRef = new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX);
 
         if (graphExists(sourceGraphRef)) {
 
             // Get the source graph from the triple store
-            LockableMGraph sourceGrah = tcManager.getMGraph(sourceGraphRef);
+            LockableMGraph sourceGraph = dataSet.getSourceGraph();
             // reconcile the source graph with the target graph 
-            TripleCollection owlSameAs = interlinkers.get(selectedInterlinker).interlink(sourceGrah, targetGraphRef);
+            TripleCollection owlSameAs = interlinkers.get(selectedInterlinker).interlink(sourceGraph, targetGraphRef);
 
             if (owlSameAs.size() > 0) {
 
-                LockableMGraph sameAsGraph = tcManager.getMGraph(interlinkGraphRef);
+                LockableMGraph sameAsGraph = dataSet.getInterlinksGraph();
                 sameAsGraph.addAll(owlSameAs);
                 // add a reference of the equivalence set to the source graph 
-                getDlcGraph().add(new TripleImpl(interlinkGraphRef, Ontology.voidSubjectsTarget, sourceGraphRef));
+                getDlcGraph().add(new TripleImpl(dataSet.getInterlinksGraphRef(), Ontology.voidSubjectsTarget, sourceGraphRef));
                 // add a reference of the equivalence set to the target graph                
-                getDlcGraph().add(new TripleImpl(interlinkGraphRef, Ontology.voidObjectsTarget, targetGraphRef));
+                getDlcGraph().add(new TripleImpl(dataSet.getInterlinksGraphRef(), Ontology.voidObjectsTarget, targetGraphRef));
 
             }
         }
@@ -938,47 +891,75 @@ public class SourcingAdmin {
      * @param graphToSmushRef
      * @return
      */
-    private void smush(UriRef pipeRef, PrintWriter messageWriter) {
+    private void smush(DataSet dataSet, PrintWriter messageWriter) {
         messageWriter.println("Smushing task.");
         // As the smush.graph must be published it has to contain the sioc.content property and all the subject
         // extracted during the enhancement phase that are stored in the enhance.graph with all the triples from 
         // the rdf
-        UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
 
-        if (getEnhanceGraph().size() > 0) {
+        if (dataSet.getEnhanceGraph().size() > 0) {
 
-            LockableMGraph smushedGraph = smushCommand(enhanceGraphRef, getInterlinkGraph());
+            LockableMGraph smushedGraph = smushCommand(dataSet, dataSet.getInterlinksGraph());
 
-            messageWriter.println("Smushing of " + enhanceGraphRef.getUnicodeString()
+            messageWriter.println("Smushing of " + dataSet.getEnhancedGraphRef().getUnicodeString()
                     + " with equivalence set completed. "
                     + "Smushed graph size = " + smushedGraph.size());
         } else {
-            messageWriter.println("No equivalence links available for " + enhanceGraphRef.getUnicodeString() + "\n"
+            messageWriter.println("No equivalence links available for " + dataSet.getEnhancedGraphRef().getUnicodeString() + "\n"
                     + "or the enhancement graph is empty.\n"
                     + "The smushing task is applied to the enhancement graph using the equivalence set in the interlinking graph.");
         }
 
     }
 
-    private LockableMGraph smushCommand(UriRef enhanceGraphRef, LockableMGraph equivalenceSet) {
+    private LockableMGraph smushCommand(final DataSet dataSet, LockableMGraph equivalenceSet) {
 
-        if (getSmushGraph().size() > 0) {
-            getSmushGraph().clear();
+     
+        final SameAsSmusher smusher = new SameAsSmusher() {
+
+            @Override
+            protected UriRef getPreferedIri
+            (Set<UriRef> uriRefs
+            
+                ) {
+            Set<UriRef> httpUri = new HashSet<UriRef>();
+                for (UriRef uriRef : uriRefs) {
+                    if (uriRef.getUnicodeString().startsWith("http")) {
+                        httpUri.add(uriRef);
+                    }
+                }
+                if (httpUri.size() == 1) {
+                    return httpUri.iterator().next();
+                }
+            // There is no http URI in the set of equivalent resource. The entity was unknown. 
+                // A new representation of the entity with http URI will be created. 
+                if (httpUri.size() == 0) {
+                    return generateNewHttpUri(dataSet, uriRefs);
+                }
+                if (httpUri.size() > 1) {
+                    return chooseBest(httpUri);
+                }
+                throw new Error("Negative size set.");
+            }
+
+        };
+
+        if (dataSet.getSmushGraph().size() > 0) {
+            dataSet.getSmushGraph().clear();
         }
 
-        Lock erl = getEnhanceGraph().getLock().readLock();
+        Lock erl = dataSet.getEnhanceGraph().getLock().readLock();
         erl.lock();
         try {
             // add triples from enhance graph to smush graph
-            getSmushGraph().addAll(getEnhanceGraph());
-            log.info("Copied " + getEnhanceGraph().size() + " triples from the enhancement graph into the smush graph.");
+            dataSet.getSmushGraph().addAll(dataSet.getEnhancedGraph());
+            log.info("Copied " + dataSet.getEnhancedGraph().size() + " triples from the enhancement graph into the smush graph.");
             SimpleMGraph tempEquivalenceSet = new SimpleMGraph();
             tempEquivalenceSet.addAll(equivalenceSet);
 
-            // smush and canonicalize equivalent uris
-            SameAsSmusher smusher = new CanonicalizingSameAsSmusher();
+
             log.info("Smush task started.");
-            smusher.smush(getSmushGraph(), tempEquivalenceSet, true);
+            smusher.smush(dataSet.getSmushGraph(), tempEquivalenceSet, true);
             log.info("Smush task completed.");
         } finally {
             erl.unlock();
@@ -987,10 +968,10 @@ public class SourcingAdmin {
         // Remove from smush graph equivalences between temporary uri (urn:x-temp) and http uri that are added by the clerezza smusher.
         // These equivalences must be removed as only equivalences between known entities (http uri) must be maintained and then published
         MGraph equivToRemove = new SimpleMGraph();
-        Lock srl = getSmushGraph().getLock().readLock();
+        Lock srl = dataSet.getSmushGraph().getLock().readLock();
         srl.lock();
         try {
-            Iterator<Triple> isameas = getSmushGraph().filter(null, OWL.sameAs, null);
+            Iterator<Triple> isameas = dataSet.getSmushGraph().filter(null, OWL.sameAs, null);
             while (isameas.hasNext()) {
                 Triple sameas = isameas.next();
                 NonLiteral subject = sameas.getSubject();
@@ -1003,9 +984,9 @@ public class SourcingAdmin {
             srl.unlock();
         }
 
-        getSmushGraph().removeAll(equivToRemove);
+        dataSet.getSmushGraph().removeAll(equivToRemove);
 
-        return getSmushGraph();
+        return dataSet.getSmushGraph();
 
     }
 
@@ -1022,19 +1003,13 @@ public class SourcingAdmin {
      * @param pipeRef
      * @return
      */
-    private void extractTextFromRdf(UriRef pipeRef, String selectedDigester, PrintWriter messageWriter) {
+    private void extractTextFromRdf(DataSet dataSet, String selectedDigester, PrintWriter messageWriter) {
 
-        UriRef sourceGraphRef = new UriRef(pipeRef.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
-        LockableMGraph sourceGraph = tcManager.getMGraph(sourceGraphRef);
-
-        extractTextFromRdf(pipeRef, selectedDigester, messageWriter, sourceGraph);
-    }
-
-    private void extractTextFromRdf(UriRef pipeRef, String selectedDigester, PrintWriter messageWriter, LockableMGraph sourceGraph) {
-        UriRef enhanceGraphRef = new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
-        MGraph enhanceGraph = tcManager.getMGraph(enhanceGraphRef);
+  
+        MGraph enhanceGraph = dataSet.getEnhancedGraph();
 
         MGraph tempGraph = new IndexedMGraph();
+        LockableMGraph sourceGraph = dataSet.getSourceGraph();
         Lock rl = sourceGraph.getLock().readLock();
         rl.lock();
         try {
@@ -1047,7 +1022,7 @@ public class SourcingAdmin {
 
         RdfDigester digester = digesters.get(selectedDigester);
         digester.extractText(enhanceGraph);
-        messageWriter.println("Extracted text from " + enhanceGraphRef.getUnicodeString() + " by " + selectedDigester + " digester");
+        messageWriter.println("Extracted text from " + dataSet.getEnhancedGraphRef().getUnicodeString() + " by " + selectedDigester + " digester");
 
     }
 
@@ -1064,7 +1039,7 @@ public class SourcingAdmin {
      * old triples from content.graph 6) delete all triples in publish.graph 7)
      * copy triples from smush.graph to publish.graph
      */
-    private void publishData(UriRef pipeRef, PrintWriter messageWriter) {
+    private void publishData(DataSet dataSet, PrintWriter messageWriter) {
 
         // add these triples to the content.graph 
         MGraph triplesToAdd = new SimpleMGraph();
@@ -1072,17 +1047,17 @@ public class SourcingAdmin {
         MGraph triplesToRemove = new SimpleMGraph();
 
         // make all URIs in smush graph dereferencable
-        canonicalizeResources(getSmushGraph());
+        canonicalizeResources(dataSet, dataSet.getSmushGraph());
 
         // triples to add to the content.graph
-        Lock ls = getSmushGraph().getLock().readLock();
+        Lock ls = dataSet.getSmushGraph().getLock().readLock();
         ls.lock();
         try {
 
-            Iterator<Triple> ismush = getSmushGraph().iterator();
+            Iterator<Triple> ismush = dataSet.getSmushGraph().iterator();
             while (ismush.hasNext()) {
                 Triple smushTriple = ismush.next();
-                if (!getPublishGraph().contains(smushTriple)) {
+                if (!dataSet.getPublishGraph().contains(smushTriple)) {
                     triplesToAdd.add(smushTriple);
                 }
 
@@ -1092,13 +1067,13 @@ public class SourcingAdmin {
         }
 
         // triples to remove from the content.graph
-        Lock lp = getPublishGraph().getLock().readLock();
+        Lock lp = dataSet.getPublishGraph().getLock().readLock();
         lp.lock();
         try {
-            Iterator<Triple> ipublish = getPublishGraph().iterator();
+            Iterator<Triple> ipublish = dataSet.getPublishGraph().iterator();
             while (ipublish.hasNext()) {
                 Triple publishTriple = ipublish.next();
-                if (!getSmushGraph().contains(publishTriple)) {
+                if (!dataSet.getSmushGraph().contains(publishTriple)) {
                     triplesToRemove.add(publishTriple);
                 }
 
@@ -1120,17 +1095,17 @@ public class SourcingAdmin {
             log.info("No triples to add to " + CONTENT_GRAPH_REF.getUnicodeString());
         }
 
-        getPublishGraph().clear();
+        dataSet.getPublishGraph().clear();
 
-        Lock rl = getSmushGraph().getLock().readLock();
+        Lock rl = dataSet.getSmushGraph().getLock().readLock();
         rl.lock();
         try {
-            getPublishGraph().addAll(getSmushGraph());
+            dataSet.getPublishGraph().addAll(dataSet.getSmushGraph());
         } finally {
             rl.unlock();
         }
 
-        messageWriter.println("Copied " + triplesToAdd.size() + " triples from " + pipeRef.getUnicodeString() + " to content-graph");
+        messageWriter.println("Copied " + triplesToAdd.size() + " triples from " + dataSet.getUri() + " to content-graph");
 
     }
 
@@ -1145,22 +1120,20 @@ public class SourcingAdmin {
      * @param mediaType
      * @return
      */
-    private void rdfUploadInterlink(UriRef pipeRef, URL dataUrl, String digesterName, String interlinkerName, PrintWriter messageWriter) throws IOException {
+    private void rdfUploadInterlink(DataSet dataSet, URL dataUrl, String digesterName, String interlinkerName, PrintWriter messageWriter) throws IOException {
 
-        DataSet dataSet = new DataSet(pipeRef);
-        
-        TripleCollection addedTriples = addTriples(pipeRef, dataUrl, messageWriter);
+        TripleCollection addedTriples = addTriples(dataSet, dataUrl, messageWriter);
 
         MGraph enhancedTriples = new IndexedMGraph();
         enhancedTriples.addAll(addedTriples);
         RdfDigester digester = digesters.get(digesterName);
         digester.extractText(enhancedTriples);
-        
+
         dataSet.getEnhancedGraph().addAll(enhancedTriples);
 
         Interlinker interlinker = interlinkers.get(interlinkerName);
         dataSet.getInterlinksGraph().addAll(interlinker.interlink(enhancedTriples, dataSet.getEnhancedGraphRef()));
-        dataSet.getInterlinksGraph().addAll(interlinker.interlink(enhancedTriples, CONTENT_GRAPH_REF));        
+        dataSet.getInterlinksGraph().addAll(interlinker.interlink(enhancedTriples, CONTENT_GRAPH_REF));
 
     }
 
@@ -1172,7 +1145,7 @@ public class SourcingAdmin {
      * interlinking graph for each resource (subject and object) that has been
      * changed.
      */
-    private void canonicalizeResources(LockableMGraph graph) {
+    private void canonicalizeResources(DataSet dataSet, LockableMGraph graph) {
 
         MGraph graphCopy = new SimpleMGraph();
         // graph containing the same triple with the http URI for each subject and object
@@ -1192,10 +1165,10 @@ public class SourcingAdmin {
             Resource object = triple.getObject();
             // generate an http URI for both subject and object and add an equivalence link into the interlinking graph
             if (subject.getUnicodeString().startsWith(URN_SCHEME)) {
-                subject = generateNewHttpUri(Collections.singleton(subject));
+                subject = generateNewHttpUri(dataSet, Collections.singleton(subject));
             }
             if (object.toString().startsWith("<" + URN_SCHEME)) {
-                object = generateNewHttpUri(Collections.singleton((UriRef) object));
+                object = generateNewHttpUri(dataSet, Collections.singleton((UriRef) object));
             }
 
             // add the triple with the http uris to the canonic graph
@@ -1308,37 +1281,7 @@ public class SourcingAdmin {
         return dlcGraph;
     }
 
-    /**
-     * An inline class to canonicalize URI from urn to http scheme. A http URI
-     * is chosen among the equivalent ones.if no one http URI is available a new
-     * one is created.
-     */
-    private class CanonicalizingSameAsSmusher extends SameAsSmusher {
-
-        @Override
-        protected UriRef getPreferedIri(Set<UriRef> uriRefs) {
-            Set<UriRef> httpUri = new HashSet<UriRef>();
-            for (UriRef uriRef : uriRefs) {
-                if (uriRef.getUnicodeString().startsWith("http")) {
-                    httpUri.add(uriRef);
-                }
-            }
-            if (httpUri.size() == 1) {
-                return httpUri.iterator().next();
-            }
-            // There is no http URI in the set of equivalent resource. The entity was unknown. 
-            // A new representation of the entity with http URI will be created. 
-            if (httpUri.size() == 0) {
-                return generateNewHttpUri(uriRefs);
-            }
-            if (httpUri.size() > 1) {
-                return chooseBest(httpUri);
-            }
-            throw new Error("Negative size set.");
-        }
-
-    }
-
+    
     /**
      * Generates a new http URI that will be used as the canonical one in place
      * of a set of equivalent non-http URIs. An owl:sameAs statement is added to
@@ -1348,7 +1291,7 @@ public class SourcingAdmin {
      * @param uriRefs
      * @return
      */
-    private UriRef generateNewHttpUri(Set<UriRef> uriRefs) {
+    private UriRef generateNewHttpUri(DataSet dataSet, Set<UriRef> uriRefs) {
         UriRef bestNonHttp = chooseBest(uriRefs);
         String nonHttpString = bestNonHttp.getUnicodeString();
         if (!nonHttpString.startsWith(URN_SCHEME)) {
@@ -1356,9 +1299,10 @@ public class SourcingAdmin {
                     + "URIs to be canonicalized to be urn:x-temp, cannot handle: " + nonHttpString);
         }
         String httpUriString = nonHttpString.replaceFirst(URN_SCHEME, baseUri);
+        //TODO check that this URI is in fact new
         UriRef httpUriRef = new UriRef(httpUriString);
         // add an owl:sameAs statement in the interlinking graph 
-        getInterlinkGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, httpUriRef));
+        dataSet.getInterlinksGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, httpUriRef));
         return httpUriRef;
     }
 
@@ -1374,7 +1318,21 @@ public class SourcingAdmin {
         return best;
     }
 
+    /**
+     * For each rdf triple collection uploaded 5 graphs are created. 1) a source
+     * graph to store the rdf data 2) an enhancements graph to store the text
+     * extracted for indexing and the entities extracted from the text by NLP
+     * engines in the default enhancement chain 3) a graph to store the result
+     * of the interlinking task 4) a graph to store the smushed graph 5) a graph
+     * to store the published graph i.e. the smushed graph in a coherent state
+     * with data in the content graph The name convention for these graphs is
+     * GRAPH_URN_PREFIX + timestamp + SUFFIX where SUFFIX can be one of
+     * SOURCE_GRAPH_URN_SUFFIX, ENHANCE_GRAPH_URN_SUFFIX,
+     * INTERLINK_GRAPH_URN_SUFFIX, SMUSH_GRAPH_URN_SUFFIX,
+     * PUBLISH_GRAPH_URN_SUFFIX
+     */
     class DataSet {
+
         private UriRef dataSetUri;
 
         DataSet(UriRef dataSetUri) {
@@ -1382,7 +1340,7 @@ public class SourcingAdmin {
         }
 
         /**
-         * 
+         *
          * @return the graph containing the enhanced data
          */
         public LockableMGraph getEnhancedGraph() {
@@ -1390,12 +1348,12 @@ public class SourcingAdmin {
         }
 
         public UriRef getEnhancedGraphRef() {
-            return new UriRef(pipeRef.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
-        
+            return new UriRef(dataSetUri.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
+
         }
 
         /**
-         * 
+         *
          * @return the graph containing the interlinks (owl:sameAs triples)
          */
         public LockableMGraph getInterlinksGraph() {
@@ -1403,9 +1361,36 @@ public class SourcingAdmin {
         }
 
         public UriRef getInterlinksGraphRef() {
-            return new UriRef(pipeRef.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX);
-        
+            return new UriRef(dataSetUri.getUnicodeString() + INTERLINK_GRAPH_URN_SUFFIX);
+
         }
+
+        private UriRef getSourceGraphRef() {
+            return new UriRef(dataSetUri.getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+        }
+        
+        public LockableMGraph getSourceGraph() {
+            return tcManager.getMGraph(getSourceGraphRef());
+        }
+
+        public LockableMGraph getEnhanceGraph() {
+            return tcManager.getMGraph(new UriRef(dataSetUri.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX));
+        }
+
+
+        public LockableMGraph getSmushGraph() {
+            return tcManager.getMGraph(new UriRef(dataSetUri.getUnicodeString() + SMUSH_GRAPH_URN_SUFFIX));
+        }
+
+        public LockableMGraph getPublishGraph() {
+            return tcManager.getMGraph(new UriRef(dataSetUri.getUnicodeString() + PUBLISH_GRAPH_URN_SUFFIX));
+        }
+
+        private UriRef getUri() {
+            return dataSetUri;
+        }
+
+        
 
     }
 }
