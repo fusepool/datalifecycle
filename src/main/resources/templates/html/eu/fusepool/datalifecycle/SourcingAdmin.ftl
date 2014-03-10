@@ -156,7 +156,13 @@ Upload RDF data, enhance and interlink. Select dataset
         Index URL: <input type="text" name="url" value="" size="60">
         <input type="submit" value="Start processing" />
     </form>
+    <#if evalLDPath("ont:activeTask")??>
+    <h2>Active tasks</h2>
+        <@ldpath path="ont:activeTask">
+             <a href="<@ldpath path="."/>"><@ldpath path="."/></a><br/>
+        </@ldpath>
     </div>
+    </#if>
     
    
     </div><!-- mainColumn end -->

@@ -17,6 +17,13 @@
     	<h1><img src="../images/fusepool.png" />Fusepool Data Lifecycle Task</h1>
 
       </div>
+
+      <div class="menu">
+        <ul>
+          <li><a href="../">DLC Admin</a></li>
+
+         </ul>
+      </div>
 	
     Date submitted: <@ldpath path="dcterms:dateSubmitted"/><br/>
     Date started: <@ldpath path="dcterms:dateAccepted"/><br/>
@@ -29,6 +36,7 @@
 <@ldpath path="rdfs:comment"/>
     </pre>
 
+<#if !evalLDPath("ont:endDate")??>
     <div class="dangerZone">
         <h2>Danger zone</h2>
         This cannot be undone, and there is no confirmation dialogue:
@@ -37,5 +45,6 @@
             <input type="submit" value="Request temination" />
         </form>
     </div>
+</#if>
 </body>
 </html>

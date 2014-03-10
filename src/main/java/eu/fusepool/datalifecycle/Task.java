@@ -99,5 +99,9 @@ abstract class Task extends Thread {
     public void requestTermination() {
         this.terminationRequested = true;
     }
+
+    boolean isActive() {
+        return endDate == null;
+    }
     
 }

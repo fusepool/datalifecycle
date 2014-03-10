@@ -408,6 +408,12 @@ public class SourcingAdmin {
             responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, RDFS.comment, new PlainLiteralImpl(message)));
         }
 
+        for (Task task : tasks) {
+            if (task.isActive()) {
+                node.addProperty(Ontology.activeTask, task.getUri());
+                responseGraph.addAll(task.getNode().getGraph());
+            }
+        }
         //What we return is the GraphNode we created with a template path
         return new RdfViewable("SourcingAdmin", node, SourcingAdmin.class);
     }
