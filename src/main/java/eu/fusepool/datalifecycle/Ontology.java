@@ -33,6 +33,13 @@ public class Ontology {
     public static final UriRef SourcingAdmin = new UriRef("http://fusepool.com/ontologies/interlinking#SourcingAdmin");
     public static final UriRef graph = new UriRef("http://fusepool.com/ontologies/interlinking#graph");
     
+    //tasks
+    public static final UriRef endDate = new UriRef("http://fusepool.com/ontologies/interlinking#endDate");
+    
+    //logs
+    public static final UriRef LogEntry = new UriRef("http://fusepool.com/ontologies/interlinking#LogEntry");
+    public static final UriRef retrievedURI = new UriRef("http://fusepool.com/ontologies/interlinking#retrievedURI");
+    
     /**
      * A simple workflow ontology
      */

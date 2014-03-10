@@ -15,24 +15,30 @@
  */
 package eu.fusepool.datalifecycle;
 
+import eu.fusepool.datalifecycle.utils.LinksRetriever;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.AccessController;
 import java.security.AllPermission;
 import java.security.Permission;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
+import javax.ws.rs.DefaultValue;
 
 import javax.ws.rs.FormParam;
 
@@ -42,11 +48,13 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 import org.apache.clerezza.jaxrs.utils.RedirectUtil;
 import org.apache.clerezza.jaxrs.utils.TrailingSlash;
+import org.apache.clerezza.rdf.core.BNode;
 import org.apache.clerezza.rdf.core.MGraph;
 import org.apache.clerezza.rdf.core.NonLiteral;
 import org.apache.clerezza.rdf.core.Resource;
@@ -56,6 +64,7 @@ import org.apache.clerezza.rdf.core.UriRef;
 import org.apache.clerezza.rdf.core.access.EntityAlreadyExistsException;
 import org.apache.clerezza.rdf.core.access.LockableMGraph;
 import org.apache.clerezza.rdf.core.access.TcManager;
+import org.apache.clerezza.rdf.core.access.NoSuchEntityException;
 import org.apache.clerezza.rdf.core.access.security.TcAccessController;
 import org.apache.clerezza.rdf.core.access.security.TcPermission;
 import org.apache.clerezza.rdf.core.impl.PlainLiteralImpl;
@@ -191,6 +200,8 @@ public class SourcingAdmin {
     public static final String SOURCE_GRAPH_URN_SUFFIX = "/rdf.graph";
     // enhancements graph suffix
     public static final String ENHANCE_GRAPH_URN_SUFFIX = "/enhance.graph";
+    // log graph suffix
+    public static final String LOG_GRAPH_URN_SUFFIX = "/log.graph";
     // interlink graph suffix
     public static final String INTERLINK_GRAPH_URN_SUFFIX = "/interlink.graph";
     // smushed graph suffix
@@ -203,6 +214,9 @@ public class SourcingAdmin {
 
     // Validity of base Uri (enables interlinking, smushing and publishing tasks)
     private boolean isValidBaseUri = false;
+    
+    //all active and some other tasks
+    final private Set<Task> tasks = Collections.synchronizedSet(new HashSet<Task>());
 
     @SuppressWarnings("unchecked")
     @Activate
@@ -583,6 +597,94 @@ public class SourcingAdmin {
         return stringWriter.toString();
 
     }
+    
+    @POST
+    @Path("processBatch")
+    public Response processBatch(@Context final UriInfo uriInfo,
+            @FormParam("dataSet") final UriRef dataSetRef,
+            @FormParam("url") final URL url,
+            @FormParam("rdfizer") final String rdfizer,
+            @FormParam("digester") final String digester,
+            @FormParam("interlinker") final String interlinker,
+            @FormParam("maxFiles") @DefaultValue("10") final int maxFiles,
+            @FormParam("skipPreviouslyAdded") final String skipPreviouslyAddedValue) throws Exception {
+        final boolean skipPreviouslyAdded = "on".equals(skipPreviouslyAddedValue);
+        if (dataSetRef == null) {
+            throw new WebApplicationException("Param dataSet must be specified", Response.Status.BAD_REQUEST);
+        }
+        
+        AccessController.checkPermission(new DlcPermission());
+        final DataSet dataSet = new DataSet(dataSetRef);
+            
+        Task task = new Task(uriInfo) {
+
+            @Override
+            public void execute() {
+                try {
+                    List<URL> uriList = LinksRetriever.getLinks(url);
+                    int count = 0;
+                    for (URL dataUrl : uriList) {
+                        if (skipPreviouslyAdded) {
+                            Lock lock = dataSet.getLogGraph().getLock().readLock();
+                            lock.lock();
+                            try {
+                                if (dataSet.getLogGraph().filter(null,
+                                        Ontology.retrievedURI,
+                                        new UriRef((dataUrl.toString()))).hasNext()) {
+                                    continue;
+                                }
+                            } finally {
+                                lock.unlock();
+                            }
+                        }
+                        if (isTerminationRequested()) {
+                            break;
+                        }
+                        if (++count > maxFiles) {
+                            break;
+                        }
+                        rdfUploadInterlink(dataSet, dataUrl, digester, interlinker, log);
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace(log);
+                }
+            }
+        
+        };
+        tasks.add(task);
+        task.start();
+        return Response.seeOther(new URI(task.getUri().getUnicodeString())).build();
+    }
+    
+    @GET
+    @Path("task/{id}")
+    public RdfViewable describeTask(@Context final UriInfo uriInfo) {
+        final String resourcePath = uriInfo.getAbsolutePath().toString();
+        final UriRef taskUri = new UriRef(resourcePath);
+        for (Task task : tasks) {
+            if (task.getUri().equals(taskUri)) {
+                return new RdfViewable("task", task.getNode(), SourcingAdmin.class);
+            }
+        }
+        throw new WebApplicationException(Response.Status.NOT_FOUND);
+    }
+    
+    @POST
+    @Path("task/{id}")
+    public Response actOnTaks(@Context final UriInfo uriInfo, @FormParam("action") String action) throws URISyntaxException {
+        final String resourcePath = uriInfo.getAbsolutePath().toString();
+        final UriRef taskUri = new UriRef(resourcePath);
+        for (Task task : tasks) {
+            if (task.getUri().equals(taskUri)) {
+                if ("TERMINATE".equalsIgnoreCase(action)) {
+                    task.requestTermination();
+                    return Response.seeOther(new URI(task.getUri().getUnicodeString())).build();
+                }
+                throw new WebApplicationException(Response.Status.BAD_REQUEST);
+            }
+        }
+        throw new WebApplicationException(Response.Status.NOT_FOUND);
+    }
 
     private void operateOnPipe(UriRef pipeRef,
             int operationCode,
@@ -723,7 +825,7 @@ public class SourcingAdmin {
 
             MGraph updatedGraph = addTriplesCommand(dataSet.getSourceGraphRef(), dataUrl);
 
-            messageWriter.println("Added " + updatedGraph.size() + " triples to " + dataSet.getSourceGraphRef().getUnicodeString());
+            messageWriter.println("Added " + updatedGraph.size() + " triples from "+dataUrl+ " to " + dataSet.getSourceGraphRef().getUnicodeString());
             return updatedGraph;
 
         } else {
@@ -1130,10 +1232,19 @@ public class SourcingAdmin {
         digester.extractText(enhancedTriples);
 
         dataSet.getEnhancedGraph().addAll(enhancedTriples);
-
+        messageWriter.println("added "+enhancedTriples.size()+" enhanced triples to "+dataSet.getEnhancedGraphRef().getUnicodeString());
         Interlinker interlinker = interlinkers.get(interlinkerName);
-        dataSet.getInterlinksGraph().addAll(interlinker.interlink(enhancedTriples, dataSet.getEnhancedGraphRef()));
-        dataSet.getInterlinksGraph().addAll(interlinker.interlink(enhancedTriples, CONTENT_GRAPH_REF));
+        final TripleCollection dataSetInterlinks = interlinker.interlink(enhancedTriples, dataSet.getEnhancedGraphRef());
+        dataSet.getInterlinksGraph().addAll(dataSetInterlinks);
+        messageWriter.println("added "+dataSetInterlinks.size()+" data-set interlinks to "+dataSet.getInterlinksGraphRef().getUnicodeString());
+        final TripleCollection contentGraphInterlinks = interlinker.interlink(enhancedTriples, CONTENT_GRAPH_REF);
+        dataSet.getInterlinksGraph().addAll(contentGraphInterlinks);
+        messageWriter.println("added "+contentGraphInterlinks.size()+" content-graph interlinks to "+dataSet.getInterlinksGraphRef().getUnicodeString());
+        
+        GraphNode logEntry = new GraphNode(new BNode(), dataSet.getLogGraph());
+        logEntry.addProperty(RDF.type, Ontology.LogEntry);
+        logEntry.addProperty(Ontology.retrievedURI, new UriRef(dataUrl.toString()));
+
 
     }
 
@@ -1349,6 +1460,23 @@ public class SourcingAdmin {
 
         public UriRef getEnhancedGraphRef() {
             return new UriRef(dataSetUri.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
+
+        }
+        
+        /**
+         *
+         * @return the graph containing the activity log of the dataset
+         */
+        public LockableMGraph getLogGraph() {
+            try {
+                return tcManager.getMGraph(getLogGraphRef());
+            } catch (NoSuchEntityException e) {
+                return tcManager.createMGraph(getLogGraphRef());
+            }
+        }
+
+        public UriRef getLogGraphRef() {
+            return new UriRef(dataSetUri.getUnicodeString() + LOG_GRAPH_URN_SUFFIX);
 
         }
 

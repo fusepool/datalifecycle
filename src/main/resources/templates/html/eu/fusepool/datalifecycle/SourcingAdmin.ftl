@@ -130,6 +130,32 @@
         <input type="submit" value="Run sequence" />
         
     </form>
+
+    <form action="processBatch/" method="post">
+            <h2>Batch process</h2>
+
+Upload RDF data, enhance and interlink. Select dataset 
+        	<select name="dataSet">
+            <@ldpath path="wf:pipe">
+               <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
+            </@ldpath>           
+            </select>
+        	Select digester
+        	<select name="digester">
+        		<@ldpath path="wf:enhanceService">
+                  <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
+                </@ldpath>
+        	</select>
+        	Select interlinker
+        	<select name="interlinker">
+        		<@ldpath path="wf:interlinkService">
+                  <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
+                </@ldpath>
+        	</select> Skip previously added <input type="checkbox" name="skipPreviouslyAdded" checked="checked" value="on" /><br/>
+        Stop after <input type="text" name="maxFiles" value="10" size="6"><br/>
+        Index URL: <input type="text" name="url" value="" size="60">
+        <input type="submit" value="Start processing" />
+    </form>
     </div>
     
    

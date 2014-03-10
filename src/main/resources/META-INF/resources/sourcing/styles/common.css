@@ -70,6 +70,11 @@ must be put within the wrapper in the html files
 	padding-bottom:10px;
 }
 
+.dangerZone {
+    background-color: red;
+    padding: 3em;
+}
+
 /* 3. links and navigation */
 div.menu {
 	margin: 10px;
