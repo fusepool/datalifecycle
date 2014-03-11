@@ -639,7 +639,7 @@ public class SourcingAdmin {
                                         new UriRef((dataUrl.toString()))).hasNext()) {
                                     continue;
                                 }
-                            } finally {
+                            }  finally {
                                 lock.unlock();
                             }
                         }
@@ -649,7 +649,12 @@ public class SourcingAdmin {
                         if (++count > maxFiles) {
                             break;
                         }
-                        rdfUploadInterlink(dataSet, dataUrl, rdfizer, digester, interlinker, log);
+                        try {
+                            rdfUploadInterlink(dataSet, dataUrl, rdfizer, digester, interlinker, log);
+                        } catch (Exception e) {
+                            log.println("Exception processing "+dataUrl);
+                            e.printStackTrace(log);
+                        }
                     }
                 } catch (Exception ex) {
                     ex.printStackTrace(log);
