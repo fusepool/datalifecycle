@@ -56,11 +56,11 @@
            </@ldpath>           
         </select>
         
-        <h2>Upload data</h2>
+        <h2>Load data</h2>
         <ul>
-        <li><input type="radio" name="operation_code" value="2">Upload RDF data<br></li>
+        <li><input type="radio" name="operation_code" value="2">Load RDF data<br></li>
         <li>
-        	<input type="radio" name="operation_code" value="1">Upload XML data. Transform to RDF using 
+        	<input type="radio" name="operation_code" value="1">Load XML data. Transform to RDF using 
         	<select name="rdfizer">
         		<@ldpath path="wf:rdfizeService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
@@ -103,19 +103,26 @@
         <h2>Select a task sequence</h2>
         <ul>
          <li>
-        	<input type="radio" name="sequence_code" value="1">
-        	Upload RDF data, enhance and interlink. Select dataset 
+        	Load RDF or XML data, enhance and interlink.<br/>
+             Select dataset 
         	<select name="pipe">
             <@ldpath path="wf:pipe">
                <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
             </@ldpath>           
-            </select>
+            </select><br/>
+                Select RdfIzer
+                <select name="rdfizer">
+                <option value="none">None (data is in RDF)</option>
+        		<@ldpath path="wf:rdfizeService">
+                  <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
+                </@ldpath>
+        	</select><br/>
         	Select digester
         	<select name="digester">
         		<@ldpath path="wf:enhanceService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
                 </@ldpath>
-        	</select>
+        	</select><br/>
         	Select interlinker
         	<select name="interlinker">
         		<@ldpath path="wf:interlinkService">
@@ -134,12 +141,20 @@
     <form action="processBatch/" method="post">
             <h2>Batch process</h2>
 
-Upload RDF data, enhance and interlink. Select dataset 
+Load RDF data, enhance and interlink. Select dataset 
         	<select name="dataSet">
+                
             <@ldpath path="wf:pipe">
                <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
             </@ldpath>           
             </select>
+Select RdfIzer
+                <select name="rdfizer">
+                <option value="none">None (data is in RDF)</option>
+        		<@ldpath path="wf:rdfizeService">
+                  <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
+                </@ldpath>
+</select>
         	Select digester
         	<select name="digester">
         		<@ldpath path="wf:enhanceService">

@@ -5,7 +5,6 @@
 package eu.fusepool.datalifecycle.utils;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.LinkedList;
 import java.util.List;
@@ -36,7 +35,8 @@ public class LinksRetriever {
             String linkTarget = matcher.group(2);
             if (linkTarget.endsWith(".rdf") 
                     || linkTarget.endsWith(".nt")
-                    || linkTarget.endsWith(".ttl")) {
+                    || linkTarget.endsWith(".ttl")
+                    || linkTarget.endsWith(".xml")) {
                 links.add(new URL(url,linkTarget));
             }
         }

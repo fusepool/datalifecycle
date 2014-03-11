@@ -609,7 +609,7 @@ public class SourcingAdmin {
     public Response processBatch(@Context final UriInfo uriInfo,
             @FormParam("dataSet") final UriRef dataSetRef,
             @FormParam("url") final URL url,
-            @FormParam("rdfizer") final String rdfizer,
+            @FormParam("rdfizer") final String rdfizerName,
             @FormParam("digester") final String digester,
             @FormParam("interlinker") final String interlinker,
             @FormParam("maxFiles") @DefaultValue("10") final int maxFiles,
@@ -621,7 +621,7 @@ public class SourcingAdmin {
         
         AccessController.checkPermission(new DlcPermission());
         final DataSet dataSet = new DataSet(dataSetRef);
-            
+        final Rdfizer rdfizer = rdfizerName.equals("none")? null : rdfizers.get(rdfizerName);    
         Task task = new Task(uriInfo) {
 
             @Override
@@ -649,7 +649,7 @@ public class SourcingAdmin {
                         if (++count > maxFiles) {
                             break;
                         }
-                        rdfUploadInterlink(dataSet, dataUrl, digester, interlinker, log);
+                        rdfUploadInterlink(dataSet, dataUrl, rdfizer, digester, interlinker, log);
                     }
                 } catch (Exception ex) {
                     ex.printStackTrace(log);
@@ -717,7 +717,7 @@ public class SourcingAdmin {
                     extractTextFromRdf(dataSet, rdfdigester, messageWriter);
                     break;
                 case RDFIZE:
-                    transformXml(dataSet, dataUrl, rdfizer, messageWriter);
+                    transformXml(dataSet, dataUrl, rdfizers.get(rdfizer), messageWriter);
                     break;
                 case PUBLISH_DATA:
                     publishData(dataSet, messageWriter);
@@ -736,7 +736,7 @@ public class SourcingAdmin {
             @FormParam("pipe") final UriRef pipeRef,
             @FormParam("sequence_code") final int sequenceCode,
             @FormParam("data_url") final URL dataUrl,
-            @FormParam("rdfizer") final String rdfizer,
+            @FormParam("rdfizer") final String rdfizerName,
             @FormParam("digester") final String digester,
             @FormParam("interlinker") final String interlinker) throws IOException {
 
@@ -744,12 +744,13 @@ public class SourcingAdmin {
 
         StringWriter stringWriter = new StringWriter();
         PrintWriter messageWriter = new PrintWriter(stringWriter);
-        messageWriter.println("Pipe: " + pipeRef.getUnicodeString() + " Sequence code: " + sequenceCode + " Data Url: " + dataUrl.toString()
-                + " Rdfizer: " + rdfizer + " Digester: " + digester + " Interlinker: " + interlinker);
+        messageWriter.println("Pipe: " + pipeRef.getUnicodeString() + " Data Url: " + dataUrl.toString()
+                + " Rdfizer: " + rdfizerName + " Digester: " + digester + " Interlinker: " + interlinker);
 
+        Rdfizer rdfizer = rdfizerName.equals("none")? null : rdfizers.get(rdfizerName);
         if (pipeExists(pipeRef)) {
             DataSet dataSet = new DataSet(pipeRef);
-            rdfUploadInterlink(dataSet, dataUrl, digester, interlinker, messageWriter);
+            rdfUploadInterlink(dataSet, dataUrl, rdfizer, digester, interlinker, messageWriter);
 
         } else {
             messageWriter.println("The dataset does not exist.");
@@ -766,7 +767,7 @@ public class SourcingAdmin {
      * @param rdfizer
      * @return
      */
-    private void transformXml(DataSet dataSet, URL dataUrl, String selectedRdfizer, PrintWriter messageWriter) throws IOException {
+    private MGraph transformXml(DataSet dataSet, URL dataUrl, Rdfizer rdfizer, PrintWriter messageWriter) throws IOException {
         AccessController.checkPermission(new AllPermission());
 
         // create a graph to store the data after the document transformation        
@@ -791,14 +792,12 @@ public class SourcingAdmin {
         int numberOfTriples = 0;
 
         if (xmldata != null) {
-
-            Rdfizer rdfizer = rdfizers.get(selectedRdfizer);
             documentGraph = rdfizer.transform(xmldata);
             numberOfTriples = documentGraph.size();
 
         }
 
-        if (documentGraph != null && documentGraph.size() > 0) {
+        if (documentGraph != null && numberOfTriples > 0) {
             // add the triples of the document graph to the source graph of the selected dataset
             Lock wl = dataSet.getSourceGraph().getLock().writeLock();
             wl.lock();
@@ -807,9 +806,9 @@ public class SourcingAdmin {
             } finally {
                 wl.unlock();
             }
-
-            messageWriter.println(numberOfTriples + " triples have been added to " + dataSet.getUri().getUnicodeString() + SOURCE_GRAPH_URN_SUFFIX);
+            messageWriter.println("Added " + numberOfTriples + " triples from "+dataUrl+ " to " + dataSet.getSourceGraphRef().getUnicodeString());
         }
+        return documentGraph;
 
     }
 
@@ -1228,9 +1227,11 @@ public class SourcingAdmin {
      * @param mediaType
      * @return
      */
-    private void rdfUploadInterlink(DataSet dataSet, URL dataUrl, String digesterName, String interlinkerName, PrintWriter messageWriter) throws IOException {
+    private void rdfUploadInterlink(DataSet dataSet, URL dataUrl, Rdfizer rdfizer, String digesterName, String interlinkerName, PrintWriter messageWriter) throws IOException {
 
-        TripleCollection addedTriples = addTriples(dataSet, dataUrl, messageWriter);
+        TripleCollection addedTriples = rdfizer == null ? 
+            addTriples(dataSet, dataUrl, messageWriter)
+         : transformXml(dataSet, dataUrl, rdfizer, messageWriter);
 
         MGraph enhancedTriples = new IndexedMGraph();
         enhancedTriples.addAll(addedTriples);
