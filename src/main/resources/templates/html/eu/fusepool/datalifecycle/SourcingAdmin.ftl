@@ -166,7 +166,8 @@ Select RdfIzer
         		<@ldpath path="wf:interlinkService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
                 </@ldpath>
-        	</select> Skip previously added <input type="checkbox" name="skipPreviouslyAdded" checked="checked" value="on" /><br/>
+        	</select> <br/> Skip previously added <input type="checkbox" name="skipPreviouslyAdded" checked="checked" value="on" /><br/>
+        Recursively process "subdirectories" <input type="checkbox" name="recurse" checked="checked" value="on" /><br/>
         Stop after <input type="text" name="maxFiles" value="10" size="6"><br/>
         Index URL: <input type="text" name="url" value="" size="60">
         <input type="submit" value="Start processing" />

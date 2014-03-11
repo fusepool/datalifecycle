@@ -24,22 +24,36 @@ public class LinksRetriever {
         return getLinks(url);
     }
     public static List<URL> getLinks(URL url) throws IOException {
+        return getLinks(url, false);
+    }
+    public static List<URL> getLinks(URL url, boolean recurse) throws IOException {
+        List<URL> links = new LinkedList<URL>();
+        getLinks(url, recurse, links);
+        return links;
+    }
+    
+    private static void getLinks(URL url, boolean recurse, List<URL> links) throws IOException {
         //InputStream in = url.openStream();
         String html = IOUtils.toString(url);
         //ByteArrayOutputStream baos 
         //System.out.print(html);
         Pattern pattern = Pattern.compile("(<a href=\")(.*?)(\">)");
         Matcher matcher = pattern.matcher(html);
-        List<URL> links = new LinkedList<URL>();
         while (matcher.find()) {
             String linkTarget = matcher.group(2);
+            URL targetUrl = new URL(url,linkTarget);
             if (linkTarget.endsWith(".rdf") 
                     || linkTarget.endsWith(".nt")
                     || linkTarget.endsWith(".ttl")
                     || linkTarget.endsWith(".xml")) {
-                links.add(new URL(url,linkTarget));
+                links.add(targetUrl);
+                continue;
+            }
+            if (recurse && linkTarget.endsWith("/") 
+                    && (targetUrl.toString().startsWith(url.toString()))
+                    && (!targetUrl.equals(url))) {
+                getLinks(targetUrl, recurse, links);
             }
         }
-        return links;
     }
 }

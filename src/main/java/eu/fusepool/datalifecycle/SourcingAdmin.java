@@ -613,8 +613,10 @@ public class SourcingAdmin {
             @FormParam("digester") final String digester,
             @FormParam("interlinker") final String interlinker,
             @FormParam("maxFiles") @DefaultValue("10") final int maxFiles,
-            @FormParam("skipPreviouslyAdded") final String skipPreviouslyAddedValue) throws Exception {
+            @FormParam("skipPreviouslyAdded") final String skipPreviouslyAddedValue,
+            @FormParam("recurse") final String recurseValue) throws Exception {
         final boolean skipPreviouslyAdded = "on".equals(skipPreviouslyAddedValue);
+        final boolean recurse = "on".equals(recurseValue);
         if (dataSetRef == null) {
             throw new WebApplicationException("Param dataSet must be specified", Response.Status.BAD_REQUEST);
         }
@@ -627,7 +629,7 @@ public class SourcingAdmin {
             @Override
             public void execute() {
                 try {
-                    List<URL> uriList = LinksRetriever.getLinks(url);
+                    List<URL> uriList = LinksRetriever.getLinks(url, recurse);
                     int count = 0;
                     for (URL dataUrl : uriList) {
                         if (skipPreviouslyAdded) {
