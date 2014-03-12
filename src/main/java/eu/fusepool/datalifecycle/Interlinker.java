@@ -30,6 +30,8 @@ public interface Interlinker {
      */
     public TripleCollection interlink(TripleCollection dataToInterlink, UriRef interlinkAgainst);
     
+    public TripleCollection interlink(TripleCollection source, TripleCollection target);
+    
     public String getName();
     
 }
