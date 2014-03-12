@@ -629,35 +629,39 @@ public class SourcingAdmin {
             @Override
             public void execute() {
                 try {
-                    List<URL> uriList = LinksRetriever.getLinks(url, recurse);
-                    int count = 0;
-                    for (URL dataUrl : uriList) {
-                        if (skipPreviouslyAdded) {
-                            Lock lock = dataSet.getLogGraph().getLock().readLock();
-                            lock.lock();
-                            try {
-                                if (dataSet.getLogGraph().filter(null,
-                                        Ontology.retrievedURI,
-                                        new UriRef((dataUrl.toString()))).hasNext()) {
-                                    continue;
+                    final int[] count = {0};
+                    LinksRetriever.processLinks(url, recurse, 
+                            new LinksRetriever.LinkProcessor() {
+                        public boolean process(URL dataUrl) {
+
+                            if (skipPreviouslyAdded) {
+                                Lock lock = dataSet.getLogGraph().getLock().readLock();
+                                lock.lock();
+                                try {
+                                    if (dataSet.getLogGraph().filter(null,
+                                            Ontology.retrievedURI,
+                                            new UriRef((dataUrl.toString()))).hasNext()) {
+                                        return true;
+                                    }
+                                } finally {
+                                    lock.unlock();
                                 }
-                            }  finally {
-                                lock.unlock();
                             }
+                            if (isTerminationRequested()) {
+                                return false;
+                            }
+                            if (++count[0] > maxFiles) {
+                                return false;
+                            }
+                            try {
+                                rdfUploadInterlink(dataSet, dataUrl, rdfizer, digester, interlinker, log);
+                            } catch (Exception e) {
+                                log.println("Exception processing " + dataUrl);
+                                e.printStackTrace(log);
+                            }
+                            return true;
                         }
-                        if (isTerminationRequested()) {
-                            break;
-                        }
-                        if (++count > maxFiles) {
-                            break;
-                        }
-                        try {
-                            rdfUploadInterlink(dataSet, dataUrl, rdfizer, digester, interlinker, log);
-                        } catch (Exception e) {
-                            log.println("Exception processing "+dataUrl);
-                            e.printStackTrace(log);
-                        }
-                    }
+                    });
                 } catch (Exception ex) {
                     ex.printStackTrace(log);
                 }
