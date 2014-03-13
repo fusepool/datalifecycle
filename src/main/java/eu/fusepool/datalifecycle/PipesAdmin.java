@@ -43,7 +43,6 @@ import org.apache.clerezza.rdf.core.impl.PlainLiteralImpl;
 import org.apache.clerezza.rdf.core.impl.SimpleMGraph;
 import org.apache.clerezza.rdf.core.impl.TripleImpl;
 import org.apache.clerezza.rdf.core.serializedform.Serializer;
-import org.apache.clerezza.rdf.core.serializedform.SupportedFormat;
 import org.apache.clerezza.rdf.ontologies.RDF;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.utils.GraphNode;
@@ -173,6 +172,9 @@ public class PipesAdmin {
             message += "There are no triples in " + pipeName;
         }
         
+        // update the dataset status (unpublished)
+        updateDatasetStatus(pipeName);
+        
         return message;
     }
     
@@ -188,8 +190,7 @@ public class PipesAdmin {
     @Path("delete_pipe")
     @Produces("text/plain")
     public String deletePipe(@Context final UriInfo uriInfo,  
-    		@FormParam("pipe") final String pipeName,
-    		@FormParam("unpublish") final boolean unpublish) throws Exception {
+    		@FormParam("pipe") final String pipeName) throws Exception {
         AccessController.checkPermission(new AllPermission());
         String message = "";
         
@@ -201,31 +202,39 @@ public class PipesAdmin {
         
         MGraph publishGraph = tcManager.getMGraph(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
         
-        // Unpublish data. Removes published data from content graph.
-        if(unpublish) {            
-            LockableMGraph contentGraph = tcManager.getMGraph(new UriRef(SourcingAdmin.CONTENT_GRAPH_NAME));
-            Lock wl = contentGraph.getLock().writeLock();
-            wl.lock();
-            try {
-              contentGraph.removeAll(publishGraph);
-            }
-            finally {
-                wl.unlock();
-            }            
+        // Unpublish data. Removes published data from content graph.            
+        LockableMGraph contentGraph = tcManager.getMGraph(new UriRef(SourcingAdmin.CONTENT_GRAPH_NAME));
+        Lock wl = contentGraph.getLock().writeLock();
+        wl.lock();
+        try {
+          contentGraph.removeAll(publishGraph);
         }
+        finally {
+          wl.unlock();
+        }            
         
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
         
         // remove pipe metadata
         removePipeMetaData(pipeName);
         
-        message += "Dataset: " + pipeName + " deleted.\n";
-        
-        if(unpublish) {
-            message += "All triples removed from content graph.";
-        }
+        message += "The dataset: " + pipeName + " has been deleted";
         
         return message;
+    }
+    
+    /**
+     * Updates the status of a dataset to unpublished
+     * @param pipeName
+     */
+    private void updateDatasetStatus(String datasetName) {
+        LockableMGraph dlcGraph = tcManager.getMGraph(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE);
+        UriRef datasetRef = new UriRef(datasetName);
+        UriRef statusRef = new UriRef(datasetRef.getUnicodeString() + "/Status");
+        dlcGraph.remove(new TripleImpl(statusRef, RDF.type, Ontology.Published));
+        dlcGraph.remove(new TripleImpl(statusRef, RDFS.label, new PlainLiteralImpl("Published")));
+        dlcGraph.add(new TripleImpl(statusRef, RDF.type, Ontology.Unpublished));
+        dlcGraph.add(new TripleImpl(statusRef, RDFS.label, new PlainLiteralImpl("Unpublished")));
     }
     
     /**
