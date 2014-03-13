@@ -7,6 +7,13 @@
 <@namespace wf="http://example.com/ont/workflow/" />
 <html>
 <head>
+<script>
+function confirmDeleteDataset(){
+var status = document.getElementById("status").innerHTML;
+if(status=="Published") return confirm("It will not be possible to unpublish the dataset after it is deleted");
+else return true;
+}
+</script>
 <head>
     <title>Fusepool Data Lifecycle</title>
     <link type="text/css" rel="stylesheet" href="../sourcing/styles/common.css" />
@@ -38,7 +45,7 @@
 	
 	<@ldpath path="wf:pipe">
 			<h2>Dataset: <@ldpath path="rdfs:label"/></h2>
-			
+			<h2> Status: <span id="status"><@ldpath path="wf:status/rdfs:label"/></span> </h2>
 			<table>
 			<@ldpath path="wf:creates/wf:deliverable">
 					
@@ -60,9 +67,8 @@
 					
 			</@ldpath>
 			</table>
-			<form action="delete_pipe" method="post">
+			<form action="delete_pipe" method="post" onsubmit="return confirmDeleteDataset();">
 				<input type="submit" value="Delete dataset">
-				Unpublish <input type="checkbox" name="unpublish" value="true">
 				<input type="hidden" name="pipe" value="<@ldpath path="."/>">					
 			</form>
 			
