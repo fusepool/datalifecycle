@@ -567,6 +567,12 @@ public class SourcingAdmin {
             tcManager.createMGraph(publishGraphRef);
             getDlcGraph().add(new TripleImpl(publishTaskRef, Ontology.deliverable, publishGraphRef));
 
+            // set the initial dataset status as unpublished 
+            UriRef statusRef = new UriRef(pipeRef.getUnicodeString() + "/Status");
+            getDlcGraph().add(new TripleImpl(pipeRef, Ontology.status, statusRef));
+            getDlcGraph().add(new TripleImpl(statusRef, RDF.type, Ontology.Unpublished));
+            getDlcGraph().add(new TripleImpl(statusRef, RDFS.label, new PlainLiteralImpl("Unpublished")));
+
 
             result = true;
 
@@ -878,18 +884,6 @@ public class SourcingAdmin {
         return tempGraph;
     }
 
-    /**
-     * Removes all the triples from the graph
-     *
-     */
-    /*
-     private String emptyGraph(UriRef graphRef) {
-     // removes all the triples from the graph
-     MGraph graph = tcManager.getMGraph(graphRef);
-     graph.clear();
-     return "Graph " + graphRef.getUnicodeString() + " is now empty.";
-     }
-     */
     /**
      * Deletes a graph, the reference to it in the DLC graph and deletes all the
      * derived graphs linked to it by the dcterms:source property.
@@ -1218,9 +1212,24 @@ public class SourcingAdmin {
         } finally {
             rl.unlock();
         }
+        
+        // update the dataset status to published in the dlc meta graph
+        updateDatasetStatus(dataSet);
 
         messageWriter.println("Copied " + triplesToAdd.size() + " triples from " + dataSet.getUri() + " to content-graph");
 
+    }
+    
+    /**
+     * Updates the dataset status to published in the dlc meta graph
+     * @param datasetName
+     */
+    private void updateDatasetStatus(DataSet dataSet) {
+        UriRef statusRef = new UriRef(dataSet.getUri().getUnicodeString() + "/Status");
+        getDlcGraph().remove(new TripleImpl(statusRef, RDF.type, Ontology.Unpublished));
+        getDlcGraph().remove(new TripleImpl(statusRef, RDFS.label, new PlainLiteralImpl("Unpublished")));
+        getDlcGraph().add(new TripleImpl(statusRef, RDF.type, Ontology.Published));
+        getDlcGraph().add(new TripleImpl(statusRef, RDFS.label, new PlainLiteralImpl("Published")));
     }
 
     /**
