@@ -26,13 +26,21 @@ public class LinksRetriever {
     public static List<URL> getLinks(URL url) throws IOException {
         return getLinks(url, false);
     }
+    
     public static List<URL> getLinks(URL url, boolean recurse) throws IOException {
-        List<URL> links = new LinkedList<URL>();
-        getLinks(url, recurse, links);
+        final List<URL> links = new LinkedList<URL>();
+        processLinks(url, recurse, new LinkProcessor() {
+
+            public boolean process(URL url) {
+                links.add(url);
+                return true;
+            }
+            
+        });
         return links;
     }
     
-    private static void getLinks(URL url, boolean recurse, List<URL> links) throws IOException {
+    public static void processLinks(URL url, boolean recurse, LinkProcessor processor) throws IOException {
         //InputStream in = url.openStream();
         String html = IOUtils.toString(url);
         //ByteArrayOutputStream baos 
@@ -46,14 +54,27 @@ public class LinksRetriever {
                     || linkTarget.endsWith(".nt")
                     || linkTarget.endsWith(".ttl")
                     || linkTarget.endsWith(".xml")) {
-                links.add(targetUrl);
-                continue;
+                if (processor.process(targetUrl)) {
+                    continue;
+                } else {
+                    break;
+                }
             }
             if (recurse && linkTarget.endsWith("/") 
                     && (targetUrl.toString().startsWith(url.toString()))
                     && (!targetUrl.equals(url))) {
-                getLinks(targetUrl, recurse, links);
+                processLinks(targetUrl, recurse, processor);
             }
         }
+    }
+
+    public static interface LinkProcessor {
+
+        /**
+         * Process an URI  
+         * @param url the URI to process
+         * @return true if the processin shall continue, false otherwise
+         */
+        boolean process(URL url);
     }
 }
