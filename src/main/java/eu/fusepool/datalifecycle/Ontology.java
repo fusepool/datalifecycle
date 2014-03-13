@@ -56,6 +56,10 @@ public class Ontology {
     // a graph is a product of a task
     public static final UriRef Product = new UriRef("http://example.com/ont/workflow/Product");
     
+    // A dataset can be in one of the following status (member of one of the following disjoint classes) 
+    public static final UriRef Published = new UriRef("http://fusepool.com/ontologies/interlinking#Published");
+    public static final UriRef Unpublished = new UriRef("http://fusepool.com/ontologies/interlinking#Unpublished");
+    
     // Properties
     
     public static final UriRef pipe = new UriRef("http://example.com/ont/workflow/pipe");
@@ -72,6 +76,8 @@ public class Ontology {
     public static final UriRef enhanceService = new UriRef("http://example.com/ont/workflow/enhanceService");
     // a service sub property for interlinking
     public static final UriRef interlinkService = new UriRef("http://example.com/ont/workflow/interlinkService");
+    // status of the dataset (unpublished/published)
+    public static final UriRef status = new UriRef("http://example.com/ont/workflow/status");
     
     // VOID ontology
     // Dataset
