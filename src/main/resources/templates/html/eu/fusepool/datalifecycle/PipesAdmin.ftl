@@ -8,8 +8,8 @@
 <html>
 <head>
 <script>
-function confirmDeleteDataset(){
-var status = document.getElementById("status").innerHTML;
+function confirmDeleteDataset(form){
+var status = form.parentNode.getElementsByTagName("SPAN")[0].innerHTML;
 if(status=="Published") return confirm("It will not be possible to unpublish the dataset after it is deleted");
 else return true;
 }
@@ -41,9 +41,9 @@ else return true;
       
     </div><!-- top ends here -->
     <div id="mainColumn">
-
 	
 	<@ldpath path="wf:pipe">
+	        <div>
 			<h2>Dataset: <@ldpath path="rdfs:label"/></h2>
 			<h2> Status: <span id="status"><@ldpath path="wf:status/rdfs:label"/></span> </h2>
 			<table>
@@ -67,16 +67,17 @@ else return true;
 					
 			</@ldpath>
 			</table>
-			<form action="delete_pipe" method="post" onsubmit="return confirmDeleteDataset();">
-				<input type="submit" value="Delete dataset">
-				<input type="hidden" name="pipe" value="<@ldpath path="."/>">					
-			</form>
 			
 			<form action="unpublish_dataset" method="post">
 				<input type="submit" value="Unpublish dataset">
 				<input type="hidden" name="pipe" value="<@ldpath path="."/>">					
 			</form>
 			
+			<form action="delete_pipe" method="post" onsubmit="return confirmDeleteDataset(this);">
+				<input type="submit" value="Delete dataset">
+				<input type="hidden" name="pipe" value="<@ldpath path="."/>">					
+			</form>
+			</div>
 	</@ldpath>
 
 	</div><!-- mainColumn end -->
