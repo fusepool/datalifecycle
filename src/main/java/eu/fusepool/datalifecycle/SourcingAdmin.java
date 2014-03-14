@@ -401,10 +401,11 @@ public class SourcingAdmin {
             responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, RDFS.comment, new PlainLiteralImpl(INVALID_BASE_URI_ALERT)));
         }
 
-        // The DLC service uri should be the same as the base uri (otherwise there might be a base uri config error)
-        String platformBaseuri = uriInfo.getBaseUri().getScheme() + "://" + uriInfo.getBaseUri().getHost() + ":" + uriInfo.getBaseUri().getPort();
-        if (!platformBaseuri.equals((baseUri))) {
-            String message = "The DLC service URI " + platformBaseuri + " is different from the base URI " + baseUri + " set in the component configuration.";
+        // The DLC service uri (set in component config panel) should be the same as the base uri (otherwise there might be a base uri config error)
+        String platformPort = (uriInfo.getBaseUri().getPort() > 0 ) ? ":" + String.valueOf(uriInfo.getBaseUri().getPort()) : "";
+        String platformBaseUri = uriInfo.getBaseUri().getScheme() + "://" + uriInfo.getBaseUri().getHost() + platformPort;
+        if (!platformBaseUri.equals((baseUri))) {
+            String message = "The DLC service URI " + platformBaseUri + " is different from the base URI " + baseUri + " set in the component configuration.";
             responseGraph.add(new TripleImpl(DATA_LIFECYCLE_GRAPH_REFERENCE, RDFS.comment, new PlainLiteralImpl(message)));
         }
 
