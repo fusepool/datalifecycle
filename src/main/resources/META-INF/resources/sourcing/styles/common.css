@@ -108,3 +108,16 @@ div.menu a:hover {
 	color: red;
 }
 
+#dataset {
+	padding: 10px;
+}
+
+table {
+	border-width: 1px;
+	border-style: solid;
+}
+
+th, td {
+	padding: 5px;
+	text-align: left;
+}
