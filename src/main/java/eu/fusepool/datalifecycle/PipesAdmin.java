@@ -52,6 +52,7 @@ import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
+import org.apache.stanbol.commons.indexedgraph.IndexedMGraph;
 import org.apache.stanbol.commons.web.viewable.RdfViewable;
 import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
@@ -99,11 +100,56 @@ public class PipesAdmin {
         //central serviceUri in the response
         final UriRef serviceUri = new UriRef(resourcePath);
         
+        //the in memory graph to which the triples for the response are added
+        final MGraph responseGraph = new IndexedMGraph();
+        Lock rl = getDlcGraph().getLock().readLock();
+        rl.lock();
+        try {
+            responseGraph.addAll(getDlcGraph());
+            //Add the size info of the graphs of all the datasets
+            addGraphsSize(responseGraph);
+        } finally {
+            rl.unlock();
+        }
+        
         //This GraphNode represents the service within our result graph
-        final GraphNode node = new GraphNode(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE, getDlcGraph());
-                
+        final GraphNode node = new GraphNode(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE, responseGraph);
+        
+        
+        
         //What we return is the GraphNode to the template with the same path and name 
         return new RdfViewable("PipesAdmin", node, PipesAdmin.class);
+    }
+    /**
+     * Add the size of the graphs within each dataset/pipe to the rdf data for visualization
+     */
+    private void addGraphsSize(MGraph responseGraph){
+        Iterator<Triple> datasets = getDlcGraph().filter(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, null);
+        while(datasets.hasNext()){
+            UriRef datasetRef = (UriRef) datasets.next().getObject();
+            // add source graph size
+            UriRef sourceGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.SOURCE_GRAPH_URN_SUFFIX );
+            int sourceGraphSize = tcManager.getMGraph( sourceGraphRef ).size();
+            responseGraph.add(new TripleImpl(sourceGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(sourceGraphSize))));
+            // add enhance graph size
+            UriRef enhanceGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX );
+            int enhanceGraphSize = tcManager.getMGraph( enhanceGraphRef ).size();
+            responseGraph.add(new TripleImpl(enhanceGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(enhanceGraphSize))));
+            // add interlink graph size
+            UriRef interlinkGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.INTERLINK_GRAPH_URN_SUFFIX );
+            int interlinkGraphSize = tcManager.getMGraph( interlinkGraphRef ).size();
+            responseGraph.add(new TripleImpl(interlinkGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(interlinkGraphSize))));
+            // add smush graph size
+            UriRef smushGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.SMUSH_GRAPH_URN_SUFFIX );
+            int smushGraphSize = tcManager.getMGraph( smushGraphRef ).size();
+            responseGraph.add(new TripleImpl(smushGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(smushGraphSize))));
+            // add publish graph size
+            UriRef publishGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX );
+            int publishGraphSize = tcManager.getMGraph( publishGraphRef ).size();
+            responseGraph.add(new TripleImpl(publishGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(publishGraphSize))));
+            
+        }
+        
     }
     /**
      * Removes all the triples from the selected graph.
