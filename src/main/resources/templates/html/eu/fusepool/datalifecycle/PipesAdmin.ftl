@@ -43,14 +43,15 @@ else return true;
     <div id="mainColumn">
 	
 	<@ldpath path="wf:pipe">
-	        <div>
+	        <div id="dataset">
 			<h2>Dataset: <@ldpath path="rdfs:label"/></h2>
 			<h2> Status: <span id="status"><@ldpath path="wf:status/rdfs:label"/></span> </h2>
 			<table>
-			<@ldpath path="wf:creates/wf:deliverable">
-					
+			<tr><th>Name</th><th>Size</th><th></th><th></th></tr>
+			<@ldpath path="wf:creates/wf:deliverable">					
 				<tr>
 				<td><@ldpath path="."/></td>
+				<td><@ldpath path="wf:size"/></td>
 				<td>
 					<form action="get_graph" method="get">
 						<input type="submit" value="Get">	
