@@ -68,6 +68,8 @@ public class Ontology {
     public static final UriRef creates = new UriRef("http://example.com/ont/workflow/creates");
     // a task delivers a product 
     public static final UriRef deliverable = new UriRef("http://example.com/ont/workflow/deliverable");
+    // product size (number of triples) 
+    public static final UriRef size = new UriRef("http://example.com/ont/workflow/size");
     // a task delivers a product using a service
     public static final UriRef service = new UriRef("http://example.com/ont/workflow/service");
     // a service sub property for xml to rdf transformation
