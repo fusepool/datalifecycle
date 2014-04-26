@@ -140,38 +140,40 @@
 
     <form action="processBatch/" method="post">
             <h2>Batch process</h2>
-
-Load RDF data, enhance and interlink. Select dataset 
-        	<select name="dataSet">
-                
-            <@ldpath path="wf:pipe">
-               <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
-            </@ldpath>           
+            Load RDF data, enhance and interlink. Select dataset 
+        	<select name="dataSet">     
+              <@ldpath path="wf:pipe">
+                <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
+              </@ldpath>           
             </select>
-Select RdfIzer
-                <select name="rdfizer">
-                <option value="none">None (data is in RDF)</option>
-        		<@ldpath path="wf:rdfizeService">
+            Select RdfIzer
+            <select name="rdfizer">
+              <option value="none">None</option>
+        	  <@ldpath path="wf:rdfizeService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
-                </@ldpath>
-</select>
+              </@ldpath>
+            </select>
         	Select digester
         	<select name="digester">
+        	    <option value="none">None</option>
         		<@ldpath path="wf:enhanceService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
                 </@ldpath>
         	</select>
         	Select interlinker
         	<select name="interlinker">
-        		<@ldpath path="wf:interlinkService">
-                  <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
-                </@ldpath>
-        	</select> <br/> Skip previously added <input type="checkbox" name="skipPreviouslyAdded" checked="checked" value="on" /><br/>
-        Recursively process "subdirectories" <input type="checkbox" name="recurse" checked="checked" value="on" /><br/>
-        Stop after <input type="text" name="maxFiles" value="10" size="6"><br/>
-        Index URL: <input type="text" name="url" value="" size="60">
-        <input type="submit" value="Start processing" />
+        	  <option value="none">None</option>
+        	  <@ldpath path="wf:interlinkService">
+                <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
+              </@ldpath>
+        	</select> <br/> 
+        	Skip previously added <input type="checkbox" name="skipPreviouslyAdded" checked="checked" value="on" /><br/>
+            Recursively process "subdirectories" <input type="checkbox" name="recurse" checked="checked" value="on" /><br/>
+            Stop after <input type="text" name="maxFiles" value="10" size="6"><br/>
+            Index URL: <input type="text" name="url" value="" size="60">
+            <input type="submit" value="Start processing" />
     </form>
+    
     <#if evalLDPath("ont:activeTask")??>
     <h2>Active tasks</h2>
         <@ldpath path="ont:activeTask">
@@ -180,7 +182,6 @@ Select RdfIzer
     </div>
     </#if>
     
-   
     </div><!-- mainColumn end -->
     
     <div id="footer">
