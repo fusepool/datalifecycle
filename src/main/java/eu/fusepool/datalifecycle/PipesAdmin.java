@@ -188,30 +188,36 @@ public class PipesAdmin {
         String message = "";
         LockableMGraph publishGraph = tcManager.getMGraph(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
         int numberOfTriples = publishGraph.size(); 
-        if(numberOfTriples > 0) {
         
-            // remove published triples from content graph
-            LockableMGraph contentGraph = tcManager.getMGraph(new UriRef(SourcingAdmin.CONTENT_GRAPH_NAME));
-            Lock cwl = contentGraph.getLock().writeLock();
-            cwl.lock();
-            try {
-              contentGraph.removeAll(publishGraph);
-            }
-            finally {
-                cwl.unlock();
-            }     
+        if(numberOfTriples > 0) {
             
-            // removes all the triples in publish.graph
-            Lock pwl = publishGraph.getLock().writeLock();
+            MGraph publishedTriples = new IndexedMGraph();
+            Lock pwl = publishGraph.getLock().readLock();
             pwl.lock();
             try {
-                publishGraph.clear();
+                publishedTriples.addAll(publishGraph);
               
             }
             finally {
                 pwl.unlock();
-            } 
-            
+            }
+        
+            // remove published triples from content graph
+            LockableMGraph contentGraph = tcManager.getMGraph(new UriRef(SourcingAdmin.CONTENT_GRAPH_NAME));
+            contentGraph.removeAll(publishedTriples);
+            /*
+            Lock cwl = contentGraph.getLock().readLock();
+            cwl.lock();
+            try {
+              contentGraph.removeAll(publishedTriples);
+            }
+            finally {
+                cwl.unlock();
+            }     
+            */
+            // removes all the triples in publish.graph
+            publishGraph.clear();
+              
             message += "All " + numberOfTriples + " triples have been removed from the content graph.";
         }
         else {
@@ -246,18 +252,33 @@ public class PipesAdmin {
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.INTERLINK_GRAPH_URN_SUFFIX));
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.SMUSH_GRAPH_URN_SUFFIX));
         
-        MGraph publishGraph = tcManager.getMGraph(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
-        
-        // Unpublish data. Removes published data from content graph.            
-        LockableMGraph contentGraph = tcManager.getMGraph(new UriRef(SourcingAdmin.CONTENT_GRAPH_NAME));
-        Lock wl = contentGraph.getLock().writeLock();
-        wl.lock();
+        LockableMGraph publishGraph = tcManager.getMGraph(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
+        MGraph publishedTriples = new IndexedMGraph();
+        Lock pl = publishGraph.getLock().readLock();
+        pl.lock();
         try {
-          contentGraph.removeAll(publishGraph);
+            publishedTriples.addAll(publishGraph);
+          
         }
         finally {
-          wl.unlock();
-        }            
+            pl.unlock();
+        }
+        
+        // Unpublish data. Removes published data from content graph.  
+        if(publishedTriples.size() > 0){
+            LockableMGraph contentGraph = tcManager.getMGraph(new UriRef(SourcingAdmin.CONTENT_GRAPH_NAME));
+            contentGraph.removeAll(publishedTriples);
+            /*
+            Lock cl = contentGraph.getLock().readLock();
+            cl.lock();
+            try {
+              contentGraph.removeAll(publishedTriples);
+            }
+            finally {
+              cl.unlock();
+            }
+            */
+        }
         
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
         
