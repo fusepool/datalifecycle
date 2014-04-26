@@ -661,7 +661,7 @@ public class SourcingAdmin {
                                 return false;
                             }
                             try {
-                                rdfUploadInterlink(dataSet, dataUrl, rdfizer, digester, interlinker, log);
+                                rdfUploadPublish(dataSet, dataUrl, rdfizer, digester, interlinker, log);
                             } catch (Exception e) {
                                 log.println("Exception processing " + dataUrl);
                                 e.printStackTrace(log);
@@ -768,7 +768,7 @@ public class SourcingAdmin {
         Rdfizer rdfizer = rdfizerName.equals("none")? null : rdfizers.get(rdfizerName);
         if (pipeExists(pipeRef)) {
             DataSet dataSet = new DataSet(pipeRef);
-            rdfUploadInterlink(dataSet, dataUrl, rdfizer, digester, interlinker, messageWriter);
+            rdfUploadPublish(dataSet, dataUrl, rdfizer, digester, interlinker, messageWriter);
 
         } else {
             messageWriter.println("The dataset does not exist.");
@@ -1239,7 +1239,7 @@ public class SourcingAdmin {
 
     /**
      * Performs the following tasks in sequence - RDF data upload - Enhance -
-     * Interlink
+     * Interlink - Smush - Publish
      *
      * @param pipeRef
      * @param dataUrl
@@ -1248,26 +1248,34 @@ public class SourcingAdmin {
      * @param mediaType
      * @return
      */
-    private void rdfUploadInterlink(DataSet dataSet, URL dataUrl, Rdfizer rdfizer, String digesterName, String interlinkerName, PrintWriter messageWriter) throws IOException {
+    private void rdfUploadPublish(DataSet dataSet, URL dataUrl, Rdfizer rdfizer, String digesterName, String interlinkerName, PrintWriter messageWriter) throws IOException {
 
+        // Transform to RDF
         TripleCollection addedTriples = rdfizer == null ? 
             addTriples(dataSet, dataUrl, messageWriter)
-         : transformXml(dataSet, dataUrl, rdfizer, messageWriter);
+            : transformXml(dataSet, dataUrl, rdfizer, messageWriter);
 
+        // Digest. Add sioc:content and dc:subject predicates
         MGraph enhancedTriples = new IndexedMGraph();
         enhancedTriples.addAll(addedTriples);
         RdfDigester digester = digesters.get(digesterName);
         digester.extractText(enhancedTriples);
-
         dataSet.getEnhancedGraph().addAll(enhancedTriples);
-        messageWriter.println("added "+enhancedTriples.size()+" enhanced triples to "+dataSet.getEnhancedGraphRef().getUnicodeString());
+        messageWriter.println("Added " + enhancedTriples.size() + " enhanced triples to " + dataSet.getEnhancedGraphRef().getUnicodeString());
+        // Interlink (self)
         Interlinker interlinker = interlinkers.get(interlinkerName);
         final TripleCollection dataSetInterlinks = interlinker.interlink(enhancedTriples, dataSet.getEnhancedGraphRef());
         dataSet.getInterlinksGraph().addAll(dataSetInterlinks);
-        messageWriter.println("added "+dataSetInterlinks.size()+" data-set interlinks to "+dataSet.getInterlinksGraphRef().getUnicodeString());
+        messageWriter.println("Added " + dataSetInterlinks.size() + " data-set interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
+        // Interlink (content.graph)
         final TripleCollection contentGraphInterlinks = interlinker.interlink(enhancedTriples, CONTENT_GRAPH_REF);
         dataSet.getInterlinksGraph().addAll(contentGraphInterlinks);
-        messageWriter.println("added "+contentGraphInterlinks.size()+" content-graph interlinks to "+dataSet.getInterlinksGraphRef().getUnicodeString());
+        messageWriter.println("Added " + contentGraphInterlinks.size() + " content-graph interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
+        // Smush
+        smush(dataSet, messageWriter);
+        // Publish
+        publishData(dataSet, messageWriter);
+        
         
         GraphNode logEntry = new GraphNode(new BNode(), dataSet.getLogGraph());
         logEntry.addProperty(RDF.type, Ontology.LogEntry);
