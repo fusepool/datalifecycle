@@ -159,9 +159,9 @@ public class PipesAdmin {
      * @throws Exception
      */
     @POST
-    @Path("empty_graph")
+    @Path("clear_graph")
     @Produces("text/plain")
-    public String emptyGraphRequest(@Context final UriInfo uriInfo,  
+    public Response clearGraphRequest(@Context final UriInfo uriInfo,  
     		@FormParam("graph") final String graphName) throws Exception {
         AccessController.checkPermission(new AllPermission());
         String message = "";
@@ -172,7 +172,9 @@ public class PipesAdmin {
         
         message += " Graph: " + graphName + " empty";
         
-        return message;
+        return RedirectUtil.createSeeOtherResponse("./", uriInfo);
+        
+        //return message;
     }
     
     /**
@@ -183,7 +185,7 @@ public class PipesAdmin {
     @POST
     @Path("unpublish_dataset")
     @Produces("text/plain")
-    public String unpublishDataset(@Context final UriInfo uriInfo,  
+    public Response unpublishDataset(@Context final UriInfo uriInfo,  
                        @FormParam("pipe") final String pipeName) {
         String message = "";
         LockableMGraph publishGraph = tcManager.getMGraph(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
@@ -205,16 +207,7 @@ public class PipesAdmin {
             // remove published triples from content graph
             LockableMGraph contentGraph = tcManager.getMGraph(new UriRef(SourcingAdmin.CONTENT_GRAPH_NAME));
             contentGraph.removeAll(publishedTriples);
-            /*
-            Lock cwl = contentGraph.getLock().readLock();
-            cwl.lock();
-            try {
-              contentGraph.removeAll(publishedTriples);
-            }
-            finally {
-                cwl.unlock();
-            }     
-            */
+           
             // removes all the triples in publish.graph
             publishGraph.clear();
               
@@ -227,7 +220,8 @@ public class PipesAdmin {
         // update the dataset status (unpublished)
         updateDatasetStatus(pipeName);
         
-        return message;
+        return RedirectUtil.createSeeOtherResponse("./", uriInfo);
+        //return message;
     }
     
     /**
@@ -241,7 +235,7 @@ public class PipesAdmin {
     @POST
     @Path("delete_pipe")
     @Produces("text/plain")
-    public String deletePipe(@Context final UriInfo uriInfo,  
+    public Response deletePipe(@Context final UriInfo uriInfo,  
     		@FormParam("pipe") final String pipeName) throws Exception {
         AccessController.checkPermission(new AllPermission());
         String message = "";
@@ -251,6 +245,7 @@ public class PipesAdmin {
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX));
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.INTERLINK_GRAPH_URN_SUFFIX));
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.SMUSH_GRAPH_URN_SUFFIX));
+        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.LOG_GRAPH_URN_SUFFIX));
         
         LockableMGraph publishGraph = tcManager.getMGraph(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
         MGraph publishedTriples = new IndexedMGraph();
@@ -268,16 +263,7 @@ public class PipesAdmin {
         if(publishedTriples.size() > 0){
             LockableMGraph contentGraph = tcManager.getMGraph(new UriRef(SourcingAdmin.CONTENT_GRAPH_NAME));
             contentGraph.removeAll(publishedTriples);
-            /*
-            Lock cl = contentGraph.getLock().readLock();
-            cl.lock();
-            try {
-              contentGraph.removeAll(publishedTriples);
-            }
-            finally {
-              cl.unlock();
-            }
-            */
+            
         }
         
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
@@ -286,8 +272,8 @@ public class PipesAdmin {
         removePipeMetaData(pipeName);
         
         message += "The dataset: " + pipeName + " has been deleted";
-        
-        return message;
+        return RedirectUtil.createSeeOtherResponse("./", uriInfo);
+        //return message;
     }
     
     /**
@@ -345,7 +331,7 @@ public class PipesAdmin {
 	    	    	
 	    	// select interlink graph and task metadata
 	    	UriRef interlinkTaskRef = new UriRef(pipeName + "/interlink");
-	    	UriRef interlinkGraphRef = new UriRef(pipeName + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX);
+	    	UriRef interlinkGraphRef = new UriRef(pipeName + SourcingAdmin.INTERLINK_GRAPH_URN_SUFFIX);
 	    	Iterator<Triple> iinterlinkGraph = getDlcGraph().filter(interlinkGraphRef, null, null);
 	    	while(iinterlinkGraph.hasNext()) {
 	    		pipeGraph.add(iinterlinkGraph.next());
@@ -354,6 +340,7 @@ public class PipesAdmin {
 	    	while(iinterlinkTask.hasNext()) {
 	    		pipeGraph.add(iinterlinkTask.next());
 	    	}
+	    
 	    	
 	    	// select smush graph and task metadata
 	    	UriRef smushTaskRef = new UriRef(pipeName + "/smush");
@@ -366,6 +353,25 @@ public class PipesAdmin {
 	    	while(ismushTask.hasNext()) {
 	    		pipeGraph.add(ismushTask.next());
 	    	}
+	    	
+	    	// select publish graph and task metadata
+            UriRef publishTaskRef = new UriRef(pipeName + "/publish");
+            UriRef publishGraphRef = new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX);
+            Iterator<Triple> ipublishGraph = getDlcGraph().filter(publishGraphRef, null, null);
+            while(ipublishGraph.hasNext()) {
+                pipeGraph.add(ipublishGraph.next());
+            }
+            Iterator<Triple> ipublishTask = getDlcGraph().filter(publishTaskRef, null, null);
+            while(ipublishTask.hasNext()) {
+                pipeGraph.add(ipublishTask.next());
+            }
+            
+            // select dataset status
+            UriRef datasetStatusRef = new UriRef(pipeName + "/Status");
+            Iterator<Triple> idatasetStatus = getDlcGraph().filter(datasetStatusRef, null, null);
+            while(idatasetStatus.hasNext()) {
+                pipeGraph.add(idatasetStatus.next());
+            }
 	    	
 	    	// select pipe metadata
 	    	UriRef pipeRef = new UriRef(pipeName);
