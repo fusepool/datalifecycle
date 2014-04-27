@@ -38,29 +38,27 @@
     
     <p><@ldpath path="rdfs:comment"/></p>
     
-    <div>
+    <div class="panel">
     <h2>Create a new dataset</h2>
     <form action="create_pipe" method="post">
-        Label: <input type="text" name="pipe_label" value="" size="60"><br/>
+        Name: <input type="text" name="pipe_label" value="" size="60"><br/>
         <input type="submit" value="Create Dataset" />        
     </form>
     </div>
     
-    <div>
-    
-    <form action="operate" method="post">
-        <h2>Select a dataset</h2>    
+    <div class="panel">
+    <form action="dataUpload" method="post">
+     <h2>Load data</h2>
+        Select dataset 
         <select name="pipe">
-           <@ldpath path="wf:pipe">
-               <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
-           </@ldpath>           
+          <@ldpath path="wf:pipe">
+             <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
+          </@ldpath>           
         </select>
-        
-        <h2>Load data</h2>
         <ul>
         <li><input type="radio" name="operation_code" value="2">Load RDF data<br></li>
         <li>
-        	<input type="radio" name="operation_code" value="1">Load XML data. Transform to RDF using 
+        	<input type="radio" name="operation_code" value="1">Load XML data. Select rdfizer 
         	<select name="rdfizer">
         		<@ldpath path="wf:rdfizeService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
@@ -69,12 +67,23 @@
         	
         </li>
         URL: <input type="text" name="data_url" value="" size="60">
-        </ul>
-        
+        </ul> 
+        <input type="submit" value="Upload" />
+    </form>
+    </div>
+    
+    <div class="panel">
+    <form action="performTask" method="post">
         <h2>Select a task</h2>
+        Select a dataset    
+        <select name="pipe">
+           <@ldpath path="wf:pipe">
+               <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
+           </@ldpath>           
+        </select><br>
         <ol>
          <li>
-        	<input type="radio" name="operation_code" value="3">Enhance. Select digester
+        	<input type="radio" name="task_code" value="1">Digest. Select digester
         	<select name="rdfdigester">
         		<@ldpath path="wf:enhanceService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
@@ -83,7 +92,7 @@
         	<br>
         </li>
         
-        <li><input type="radio" name="operation_code" value="4">Interlink. Select interlinker
+        <li><input type="radio" name="task_code" value="2">Interlink. Select interlinker
         	<select name="interlinker">
         		<@ldpath path="wf:interlinkService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
@@ -91,53 +100,43 @@
         	</select>
         	<br>
         </li>
-        <li><input type="radio" name="operation_code" value="5">Smush<br></li>
-        <li><input type="radio" name="operation_code" value="6">Publish<br></li>
+        <li><input type="radio" name="task_code" value="3">Smush<br></li>
+        <li><input type="radio" name="task_code" value="4">Publish<br></li>
         </ol>
         
         <input type="submit" value="Run task" />
         
        </form>
-        
+       </div>
+       
+       <div class="panel"> 
         <form action="runsequence" method="post">
-        <h2>Select a task sequence</h2>
-        <ul>
-         <li>
-        	Load RDF or XML data, enhance and interlink.<br/>
-             Select dataset 
+        <h2>Select a task sequence (digest -> publish)</h2>
+            Select dataset 
         	<select name="pipe">
             <@ldpath path="wf:pipe">
                <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
             </@ldpath>           
-            </select><br/>
-                Select RdfIzer
-                <select name="rdfizer">
-                <option value="none">None (data is in RDF)</option>
-        		<@ldpath path="wf:rdfizeService">
-                  <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
-                </@ldpath>
-        	</select><br/>
+            </select>
         	Select digester
         	<select name="digester">
         		<@ldpath path="wf:enhanceService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
                 </@ldpath>
-        	</select><br/>
+        	</select>
         	Select interlinker
         	<select name="interlinker">
         		<@ldpath path="wf:interlinkService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
                 </@ldpath>
-        	</select>
-        	<br>
-        </li>
-        URL: <input type="text" name="data_url" value="" size="60">
-        </ul>
-        
+        	</select><br>
+        	
         <input type="submit" value="Run sequence" />
         
     </form>
-
+    </div>
+    
+    <div class="panel">
     <form action="processBatch/" method="post">
             <h2>Batch process</h2>
             Load RDF data, enhance and interlink. Select dataset 
@@ -146,7 +145,7 @@
                 <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
               </@ldpath>           
             </select>
-            Select RdfIzer
+            Select rdfIzer
             <select name="rdfizer">
               <option value="none">None</option>
         	  <@ldpath path="wf:rdfizeService">
@@ -155,14 +154,14 @@
             </select>
         	Select digester
         	<select name="digester">
-        	    <option value="none">None</option>
+        	   
         		<@ldpath path="wf:enhanceService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
                 </@ldpath>
         	</select>
         	Select interlinker
         	<select name="interlinker">
-        	  <option value="none">None</option>
+        	 
         	  <@ldpath path="wf:interlinkService">
                 <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
               </@ldpath>
