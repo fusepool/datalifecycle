@@ -13,6 +13,11 @@ var status = form.parentNode.getElementsByTagName("SPAN")[0].innerHTML;
 if(status=="Published") return confirm("It will not be possible to unpublish the dataset after it is deleted");
 else return true;
 }
+function confirmClearGraph(form){
+var status = form.parentNode.getElementsByTagName("SPAN")[0].innerHTML;
+if(status=="Published") return confirm("Unpublish the dataset before clearing one of its graphs.");
+else return true;
+}
 </script>
 <head>
     <title>Fusepool Data Lifecycle</title>
@@ -59,8 +64,8 @@ else return true;
 					</form>
 				</td>
 				<td>
-					<form action="empty_graph" method="post">
-						<input type="submit" value="Empty">
+					<form action="clear_graph" method="post" onsubmit="return confirmClearGraph(this);">
+						<input type="submit" value="Clear">
 						<input type="hidden" name="graph" value="<@ldpath path="."/>">					
 					</form>
 				</td>
