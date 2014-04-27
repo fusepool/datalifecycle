@@ -108,6 +108,10 @@ div.menu a:hover {
 	color: red;
 }
 
+div.panel {
+	padding: 10px;
+}
+
 #dataset {
 	padding: 10px;
 }
