@@ -15,7 +15,9 @@
  */
 package eu.fusepool.datalifecycle;
 
+import eu.fusepool.datalifecycle.utils.FileUtil;
 import eu.fusepool.datalifecycle.utils.LinksRetriever;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,6 +30,7 @@ import java.net.URLConnection;
 import java.security.AccessController;
 import java.security.AllPermission;
 import java.security.Permission;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Dictionary;
@@ -38,10 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
+
 import javax.ws.rs.DefaultValue;
-
 import javax.ws.rs.FormParam;
-
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
@@ -52,6 +54,7 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
+
 import org.apache.clerezza.jaxrs.utils.RedirectUtil;
 import org.apache.clerezza.jaxrs.utils.TrailingSlash;
 import org.apache.clerezza.rdf.core.BNode;
@@ -183,16 +186,15 @@ public class SourcingAdmin {
 
     private UriRef CONTENT_GRAPH_REF = new UriRef(CONTENT_GRAPH_NAME);
 
-    // Operation codes
-    private final int RDFIZE = 1;
-    private final int ADD_TRIPLES_OPERATION = 2;
-    private final int TEXT_EXTRACTION = 3;
-    private final int RECONCILE_GRAPH_OPERATION = 4;
-    private final int SMUSH_GRAPH_OPERATION = 5;
-    private final int PUBLISH_DATA = 6;
+    // data upload codes
+    private final int UPLOAD_XML = 1;
+    private final int UPLOAD_RDF = 2;
+    // tasks codes
+    private final int TEXT_EXTRACTION = 1;
+    private final int RECONCILE_GRAPH_OPERATION = 2;
+    private final int SMUSH_GRAPH_OPERATION = 3;
+    private final int PUBLISH_DATA = 4;
 
-    // Task sequence codes
-    private final int RDF_UPLOAD_INTERLINK = 1;
 
     // base graph uri
     public static final String GRAPH_URN_PREFIX = "urn:x-localinstance:/dlc/";
@@ -424,7 +426,7 @@ public class SourcingAdmin {
     }
 
     /**
-     * Creates a new pipe with tasks and product graphs and adds its uri and a
+     * Creates a new dataset with tasks and product graphs and adds its uri and a
      * label to the data life cycle graph. A graph will contain the RDF data
      * uploaded or sent by a transformation task that have to be processed (text
      * extraction, NLP processing, reconciliation, smushing). The following
@@ -584,6 +586,89 @@ public class SourcingAdmin {
         return result;
 
     }
+    
+    /**
+     * Applies one of the following operations to a graph: - add triples
+     * (operation code: 1) - remove all triples (operation code: 2) - delete
+     * graph (operation code: 3) - reconcile (operation code: 4) - smush
+     * (operation code: 5)
+     */
+    @POST
+    @Path("dataUpload")
+    @Produces("text/plain")
+    public Response dataUpload(@Context final UriInfo uriInfo,
+            @FormParam("pipe") final UriRef pipeRef,
+            @FormParam("operation_code") final int operationCode,
+            @FormParam("data_url") final URL dataUrl,
+            @FormParam("rdfizer") final String rdfizer) throws IOException {
+        AccessController.checkPermission(new AllPermission());
+
+        // validate arguments and handle all the connection exceptions
+        StringWriter stringWriter = new StringWriter();
+        PrintWriter messageWriter = new PrintWriter(stringWriter);
+        if (pipeExists(pipeRef)) {
+            DataSet dataSet = new DataSet((pipeRef));
+            switch (operationCode) {
+                case UPLOAD_RDF:
+                    uploadRdf(dataSet, dataUrl, messageWriter);
+                    break;
+                case UPLOAD_XML:
+                    uploadXml(dataSet, dataUrl, rdfizer, messageWriter);
+                    break;
+            }
+        } else {
+            messageWriter.println("The dataset does not exist.");
+        }
+        //return stringWriter.toString();
+        return RedirectUtil.createSeeOtherResponse("./", uriInfo);
+
+    }
+    /**
+     * Uploads RDF files. Each file name must end with .rdf or .ttl. An url that does not ends with the mentioned extensions
+     * or ends with a slash is supposed to refer to a folder in a local file system or in a remote one (http server). 
+     * @param dataSet
+     * @param dataUrl
+     * @param messageWriter
+     * @throws IOException
+     */
+    private void uploadRdf(DataSet dataSet, URL dataUrl, PrintWriter messageWriter) throws IOException {
+        String [] fileNameExtensions = {".rdf", ".ttl"};
+        // retrieves the list of file to be uploaded
+        ArrayList<String> fileList = FileUtil.getFileList(dataUrl,fileNameExtensions);
+        Iterator<String> ifile = fileList.iterator();
+        while(ifile.hasNext()){
+            URL fileUrl = new URL(ifile.next());
+            URLConnection connection = fileUrl.openConnection();
+            String mediaType = guessContentTypeFromUri(fileUrl);
+            InputStream stream = connection.getInputStream();
+            if (stream != null) {
+                parser.parse(dataSet.getSourceGraph(), stream, mediaType);                
+            }         
+        }        
+    }
+    /**
+     * Uploads XML files. Each file name must end with .xml or .nxml. An url that does not ends with the mentioned extensions
+     * or ends with a slash is supposed to refer to a folder in a local file system or in a remote one (http server). 
+     * @param dataSet
+     * @param dataUrl
+     * @param rdfizerName
+     * @param messageWriter
+     */
+    private void uploadXml(DataSet dataSet, URL dataUrl, String rdfizerName, PrintWriter messageWriter) throws IOException {
+        Rdfizer rdfizer = rdfizers.get(rdfizerName);
+        String [] fileNameExtensions = {".xml", ".nxml"};
+        // retrieves the list of file to be uploaded
+        ArrayList<String> fileList = FileUtil.getFileList(dataUrl,fileNameExtensions);
+        Iterator<String> ifile = fileList.iterator();
+        while(ifile.hasNext()){
+            URL fileUrl = new URL(ifile.next());
+            URLConnection connection = fileUrl.openConnection();            
+            InputStream stream = connection.getInputStream();
+            if (stream != null) {
+                dataSet.getSourceGraph().addAll(rdfizer.transform(stream));                                
+            }         
+        }        
+    }
 
     /**
      * Applies one of the following operations to a graph: - add triples
@@ -592,13 +677,11 @@ public class SourcingAdmin {
      * (operation code: 5)
      */
     @POST
-    @Path("operate")
+    @Path("performTask")
     @Produces("text/plain")
-    public String operateOnGraphCommand(@Context final UriInfo uriInfo,
+    public Response performTaskRequest(@Context final UriInfo uriInfo,
             @FormParam("pipe") final UriRef pipeRef,
-            @FormParam("operation_code") final int operationCode,
-            @FormParam("data_url") final URL dataUrl,
-            @FormParam("rdfizer") final String rdfizer,
+            @FormParam("task_code") final int taskCode,
             @FormParam("rdfdigester") final String rdfdigester,
             @FormParam("interlinker") final String interlinker) throws IOException {
         AccessController.checkPermission(new AllPermission());
@@ -606,8 +689,9 @@ public class SourcingAdmin {
         // validate arguments and handle all the connection exceptions
         StringWriter stringWriter = new StringWriter();
         PrintWriter messageWriter = new PrintWriter(stringWriter);
-        operateOnPipe(pipeRef, operationCode, dataUrl, rdfizer, rdfdigester, interlinker, messageWriter);
-        return stringWriter.toString();
+        performTask(pipeRef, taskCode, rdfdigester, interlinker, messageWriter);
+        //return stringWriter.toString();
+        return RedirectUtil.createSeeOtherResponse("./", uriInfo);
 
     }
     
@@ -710,10 +794,17 @@ public class SourcingAdmin {
         throw new WebApplicationException(Response.Status.NOT_FOUND);
     }
 
-    private void operateOnPipe(UriRef pipeRef,
-            int operationCode,
-            URL dataUrl,
-            String rdfizer,
+    /**
+     * Performs a task on a dataset: digest, interlink, smush, publish.
+     * @param pipeRef
+     * @param taskCode
+     * @param rdfdigester
+     * @param interlinker
+     * @param messageWriter
+     * @throws IOException
+     */
+    private void performTask(UriRef pipeRef,
+            int taskCode,
             String rdfdigester,
             String interlinker,
             PrintWriter messageWriter) throws IOException {
@@ -721,22 +812,16 @@ public class SourcingAdmin {
         if (pipeExists(pipeRef)) {
             DataSet dataSet = new DataSet((pipeRef));
 
-            switch (operationCode) {
-                case ADD_TRIPLES_OPERATION:
-                    addTriples(dataSet, dataUrl, messageWriter);
+            switch (taskCode) {
+                case TEXT_EXTRACTION:
+                    extractTextFromRdf(dataSet, rdfdigester, messageWriter);
                     break;
                 case RECONCILE_GRAPH_OPERATION:
                     reconcile(dataSet, interlinker, messageWriter);
                     break;
                 case SMUSH_GRAPH_OPERATION:
                     smush(dataSet, messageWriter);
-                    break;
-                case TEXT_EXTRACTION:
-                    extractTextFromRdf(dataSet, rdfdigester, messageWriter);
-                    break;
-                case RDFIZE:
-                    transformXml(dataSet, dataUrl, rdfizers.get(rdfizer), messageWriter);
-                    break;
+                    break;     
                 case PUBLISH_DATA:
                     publishData(dataSet, messageWriter);
                     break;
@@ -753,8 +838,6 @@ public class SourcingAdmin {
     public String runSequence(@Context final UriInfo uriInfo,
             @FormParam("pipe") final UriRef pipeRef,
             @FormParam("sequence_code") final int sequenceCode,
-            @FormParam("data_url") final URL dataUrl,
-            @FormParam("rdfizer") final String rdfizerName,
             @FormParam("digester") final String digester,
             @FormParam("interlinker") final String interlinker) throws IOException {
 
@@ -762,13 +845,12 @@ public class SourcingAdmin {
 
         StringWriter stringWriter = new StringWriter();
         PrintWriter messageWriter = new PrintWriter(stringWriter);
-        messageWriter.println("Pipe: " + pipeRef.getUnicodeString() + " Data Url: " + dataUrl.toString()
-                + " Rdfizer: " + rdfizerName + " Digester: " + digester + " Interlinker: " + interlinker);
+        messageWriter.println("Pipe: " + pipeRef.getUnicodeString() + 
+                " Digester: " + digester + " Interlinker: " + interlinker);
 
-        Rdfizer rdfizer = rdfizerName.equals("none")? null : rdfizers.get(rdfizerName);
         if (pipeExists(pipeRef)) {
             DataSet dataSet = new DataSet(pipeRef);
-            rdfUploadPublish(dataSet, dataUrl, rdfizer, digester, interlinker, messageWriter);
+            performAllTasks(dataSet, digester, interlinker, messageWriter);
 
         } else {
             messageWriter.println("The dataset does not exist.");
@@ -779,7 +861,7 @@ public class SourcingAdmin {
     }
 
     /**
-     * Transforms Patent or PubMed XML data into RDF.
+     * Uploads and transforms Patent or PubMed XML data into RDF.
      *
      * @param dataUrl
      * @param rdfizer
@@ -848,7 +930,7 @@ public class SourcingAdmin {
 
             MGraph updatedGraph = addTriplesCommand(dataSet.getSourceGraphRef(), dataUrl);
 
-            messageWriter.println("Added " + updatedGraph.size() + " triples from "+dataUrl+ " to " + dataSet.getSourceGraphRef().getUnicodeString());
+            messageWriter.println("Added " + updatedGraph.size() + " triples from " + dataUrl + " to " + dataSet.getSourceGraphRef().getUnicodeString());
             return updatedGraph;
 
         } else {
@@ -979,7 +1061,8 @@ public class SourcingAdmin {
             // Get the source graph from the triple store
             LockableMGraph sourceGraph = dataSet.getSourceGraph();
             // reconcile the source graph with the target graph 
-            TripleCollection owlSameAs = interlinkers.get(selectedInterlinker).interlink(sourceGraph, targetGraphRef);
+            Interlinker interlinker = interlinkers.get(selectedInterlinker);
+            TripleCollection owlSameAs = interlinker.interlink(sourceGraph, targetGraphRef);
 
             if (owlSameAs.size() > 0) {
 
@@ -1235,6 +1318,28 @@ public class SourcingAdmin {
         getDlcGraph().remove(new TripleImpl(statusRef, RDFS.label, new PlainLiteralImpl("Unpublished")));
         getDlcGraph().add(new TripleImpl(statusRef, RDF.type, Ontology.Published));
         getDlcGraph().add(new TripleImpl(statusRef, RDFS.label, new PlainLiteralImpl("Published")));
+    }
+    
+    /**
+     * Performs the following tasks in sequence - Enhance -
+     * Interlink - Smush - Publish
+     *
+     * @param pipeRef
+     * @param digester
+     * @param interlinker
+     * @param mediaType
+     * @return
+     */
+    private void performAllTasks(DataSet dataSet, String digesterName, String interlinkerName, PrintWriter messageWriter) throws IOException {
+        // Digest RDF data
+        extractTextFromRdf(dataSet, digesterName, messageWriter);
+        // Interlink (against itself and content.graph)
+        reconcile(dataSet, interlinkerName, messageWriter);
+        // Smush
+        smush(dataSet, messageWriter);
+        // Publish
+        publishData(dataSet, messageWriter);
+
     }
 
     /**
