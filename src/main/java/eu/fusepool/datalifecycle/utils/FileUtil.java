@@ -30,29 +30,40 @@ public class FileUtil {
         String path = url.getPath();
         String ref = url.toString();
         
-        if("file".equals(scheme)) {
-            File dir = new File(fileName);
-            if(dir.isDirectory()) {
-                String [] files = dir.list();
-                for(int i = 0; i < files.length; i++ ) {
-                    for(int j = 0; j < fileNameExtensions.length; j++)
-                        if(files[i].endsWith(fileNameExtensions[j]))
-                            fileList.add(scheme + "://" + path + files[i]);
-                }
-                    
-             }
+        boolean isFile = false;
+        for(int i = 0; i < fileNameExtensions.length; i++){
+            if(ref.endsWith(fileNameExtensions[i]))
+                isFile = true;
         }
-        if("http".equals(scheme)){
-            String html = IOUtils.toString(url);
-            Pattern pattern = Pattern.compile("(<a href=\")(.*?)(\">)");
-            Matcher matcher = pattern.matcher(html);
-            while(matcher.find()){
-                String match = matcher.group(2);
-                for(int i = 0; i < fileNameExtensions.length; i++)                    
-                    if(match.endsWith(fileNameExtensions[i]))
-                        fileList.add(ref + match);
+        
+       
+        if(isFile){
+            fileList.add(ref);
+        }
+        else {
+            if("file".equals(scheme)) {
+                File dir = new File(fileName);
+                if(dir.isDirectory()) {
+                    String [] files = dir.list();
+                    for(int i = 0; i < files.length; i++ ) {
+                        for(int j = 0; j < fileNameExtensions.length; j++)
+                            if(files[i].endsWith(fileNameExtensions[j]))
+                                fileList.add(scheme + "://" + path + files[i]);
+                    }
+                        
+                 }
             }
-            
+            if("http".equals(scheme)){
+                    String html = IOUtils.toString(url);
+                    Pattern pattern = Pattern.compile("(<a href=\")(.*?)(\">)");
+                    Matcher matcher = pattern.matcher(html);
+                    while(matcher.find()){
+                        String match = matcher.group(2);
+                        for(int i = 0; i < fileNameExtensions.length; i++)                    
+                            if(match.endsWith(fileNameExtensions[i]))
+                                fileList.add(ref + match);
+                    }
+            }
         }
         
         return fileList;
