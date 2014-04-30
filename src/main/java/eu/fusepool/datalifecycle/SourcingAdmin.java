@@ -1369,14 +1369,16 @@ public class SourcingAdmin {
         dataSet.getEnhancedGraph().addAll(enhancedTriples);
         messageWriter.println("Added " + enhancedTriples.size() + " enhanced triples to " + dataSet.getEnhancedGraphRef().getUnicodeString());
         // Interlink (self)
-        Interlinker interlinker = interlinkers.get(interlinkerName);
-        final TripleCollection dataSetInterlinks = interlinker.interlink(enhancedTriples, dataSet.getEnhancedGraphRef());
-        dataSet.getInterlinksGraph().addAll(dataSetInterlinks);
-        messageWriter.println("Added " + dataSetInterlinks.size() + " data-set interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
-        // Interlink (content.graph)
-        final TripleCollection contentGraphInterlinks = interlinker.interlink(enhancedTriples, CONTENT_GRAPH_REF);
-        dataSet.getInterlinksGraph().addAll(contentGraphInterlinks);
-        messageWriter.println("Added " + contentGraphInterlinks.size() + " content-graph interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
+        if (!interlinkerName.equals("none")) {
+            Interlinker interlinker = interlinkers.get(interlinkerName);
+            final TripleCollection dataSetInterlinks = interlinker.interlink(enhancedTriples, dataSet.getEnhancedGraphRef());
+            dataSet.getInterlinksGraph().addAll(dataSetInterlinks);
+            messageWriter.println("Added " + dataSetInterlinks.size() + " data-set interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
+            // Interlink (content.graph)
+            final TripleCollection contentGraphInterlinks = interlinker.interlink(enhancedTriples, CONTENT_GRAPH_REF);
+            dataSet.getInterlinksGraph().addAll(contentGraphInterlinks);
+            messageWriter.println("Added " + contentGraphInterlinks.size() + " content-graph interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
+        }
         // Smush
         smush(dataSet, messageWriter);
         // Publish

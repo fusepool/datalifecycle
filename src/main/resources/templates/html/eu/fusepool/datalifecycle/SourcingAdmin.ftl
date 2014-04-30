@@ -161,7 +161,7 @@
         	</select>
         	Select interlinker
         	<select name="interlinker">
-        	 
+        	  <option value="none">None</option>
         	  <@ldpath path="wf:interlinkService">
                 <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
               </@ldpath>
