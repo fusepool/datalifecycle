@@ -168,12 +168,35 @@
         	</select> <br/> 
         	Skip previously added <input type="checkbox" name="skipPreviouslyAdded" checked="checked" value="on" /><br/>
             Recursively process "subdirectories" <input type="checkbox" name="recurse" checked="checked" value="on" /><br/>
+            Smush and publish <input type="checkbox" name="smushAndPublish" checked="checked" value="on" /><br/>
             Stop after <input type="text" name="maxFiles" value="10" size="6"><br/>
             Index URL: <input type="text" name="url" value="" size="60">
             <input type="submit" value="Start processing" />
     </form>
+    </div>
+    
+    <div class="panel">
+    <form action="reprocess/" method="post">
+            <h2>Reprocess</h2>
+            Interlinks a dataset in itself, smushes and publish. Select dataset 
+        	<select name="dataSet">     
+              <@ldpath path="wf:pipe">
+                <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
+              </@ldpath>           
+            </select>
+        	Select interlinker
+        	<select name="interlinker">
+        	  <option value="none">None</option>
+        	  <@ldpath path="wf:interlinkService">
+                <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
+              </@ldpath>
+        	</select> <br/> 
+            <input type="submit" value="Start job" />
+    </form>
+    </div>
     
     <#if evalLDPath("ont:activeTask")??>
+    <div class="panel">
     <h2>Active tasks</h2>
         <@ldpath path="ont:activeTask">
              <a href="<@ldpath path="."/>"><@ldpath path="."/></a><br/>

@@ -706,9 +706,11 @@ public class SourcingAdmin {
             @FormParam("interlinker") final String interlinker,
             @FormParam("maxFiles") @DefaultValue("10") final int maxFiles,
             @FormParam("skipPreviouslyAdded") final String skipPreviouslyAddedValue,
-            @FormParam("recurse") final String recurseValue) throws Exception {
+            @FormParam("recurse") final String recurseValue,
+            @FormParam("smushAndPublish") final String smushAndPublishValue) throws Exception {
         final boolean skipPreviouslyAdded = "on".equals(skipPreviouslyAddedValue);
         final boolean recurse = "on".equals(recurseValue);
+        final boolean smushAndPublish = "on".equals(smushAndPublishValue);
         if (dataSetRef == null) {
             throw new WebApplicationException("Param dataSet must be specified", Response.Status.BAD_REQUEST);
         }
@@ -746,7 +748,7 @@ public class SourcingAdmin {
                                 return false;
                             }
                             try {
-                                rdfUploadPublish(dataSet, dataUrl, rdfizer, digester, interlinker, log);
+                                rdfUploadPublish(dataSet, dataUrl, rdfizer, digester, interlinker, smushAndPublish, log);
                             } catch (Exception e) {
                                 log.println("Exception processing " + dataUrl);
                                 e.printStackTrace(log);
@@ -754,6 +756,47 @@ public class SourcingAdmin {
                             return true;
                         }
                     });
+                } catch (Exception ex) {
+                    ex.printStackTrace(log);
+                }
+            }
+        
+        };
+        tasks.add(task);
+        task.start();
+        return Response.seeOther(new URI(task.getUri().getUnicodeString())).build();
+    }
+    
+    
+    @POST
+    @Path("reprocess")
+    public Response reprocess(@Context final UriInfo uriInfo,
+            @FormParam("dataSet") final UriRef dataSetRef,
+            @FormParam("interlinker") final String interlinkerName) throws Exception {
+        if (dataSetRef == null) {
+            throw new WebApplicationException("Param dataSet must be specified", Response.Status.BAD_REQUEST);
+        }
+        
+        AccessController.checkPermission(new DlcPermission());
+        final DataSet dataSet = new DataSet(dataSetRef); 
+        final Interlinker interlinker = interlinkerName.equals("none")? null : interlinkers.get(interlinkerName);
+        Task task = new Task(uriInfo) {
+
+            @Override
+            public void execute() {
+                try {        
+                    if (interlinker != null) {
+                        log.println("Interlinking with: "+interlinker);
+                        final TripleCollection dataSetInterlinks = interlinker.interlink(dataSet.getEnhancedGraph(), dataSet.getEnhancedGraph());
+                        dataSet.getInterlinksGraph().addAll(dataSetInterlinks);
+                        log.println("Added " + dataSetInterlinks.size() + " data-set interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
+                    } else {
+                        log.println("No interlinker selected, proceding.");
+                    }
+                    // Smush
+                    smush(dataSet, log);
+                    // Publish
+                    publishData(dataSet, log);
                 } catch (Exception ex) {
                     ex.printStackTrace(log);
                 }
@@ -1354,7 +1397,7 @@ public class SourcingAdmin {
      * @param mediaType
      * @return
      */
-    private void rdfUploadPublish(DataSet dataSet, URL dataUrl, Rdfizer rdfizer, String digesterName, String interlinkerName, PrintWriter messageWriter) throws IOException {
+    private void rdfUploadPublish(DataSet dataSet, URL dataUrl, Rdfizer rdfizer, String digesterName, String interlinkerName, boolean smushAndPublish, PrintWriter messageWriter) throws IOException {
 
         // Transform to RDF
         TripleCollection addedTriples = rdfizer == null ? 
@@ -1379,10 +1422,12 @@ public class SourcingAdmin {
             dataSet.getInterlinksGraph().addAll(contentGraphInterlinks);
             messageWriter.println("Added " + contentGraphInterlinks.size() + " content-graph interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
         }
-        // Smush
-        smush(dataSet, messageWriter);
-        // Publish
-        publishData(dataSet, messageWriter);
+        if (smushAndPublish) {
+            // Smush
+            smush(dataSet, messageWriter);
+            // Publish
+            publishData(dataSet, messageWriter);
+        }
         
         
         GraphNode logEntry = new GraphNode(new BNode(), dataSet.getLogGraph());
