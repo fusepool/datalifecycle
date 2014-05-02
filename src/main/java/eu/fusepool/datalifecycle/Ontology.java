@@ -48,6 +48,7 @@ public class Ontology {
     // Classes
     public static final UriRef Pipe = new UriRef("http://example.com/ont/workflow/Pipe");
     public static final UriRef RdfTask = new UriRef("http://example.com/ont/workflow/RdfTask");
+    public static final UriRef DigestTask = new UriRef("http://example.com/ont/workflow/digestTask");
     public static final UriRef EnhanceTask = new UriRef("http://example.com/ont/workflow/enhanceTask");
     public static final UriRef InterlinkTask = new UriRef("http://example.com/ont/workflow/interlinkTask");
     public static final UriRef SmushTask = new UriRef("http://example.com/ont/workflow/smushTask");
