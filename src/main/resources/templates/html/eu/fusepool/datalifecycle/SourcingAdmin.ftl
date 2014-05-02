@@ -91,8 +91,8 @@
         	</select>
         	<br>
         </li>
-        
-        <li><input type="radio" name="task_code" value="2">Interlink. Select interlinker
+        <li><input type="radio" name="task_code" value="2">Compute enhancements<br></li>
+        <li><input type="radio" name="task_code" value="3">Interlink. Select interlinker
         	<select name="interlinker">
         		<@ldpath path="wf:interlinkService">
                   <option value="<@ldpath path="rdfs:label"/>"><@ldpath path="rdfs:label"/></option>
@@ -100,8 +100,8 @@
         	</select>
         	<br>
         </li>
-        <li><input type="radio" name="task_code" value="3">Smush<br></li>
-        <li><input type="radio" name="task_code" value="4">Publish<br></li>
+        <li><input type="radio" name="task_code" value="4">Smush<br></li>
+        <li><input type="radio" name="task_code" value="5">Publish<br></li>
         </ol>
         
         <input type="submit" value="Run task" />
