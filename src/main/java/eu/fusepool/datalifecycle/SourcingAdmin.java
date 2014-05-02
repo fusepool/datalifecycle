@@ -17,6 +17,7 @@ package eu.fusepool.datalifecycle;
 
 import eu.fusepool.datalifecycle.utils.FileUtil;
 import eu.fusepool.datalifecycle.utils.LinksRetriever;
+//import eu.fusepool.rdfizer.marec.Ontology;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -58,11 +59,13 @@ import javax.ws.rs.core.UriInfo;
 import org.apache.clerezza.jaxrs.utils.RedirectUtil;
 import org.apache.clerezza.jaxrs.utils.TrailingSlash;
 import org.apache.clerezza.rdf.core.BNode;
+import org.apache.clerezza.rdf.core.LiteralFactory;
 import org.apache.clerezza.rdf.core.MGraph;
 import org.apache.clerezza.rdf.core.NonLiteral;
 import org.apache.clerezza.rdf.core.Resource;
 import org.apache.clerezza.rdf.core.Triple;
 import org.apache.clerezza.rdf.core.TripleCollection;
+import org.apache.clerezza.rdf.core.TypedLiteral;
 import org.apache.clerezza.rdf.core.UriRef;
 import org.apache.clerezza.rdf.core.access.EntityAlreadyExistsException;
 import org.apache.clerezza.rdf.core.access.LockableMGraph;
@@ -75,10 +78,12 @@ import org.apache.clerezza.rdf.core.impl.SimpleMGraph;
 import org.apache.clerezza.rdf.core.impl.TripleImpl;
 import org.apache.clerezza.rdf.core.serializedform.Parser;
 import org.apache.clerezza.rdf.core.serializedform.Serializer;
+import org.apache.clerezza.rdf.ontologies.DC;
 import org.apache.clerezza.rdf.ontologies.DCTERMS;
 import org.apache.clerezza.rdf.ontologies.OWL;
 import org.apache.clerezza.rdf.ontologies.RDF;
 import org.apache.clerezza.rdf.ontologies.RDFS;
+import org.apache.clerezza.rdf.ontologies.SIOC;
 import org.apache.clerezza.rdf.utils.GraphNode;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -92,6 +97,17 @@ import org.apache.felix.scr.annotations.ReferencePolicy;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.stanbol.commons.indexedgraph.IndexedMGraph;
 import org.apache.stanbol.commons.web.viewable.RdfViewable;
+import org.apache.stanbol.enhancer.servicesapi.ContentItem;
+import org.apache.stanbol.enhancer.servicesapi.ContentItemFactory;
+import org.apache.stanbol.enhancer.servicesapi.ContentSource;
+import org.apache.stanbol.enhancer.servicesapi.EnhancementException;
+import org.apache.stanbol.enhancer.servicesapi.EnhancementJobManager;
+import org.apache.stanbol.enhancer.servicesapi.impl.ByteArraySource;
+import org.apache.stanbol.enhancer.servicesapi.rdf.TechnicalClasses;
+import org.apache.stanbol.entityhub.model.clerezza.RdfValueFactory;
+import org.apache.stanbol.entityhub.servicesapi.model.Entity;
+import org.apache.stanbol.entityhub.servicesapi.model.Representation;
+import org.apache.stanbol.entityhub.servicesapi.site.SiteManager;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Constants;
 import org.osgi.service.component.ComponentContext;
@@ -144,6 +160,18 @@ public class SourcingAdmin {
 
     @Reference
     private Serializer serializer;
+    
+    @Reference
+    private ContentItemFactory contentItemFactory;
+    
+    @Reference
+    private EnhancementJobManager enhancementJobManager;
+    
+    /**
+     * This service allows to get entities from configures sites
+     */
+    @Reference
+    private SiteManager siteManager;
 
     /**
      * This service allows accessing and creating persistent triple collections
@@ -191,15 +219,20 @@ public class SourcingAdmin {
     private final int UPLOAD_RDF = 2;
     // tasks codes
     private final int TEXT_EXTRACTION = 1;
-    private final int RECONCILE_GRAPH_OPERATION = 2;
-    private final int SMUSH_GRAPH_OPERATION = 3;
-    private final int PUBLISH_DATA = 4;
+    private final int COMPUTE_ENHANCEMENTS = 2;
+    private final int RECONCILE_GRAPH_OPERATION = 3;
+    private final int SMUSH_GRAPH_OPERATION = 4;
+    private final int PUBLISH_DATA = 5;
 
+    //Confidence threshold value to accept entities extracted by an NLP enhancement engine
+    private static final double CONFIDENCE_THRESHOLD = 0.3;
 
     // base graph uri
     public static final String GRAPH_URN_PREFIX = "urn:x-localinstance:/dlc/";
     // graph suffix
     public static final String SOURCE_GRAPH_URN_SUFFIX = "/rdf.graph";
+    // digest graph suffix
+    public static final String DIGEST_GRAPH_URN_SUFFIX = "/digest.graph";
     // enhancements graph suffix
     public static final String ENHANCE_GRAPH_URN_SUFFIX = "/enhance.graph";
     // log graph suffix
@@ -515,6 +548,10 @@ public class SourcingAdmin {
             UriRef rdfTaskRef = new UriRef(GRAPH_URN_PREFIX + datasetName + "/rdf");
             getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, rdfTaskRef));
             getDlcGraph().add(new TripleImpl(rdfTaskRef, RDF.type, Ontology.RdfTask));
+            // digest task
+            UriRef digestTaskRef = new UriRef(GRAPH_URN_PREFIX + datasetName + "/digest");
+            getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, digestTaskRef));
+            getDlcGraph().add(new TripleImpl(digestTaskRef, RDF.type, Ontology.DigestTask));
             // enhance task
             UriRef enhanceTaskRef = new UriRef(GRAPH_URN_PREFIX + datasetName + "/enhance");
             getDlcGraph().add(new TripleImpl(pipeRef, Ontology.creates, enhanceTaskRef));
@@ -540,14 +577,22 @@ public class SourcingAdmin {
             //dlcGraphNode.addProperty(DCTERMS.hasPart, graphRef);
             getDlcGraph().add(new TripleImpl(rdfTaskRef, Ontology.deliverable, sourceGraphRef));
             getDlcGraph().add(new TripleImpl(sourceGraphRef, RDF.type, Ontology.voidDataset));
+            
+            // create the graph to store text fields extract from properties in the source rdf
+            String digestGraphName = GRAPH_URN_PREFIX + datasetName + DIGEST_GRAPH_URN_SUFFIX;
+            UriRef digestGraphRef = new UriRef(digestGraphName);
+            tcManager.createMGraph(digestGraphRef);
+            getDlcGraph().add(new TripleImpl(enhanceTaskRef, Ontology.deliverable, digestGraphRef));
+            getDlcGraph().add(new TripleImpl(digestGraphRef, RDFS.label, new PlainLiteralImpl("Contains a sioc:content property with text "
+                    + "for indexing and references to entities found in the text by NLP enhancement engines")));
 
-            // create the graph to store text and enhancements
+            // create the graph to store enhancements found by NLP engines in the digest
             String enhancementsGraphName = GRAPH_URN_PREFIX + datasetName + ENHANCE_GRAPH_URN_SUFFIX;
             UriRef enhancementsGraphRef = new UriRef(enhancementsGraphName);
             tcManager.createMGraph(enhancementsGraphRef);
             getDlcGraph().add(new TripleImpl(enhanceTaskRef, Ontology.deliverable, enhancementsGraphRef));
-            getDlcGraph().add(new TripleImpl(enhancementsGraphRef, RDFS.label, new PlainLiteralImpl("Contains a sioc:content property with text "
-                    + "for indexing and references to entities found in the text by NLP enhancement engines")));
+            getDlcGraph().add(new TripleImpl(enhancementsGraphRef, RDFS.label, new PlainLiteralImpl("Contains  entities found "
+                    + "in digest by NLP enhancement engines")));
 
             // create the graph to store the result of the interlinking task
             String interlinkGraphName = GRAPH_URN_PREFIX + datasetName + INTERLINK_GRAPH_URN_SUFFIX;
@@ -859,6 +904,9 @@ public class SourcingAdmin {
             switch (taskCode) {
                 case TEXT_EXTRACTION:
                     extractTextFromRdf(dataSet, rdfdigester, messageWriter);
+                    break;
+                case COMPUTE_ENHANCEMENTS:
+                    computeEnhancements(dataSet, messageWriter);
                     break;
                 case RECONCILE_GRAPH_OPERATION:
                     reconcile(dataSet, interlinker, messageWriter);
@@ -1234,20 +1282,12 @@ public class SourcingAdmin {
      * Extract text from dcterms:title and dcterms:abstract fields in the source
      * graph and adds a sioc:content property with that text in the enhance
      * graph. The text is used by the ECS for indexing. The keywords will be
-     * related to a patent (resource of type pmo:PatentPublication) so that the
-     * patent will be retrieved anytime the keyword is searched. The extractor
-     * also takes all the entities extracted by NLP enhancement engines. These
-     * entities and a rdfs:label if available, are added to the patent resource
-     * using dcterms:subject property.
+     * related to the resource so that it could be retrieved. 
      *
-     * @param pipeRef
      * @return
      */
     private void extractTextFromRdf(DataSet dataSet, String selectedDigester, PrintWriter messageWriter) {
-
-  
-        MGraph enhanceGraph = dataSet.getEnhancedGraph();
-
+        RdfDigester digester = digesters.get(selectedDigester);
         MGraph tempGraph = new IndexedMGraph();
         LockableMGraph sourceGraph = dataSet.getSourceGraph();
         Lock rl = sourceGraph.getLock().readLock();
@@ -1257,13 +1297,116 @@ public class SourcingAdmin {
         } finally {
             rl.unlock();
         }
+        
+        digester.extractText(tempGraph);
+        tempGraph.removeAll(sourceGraph);
+        dataSet.getDigestGraph().addAll(tempGraph);
+        messageWriter.println("Extracted text from " + dataSet.getDigestGraphRef().getUnicodeString() + " by " + selectedDigester + " digester");
 
-        enhanceGraph.addAll(tempGraph);
+    }
+    /**
+     * Sends the digested content to the default chain to compute enhancements them stores them
+     * in the dataset's enhancements graph
+     * @param dataSet
+     * @param messageWriter
+     */
+    private void computeEnhancements(DataSet dataSet, PrintWriter messageWriter){
+        LockableMGraph digestGraph = dataSet.getDigestGraph();
+        Lock digestLock = digestGraph.getLock().readLock();
+        digestLock.lock();
+        try {
+            Iterator<Triple> isiocStmt = digestGraph.filter(null, SIOC.content, null);
+            while(isiocStmt.hasNext()){
+                Triple stmt = isiocStmt.next();
+                UriRef itemRef = (UriRef) stmt.getSubject();
+                String content = ((PlainLiteralImpl) stmt.getObject()).getLexicalForm();
+                if(! "".equals(content) && content != null ) {
+                    try {
+                        enhance(dataSet, content, itemRef);
+                    } 
+                    catch (IOException e) {
+                        throw new RuntimeException();                        
+                    } 
+                    catch (EnhancementException e) {                        
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+        finally {
+            digestLock.unlock();
+        }
+        
+        
+        
+        
+    }
+    /**
+     * Add dc:subject properties to an item pointing to entities which are assumed to be related to
+     * content item. This method uses the enhancementJobManager to extract related entities using NLP 
+     * engines available in the default chain. The node uri is also the uri of the content item
+     * so that the enhancements will be referred that node. Each enhancement found with a confidence 
+     * value above a threshold is then added as a dc:subject to the node
+     */
+    private void enhance(DataSet dataSet, String content, UriRef itemRef) throws IOException, EnhancementException {
+        final ContentSource contentSource = new ByteArraySource(
+                content.getBytes(), "text/plain");
+        final ContentItem contentItem = contentItemFactory.createContentItem(
+            itemRef, contentSource);
+        enhancementJobManager.enhanceContent(contentItem);
+        // this contains the enhancement results
+        final MGraph contentMetadata = contentItem.getMetadata();
+        addSubjects(dataSet, itemRef, contentMetadata);
+    }
+    /** 
+     * Add dc:subject property to items pointing to entities extracted by NLP engines in the default chain. 
+     * Given a node and a TripleCollection containing fise:Enhancements about that node 
+     * dc:subject properties are added to an item pointing to entities referenced by those enhancements 
+     * if the enhancement confidence value is above a threshold.
+     * @param node
+     * @param metadata
+     */
+    private void addSubjects(DataSet dataSet, UriRef itemRef, TripleCollection metadata) {
+        final GraphNode enhancementType = new GraphNode(TechnicalClasses.ENHANCER_ENHANCEMENT, metadata);
+        final Set<UriRef> entities = new HashSet<UriRef>();
+        // get all the enhancements
+        final Iterator<GraphNode> enhancements = enhancementType.getSubjectNodes(RDF.type);
+        while (enhancements.hasNext()) {
+            final GraphNode enhhancement = enhancements.next();
+          //look the confidence value for each enhancement
+            double enhancementConfidence = LiteralFactory.getInstance().createObject(Double.class,
+                    (TypedLiteral) enhhancement.getLiterals(org.apache.stanbol.enhancer.servicesapi.rdf.Properties.ENHANCER_CONFIDENCE).next());
+            if( enhancementConfidence >= CONFIDENCE_THRESHOLD ) {            
+                // get entities referenced in the enhancement 
+                final Iterator<Resource> referencedEntities = enhhancement.getObjects(org.apache.stanbol.enhancer.servicesapi.rdf.Properties.ENHANCER_ENTITY_REFERENCE);
+                while (referencedEntities.hasNext()) {
+                    final UriRef entity = (UriRef) referencedEntities.next();                   
+                    // Add dc:subject to the patent for each referenced entity
+                    dataSet.getEnhancedGraph().add(new TripleImpl(itemRef, DC.subject, entity));
+                    entities.add(entity);
+                }
+            }
 
-        RdfDigester digester = digesters.get(selectedDigester);
-        digester.extractText(enhanceGraph);
-        messageWriter.println("Extracted text from " + dataSet.getEnhancedGraphRef().getUnicodeString() + " by " + selectedDigester + " digester");
 
+        }
+        for (UriRef uriRef : entities) {
+            // We don't get the entity description directly from metadata
+            // as the context there would include
+            addResourceDescription(uriRef, dataSet.getEnhancedGraph());
+        }
+    }
+    /** 
+     * Add a description of the entities extracted from the text by NLP engines in the default chain
+     */
+    private void addResourceDescription(UriRef iri, MGraph mGraph) {
+        final Entity entity = siteManager.getEntity(iri.getUnicodeString());
+        if (entity != null) {
+            final RdfValueFactory valueFactory = new RdfValueFactory(mGraph);
+            final Representation representation = entity.getRepresentation();
+            if (representation != null) {
+                valueFactory.toRdfRepresentation(representation);
+            }
+        }
     }
 
     /**
@@ -1668,6 +1811,23 @@ public class SourcingAdmin {
             return new UriRef(dataSetUri.getUnicodeString() + LOG_GRAPH_URN_SUFFIX);
 
         }
+        
+        /**
+        *
+        * @return the graph containing the digested content to be used for enhancements and indexing
+        */
+       public LockableMGraph getDigestGraph() {
+           try {
+               return tcManager.getMGraph(getDigestGraphRef());
+           } catch (NoSuchEntityException e) {
+               return tcManager.createMGraph(getDigestGraphRef());
+           }
+       }
+
+       public UriRef getDigestGraphRef() {
+           return new UriRef(dataSetUri.getUnicodeString() + DIGEST_GRAPH_URN_SUFFIX);
+
+       }
 
         /**
          *
