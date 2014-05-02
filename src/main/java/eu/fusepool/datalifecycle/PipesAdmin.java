@@ -131,6 +131,10 @@ public class PipesAdmin {
             UriRef sourceGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.SOURCE_GRAPH_URN_SUFFIX );
             int sourceGraphSize = tcManager.getMGraph( sourceGraphRef ).size();
             responseGraph.add(new TripleImpl(sourceGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(sourceGraphSize))));
+            // add digest graph size
+            UriRef digestGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.DIGEST_GRAPH_URN_SUFFIX );
+            int digestGraphSize = tcManager.getMGraph( digestGraphRef ).size();
+            responseGraph.add(new TripleImpl(digestGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(digestGraphSize))));
             // add enhance graph size
             UriRef enhanceGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX );
             int enhanceGraphSize = tcManager.getMGraph( enhanceGraphRef ).size();
@@ -242,6 +246,7 @@ public class PipesAdmin {
         
         // remove graphs
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.SOURCE_GRAPH_URN_SUFFIX));
+        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.DIGEST_GRAPH_URN_SUFFIX));
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX));
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.INTERLINK_GRAPH_URN_SUFFIX));
         tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.SMUSH_GRAPH_URN_SUFFIX));
@@ -316,6 +321,18 @@ public class PipesAdmin {
 	    	while(irdfTask.hasNext()) {
 	    		pipeGraph.add(irdfTask.next());
 	    	}
+	    	
+	    	// select digest graph and task metadata 
+            UriRef digestTaskRef = new UriRef(pipeName + "/digest");
+            UriRef digestGraphRef = new UriRef(pipeName + SourcingAdmin.DIGEST_GRAPH_URN_SUFFIX);
+            Iterator<Triple> idigestGraph = getDlcGraph().filter(digestGraphRef, null, null);
+            while(idigestGraph.hasNext()) {
+                pipeGraph.add(idigestGraph.next());
+            }
+            Iterator<Triple> idigestTask = getDlcGraph().filter(digestTaskRef, null, null);
+            while(idigestTask.hasNext()) {
+                pipeGraph.add(idigestTask.next());
+            }
 	    	
 	    	// select enhance graph and task metadata 
 	    	UriRef enhanceTaskRef = new UriRef(pipeName + "/enhance");
