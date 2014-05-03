@@ -19,6 +19,7 @@ import eu.fusepool.datalifecycle.utils.FileUtil;
 import eu.fusepool.datalifecycle.utils.LinksRetriever;
 //import eu.fusepool.rdfizer.marec.Ontology;
 
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -85,6 +86,7 @@ import org.apache.clerezza.rdf.ontologies.RDF;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.ontologies.SIOC;
 import org.apache.clerezza.rdf.utils.GraphNode;
+import org.apache.clerezza.rdf.utils.UnionMGraph;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.ConfigurationPolicy;
@@ -141,9 +143,21 @@ public class SourcingAdmin {
     public static final String DEFAULT_BASE_URI = "http://localhost:8080";
     @Property(label = BASE_URI_LABEL, value = DEFAULT_BASE_URI, description = BASE_URI_DESCRIPTION)
     public static final String BASE_URI = "baseUri";
-
     // base uri updated at service activation from the service property in the osgi console
     private String baseUri;
+    
+    
+    // Confidence threshold for enhencements attributes. This property is used to set the minimum value of acceptance of
+    // computed enhancements
+    public static final String CONFIDENCE_THRESHOLD_DESCRIPTION = "Minimum value for acceptance of computed enhancements";
+    public static final String CONFIDENCE_THRESHOLD_LABEL = "Confidence threshold";
+    public static final String DEFAULT_CONFIDENCE_VALUE = "0.5";
+    @Property(label = CONFIDENCE_THRESHOLD_LABEL, value = DEFAULT_CONFIDENCE_VALUE, description = CONFIDENCE_THRESHOLD_DESCRIPTION)   
+    public static final String CONFIDENCE_THRESHOLD = "confidenceThreshold";
+    // confidence threshold value updated at service activation from the service property in the osgi console
+    private double confidenceThreshold = 0.5;
+
+   
 
     // Scheme of non-http URI used
     public static final String URN_SCHEME = "urn:x-temp:";
@@ -224,9 +238,6 @@ public class SourcingAdmin {
     private final int SMUSH_GRAPH_OPERATION = 4;
     private final int PUBLISH_DATA = 5;
 
-    //Confidence threshold value to accept entities extracted by an NLP enhancement engine
-    private static final double CONFIDENCE_THRESHOLD = 0.3;
-
     // base graph uri
     public static final String GRAPH_URN_PREFIX = "urn:x-localinstance:/dlc/";
     // graph suffix
@@ -256,10 +267,7 @@ public class SourcingAdmin {
     @SuppressWarnings("unchecked")
     @Activate
     protected void activate(ComponentContext context) {
-
         log.info("The Sourcing Admin Service is being activated");
-        // Creates the data lifecycle graph if it doesn't exists. This graph contains references to graphs and linksets 
-
         // Get the value of the base uri from the service property set in the Felix console
         Dictionary<String, Object> dict = context.getProperties();
         Object baseUriObj = dict.get(BASE_URI);
@@ -273,7 +281,12 @@ public class SourcingAdmin {
         } else {
             isValidBaseUri = false;
         }
-
+        // Get the value of the confidence threshold from the service property set in the Felix console
+        Object confidenceObj = dict.get(CONFIDENCE_THRESHOLD);
+        if(confidenceObj != null)
+            confidenceThreshold = Double.valueOf(confidenceObj.toString());   
+        
+        // Creates the data lifecycle graph if it doesn't exists. This graph contains references to graphs and linksets
         try {
             createDlcGraph();
             log.info("Created Data Lifecycle Register Graph. This graph will reference all graphs during their lifecycle");
@@ -1171,38 +1184,31 @@ public class SourcingAdmin {
     }
 
     /**
-     * Smush the enhanced graph using the interlinking graph. More precisely
-     * collates URIs coming from different equivalent resources in a single one
-     * chosen among them. The triples in the source graph are copied in the
-     * smush graph that is then smushed using the interlinking graph.
+     * Smush the union of the source, digest and enhancements graphs 
+     * using the interlinking graph. More precisely collates URIs coming from different 
+     * equivalent resources in a single one chosen among them. All the triples in the union graph are copied in the
+     * smush graph that is then smushed using the interlinking graph. URIs are canonicalized to http://
      *
      * @param graphToSmushRef
      * @return
      */
     private void smush(DataSet dataSet, PrintWriter messageWriter) {
         messageWriter.println("Smushing task.");
-        // As the smush.graph must be published it has to contain the sioc.content property and all the subject
-        // extracted during the enhancement phase that are stored in the enhance.graph with all the triples from 
-        // the rdf
+        
+        if (dataSet.getSourceGraph().size() > 0) {
 
-        if (dataSet.getEnhanceGraph().size() > 0) {
+            LockableMGraph smushedGraph = smushCommand(dataSet);
 
-            LockableMGraph smushedGraph = smushCommand(dataSet, dataSet.getInterlinksGraph());
-
-            messageWriter.println("Smushing of " + dataSet.getEnhancedGraphRef().getUnicodeString()
-                    + " with equivalence set completed. "
+            messageWriter.println("Smushing of " + dataSet.getEnhancedGraphRef().getUnicodeString()                    
                     + "Smushed graph size = " + smushedGraph.size());
         } else {
-            messageWriter.println("No equivalence links available for " + dataSet.getEnhancedGraphRef().getUnicodeString() + "\n"
-                    + "or the enhancement graph is empty.\n"
-                    + "The smushing task is applied to the enhancement graph using the equivalence set in the interlinking graph.");
+            messageWriter.println("The source graph " + dataSet.getSourceGraphRef().getUnicodeString() + " is empty.");
         }
 
     }
 
-    private LockableMGraph smushCommand(final DataSet dataSet, LockableMGraph equivalenceSet) {
+    private LockableMGraph smushCommand(final DataSet dataSet) {
 
-     
         final SameAsSmusher smusher = new SameAsSmusher() {
 
             @Override
@@ -1219,7 +1225,7 @@ public class SourcingAdmin {
                 if (httpUri.size() == 1) {
                     return httpUri.iterator().next();
                 }
-            // There is no http URI in the set of equivalent resource. The entity was unknown. 
+                // There is no http URI in the set of equivalent resource. The entity was unknown. 
                 // A new representation of the entity with http URI will be created. 
                 if (httpUri.size() == 0) {
                     return generateNewHttpUri(dataSet, uriRefs);
@@ -1236,16 +1242,15 @@ public class SourcingAdmin {
             dataSet.getSmushGraph().clear();
         }
 
-        Lock erl = dataSet.getEnhanceGraph().getLock().readLock();
+        LockableMGraph unionGraph = new UnionMGraph(dataSet.getSourceGraph(),dataSet.getDigestGraph(), dataSet.getEnhancedGraph());     
+        Lock erl = unionGraph.getLock().readLock();
         erl.lock();
         try {
             // add triples from enhance graph to smush graph
-            dataSet.getSmushGraph().addAll(dataSet.getEnhancedGraph());
-            log.info("Copied " + dataSet.getEnhancedGraph().size() + " triples from the enhancement graph into the smush graph.");
-            SimpleMGraph tempEquivalenceSet = new SimpleMGraph();
-            tempEquivalenceSet.addAll(equivalenceSet);
-
-
+            dataSet.getSmushGraph().addAll(unionGraph);
+            log.info("Copied " + unionGraph.size() + " triples from the union of source, digest and enhancements graph into the smush graph.");
+            MGraph tempEquivalenceSet = new IndexedMGraph();
+            tempEquivalenceSet.addAll(dataSet.getInterlinksGraph());
             log.info("Smush task started.");
             smusher.smush(dataSet.getSmushGraph(), tempEquivalenceSet, true);
             log.info("Smush task completed.");
@@ -1317,7 +1322,7 @@ public class SourcingAdmin {
         try {
             Iterator<Triple> isiocStmt = digestGraph.filter(null, SIOC.content, null);
             while(isiocStmt.hasNext()){
-                Triple stmt = isiocStmt.next();
+                Triple stmt = isiocStmt.next();             
                 UriRef itemRef = (UriRef) stmt.getSubject();
                 String content = ((PlainLiteralImpl) stmt.getObject()).getLexicalForm();
                 if(! "".equals(content) && content != null ) {
@@ -1376,7 +1381,7 @@ public class SourcingAdmin {
           //look the confidence value for each enhancement
             double enhancementConfidence = LiteralFactory.getInstance().createObject(Double.class,
                     (TypedLiteral) enhhancement.getLiterals(org.apache.stanbol.enhancer.servicesapi.rdf.Properties.ENHANCER_CONFIDENCE).next());
-            if( enhancementConfidence >= CONFIDENCE_THRESHOLD ) {            
+            if( enhancementConfidence >= confidenceThreshold ) {            
                 // get entities referenced in the enhancement 
                 final Iterator<Resource> referencedEntities = enhhancement.getObjects(org.apache.stanbol.enhancer.servicesapi.rdf.Properties.ENHANCER_ENTITY_REFERENCE);
                 while (referencedEntities.hasNext()) {
