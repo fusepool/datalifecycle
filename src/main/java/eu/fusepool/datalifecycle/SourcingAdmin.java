@@ -1316,18 +1316,22 @@ public class SourcingAdmin {
      * @param messageWriter
      */
     private void computeEnhancements(DataSet dataSet, PrintWriter messageWriter){
-        LockableMGraph digestGraph = dataSet.getDigestGraph();
-        Lock digestLock = digestGraph.getLock().readLock();
+       LockableMGraph digestGraph = dataSet.getDigestGraph(); 
+        computeEnhancements(digestGraph, dataSet.getEnhancedGraph(), messageWriter);
+    }
+    private void computeEnhancements(LockableMGraph sourceGraph, MGraph targetGraph, PrintWriter messageWriter){
+        
+        Lock digestLock = sourceGraph.getLock().readLock();
         digestLock.lock();
         try {
-            Iterator<Triple> isiocStmt = digestGraph.filter(null, SIOC.content, null);
+            Iterator<Triple> isiocStmt = sourceGraph.filter(null, SIOC.content, null);
             while(isiocStmt.hasNext()){
                 Triple stmt = isiocStmt.next();             
                 UriRef itemRef = (UriRef) stmt.getSubject();
                 String content = ((PlainLiteralImpl) stmt.getObject()).getLexicalForm();
                 if(! "".equals(content) && content != null ) {
                     try {
-                        enhance(dataSet, content, itemRef);
+                        enhance(targetGraph, content, itemRef);
                     } 
                     catch (IOException e) {
                         throw new RuntimeException();                        
@@ -1353,7 +1357,7 @@ public class SourcingAdmin {
      * so that the enhancements will be referred that node. Each enhancement found with a confidence 
      * value above a threshold is then added as a dc:subject to the node
      */
-    private void enhance(DataSet dataSet, String content, UriRef itemRef) throws IOException, EnhancementException {
+    private void enhance(MGraph targetGraph, String content, UriRef itemRef) throws IOException, EnhancementException {
         final ContentSource contentSource = new ByteArraySource(
                 content.getBytes(), "text/plain");
         final ContentItem contentItem = contentItemFactory.createContentItem(
@@ -1361,7 +1365,7 @@ public class SourcingAdmin {
         enhancementJobManager.enhanceContent(contentItem);
         // this contains the enhancement results
         final MGraph contentMetadata = contentItem.getMetadata();
-        addSubjects(dataSet, itemRef, contentMetadata);
+        addSubjects(targetGraph, itemRef, contentMetadata);
     }
     /** 
      * Add dc:subject property to items pointing to entities extracted by NLP engines in the default chain. 
@@ -1371,7 +1375,7 @@ public class SourcingAdmin {
      * @param node
      * @param metadata
      */
-    private void addSubjects(DataSet dataSet, UriRef itemRef, TripleCollection metadata) {
+    private void addSubjects(MGraph targetGraph, UriRef itemRef, TripleCollection metadata) {
         final GraphNode enhancementType = new GraphNode(TechnicalClasses.ENHANCER_ENHANCEMENT, metadata);
         final Set<UriRef> entities = new HashSet<UriRef>();
         // get all the enhancements
@@ -1387,7 +1391,7 @@ public class SourcingAdmin {
                 while (referencedEntities.hasNext()) {
                     final UriRef entity = (UriRef) referencedEntities.next();                   
                     // Add dc:subject to the patent for each referenced entity
-                    dataSet.getEnhancedGraph().add(new TripleImpl(itemRef, DC.subject, entity));
+                    targetGraph.add(new TripleImpl(itemRef, DC.subject, entity));
                     entities.add(entity);
                 }
             }
@@ -1397,7 +1401,7 @@ public class SourcingAdmin {
         for (UriRef uriRef : entities) {
             // We don't get the entity description directly from metadata
             // as the context there would include
-            addResourceDescription(uriRef, dataSet.getEnhancedGraph());
+            addResourceDescription(uriRef, targetGraph);
         }
     }
     /** 
@@ -1555,12 +1559,16 @@ public class SourcingAdmin {
             : transformXml(dataSet, dataUrl, rdfizer, messageWriter);
 
         // Digest. Add sioc:content and dc:subject predicates
-        MGraph enhancedTriples = new IndexedMGraph();
-        enhancedTriples.addAll(addedTriples);
+        MGraph digestedTriples = new IndexedMGraph();
+        digestedTriples.addAll(addedTriples);
         RdfDigester digester = digesters.get(digesterName);
-        digester.extractText(enhancedTriples);
+        digester.extractText(digestedTriples);
+        dataSet.getDigestGraph().addAll(digestedTriples);
+        messageWriter.println("Added " + digestedTriples.size() + " digested triples to " + dataSet.getDigestGraphRef().getUnicodeString());
+        MGraph enhancedTriples = new IndexedMGraph();
+        computeEnhancements(dataSet.getDigestGraph(), enhancedTriples, messageWriter);
         dataSet.getEnhancedGraph().addAll(enhancedTriples);
-        messageWriter.println("Added " + enhancedTriples.size() + " enhanced triples to " + dataSet.getEnhancedGraphRef().getUnicodeString());
+        messageWriter.println("Added " + enhancedTriples.size() + " enahnced triples to " + dataSet.getEnhancedGraphRef().getUnicodeString());
         // Interlink (self)
         if (!interlinkerName.equals("none")) {
             Interlinker interlinker = interlinkers.get(interlinkerName);
