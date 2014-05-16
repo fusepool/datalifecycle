@@ -1525,6 +1525,8 @@ public class SourcingAdmin {
     private void performAllTasks(DataSet dataSet, String digesterName, String interlinkerName, PrintWriter messageWriter) throws IOException {
         // Digest RDF data
         extractTextFromRdf(dataSet, digesterName, messageWriter);
+        //compute enhacements
+        computeEnhancements(dataSet, messageWriter);
         // Interlink (against itself and content.graph)
         reconcile(dataSet, interlinkerName, messageWriter);
         // Smush
