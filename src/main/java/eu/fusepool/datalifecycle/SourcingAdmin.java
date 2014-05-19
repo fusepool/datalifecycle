@@ -683,7 +683,7 @@ public class SourcingAdmin {
 
     }
     /**
-     * Uploads RDF files. Each file name must end with .rdf or .ttl. An url that does not ends with the mentioned extensions
+     * Uploads RDF files. Each file name must end with .rdf or .ttl,.nt,.n3. An url that does not ends with the mentioned extensions
      * or ends with a slash is supposed to refer to a folder in a local file system or in a remote one (http server). 
      * @param dataSet
      * @param dataUrl
@@ -691,7 +691,7 @@ public class SourcingAdmin {
      * @throws IOException
      */
     private void uploadRdf(DataSet dataSet, URL dataUrl, PrintWriter messageWriter) throws IOException {
-        String [] fileNameExtensions = {".rdf", ".ttl"};
+        String [] fileNameExtensions = {".rdf", ".ttl",".nt",".n3"};
         // retrieves the list of file to be uploaded
         ArrayList<String> fileList = FileUtil.getFileList(dataUrl,fileNameExtensions);
         Iterator<String> ifile = fileList.iterator();
@@ -1669,7 +1669,9 @@ public class SourcingAdmin {
         if (url.getFile().endsWith("ttl")) {
             contentType = "text/turtle";
         } else if (url.getFile().endsWith("nt")) {
-            contentType = "text/turtle";
+            contentType = "text/rdf+nt";
+        } else if (url.getFile().endsWith("n3")) {
+            contentType = "text/rdf+n3";
         } else if (url.getFile().endsWith("rdf")) {
             contentType = "application/rdf+xml";
         } else if (url.getFile().endsWith("xml")) {
