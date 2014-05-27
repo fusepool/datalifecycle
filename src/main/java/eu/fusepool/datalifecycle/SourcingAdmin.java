@@ -159,8 +159,9 @@ public class SourcingAdmin {
 
    
 
-    // Scheme of non-http URI used
-    public static final String URN_SCHEME = "urn:x-temp:";
+    // Scheme of non-http URI that will be canonicalized in the publishing phase 
+    //(i.e. the prefix will be replaced by the base URI)
+    public static final String [] URN_SCHEMES = {"urn:x-temp:/","urn:uuid:"};
 
     /**
      * Using slf4j for normal logging
@@ -1226,7 +1227,7 @@ public class SourcingAdmin {
                     return httpUri.iterator().next();
                 }
                 // There is no http URI in the set of equivalent resource. The entity was unknown. 
-                // A new representation of the entity with http URI will be created. 
+                // A new representation of the entity with canonical http URI will be created. 
                 if (httpUri.size() == 0) {
                     return generateNewHttpUri(dataSet, uriRefs);
                 }
@@ -1269,8 +1270,10 @@ public class SourcingAdmin {
                 Triple sameas = isameas.next();
                 NonLiteral subject = sameas.getSubject();
                 Resource object = sameas.getObject();
-                if (subject.toString().startsWith("<" + URN_SCHEME) || object.toString().startsWith("<" + URN_SCHEME)) {
-                    equivToRemove.add(sameas);
+                for(int i = 0; i < URN_SCHEMES.length; i++) {
+                    if (subject.toString().startsWith("<" + URN_SCHEMES[i]) || object.toString().startsWith("<" + URN_SCHEMES[i])) {
+                        equivToRemove.add(sameas);
+                    }
                 }
             }
         } finally {
@@ -1316,22 +1319,19 @@ public class SourcingAdmin {
      * @param messageWriter
      */
     private void computeEnhancements(DataSet dataSet, PrintWriter messageWriter){
-       LockableMGraph digestGraph = dataSet.getDigestGraph(); 
-        computeEnhancements(digestGraph, dataSet.getEnhancedGraph(), messageWriter);
-    }
-    private void computeEnhancements(LockableMGraph sourceGraph, MGraph targetGraph, PrintWriter messageWriter){
-        
-        Lock digestLock = sourceGraph.getLock().readLock();
-        digestLock.lock();
-        try {
-            Iterator<Triple> isiocStmt = sourceGraph.filter(null, SIOC.content, null);
+        LockableMGraph digestGraph = dataSet.getDigestGraph();
+        if(digestGraph.size() > 0) {
+          Lock digestLock = digestGraph.getLock().readLock();
+          digestLock.lock();
+          try {
+            Iterator<Triple> isiocStmt = digestGraph.filter(null, SIOC.content, null);
             while(isiocStmt.hasNext()){
                 Triple stmt = isiocStmt.next();             
                 UriRef itemRef = (UriRef) stmt.getSubject();
                 String content = ((PlainLiteralImpl) stmt.getObject()).getLexicalForm();
                 if(! "".equals(content) && content != null ) {
                     try {
-                        enhance(targetGraph, content, itemRef);
+                        enhance(dataSet, content, itemRef);
                     } 
                     catch (IOException e) {
                         throw new RuntimeException();                        
@@ -1341,9 +1341,10 @@ public class SourcingAdmin {
                     }
                 }
             }
-        }
-        finally {
+          }
+          finally {
             digestLock.unlock();
+          }
         }
         
         
@@ -1357,15 +1358,23 @@ public class SourcingAdmin {
      * so that the enhancements will be referred that node. Each enhancement found with a confidence 
      * value above a threshold is then added as a dc:subject to the node
      */
-    private void enhance(MGraph targetGraph, String content, UriRef itemRef) throws IOException, EnhancementException {
+    private void enhance(DataSet dataSet, String content, UriRef itemRef) throws IOException, EnhancementException {
         final ContentSource contentSource = new ByteArraySource(
                 content.getBytes(), "text/plain");
-        final ContentItem contentItem = contentItemFactory.createContentItem(
-            itemRef, contentSource);
+        final ContentItem contentItem = contentItemFactory.createContentItem(itemRef, contentSource);
         enhancementJobManager.enhanceContent(contentItem);
         // this contains the enhancement results
         final MGraph contentMetadata = contentItem.getMetadata();
-        addSubjects(targetGraph, itemRef, contentMetadata);
+        LockableMGraph enhancedGraph = dataSet.getEnhancedGraph();
+        Lock enhanceLock = enhancedGraph.getLock().readLock();
+        enhanceLock.lock();
+        try {
+            addSubjects(enhancedGraph, itemRef, contentMetadata);
+        }
+        finally {
+            enhanceLock.unlock();
+        }
+        
     }
     /** 
      * Add dc:subject property to items pointing to entities extracted by NLP engines in the default chain. 
@@ -1375,7 +1384,7 @@ public class SourcingAdmin {
      * @param node
      * @param metadata
      */
-    private void addSubjects(MGraph targetGraph, UriRef itemRef, TripleCollection metadata) {
+    private void addSubjects(LockableMGraph enhancedGraph, UriRef itemRef, TripleCollection metadata) {
         final GraphNode enhancementType = new GraphNode(TechnicalClasses.ENHANCER_ENHANCEMENT, metadata);
         final Set<UriRef> entities = new HashSet<UriRef>();
         // get all the enhancements
@@ -1391,7 +1400,7 @@ public class SourcingAdmin {
                 while (referencedEntities.hasNext()) {
                     final UriRef entity = (UriRef) referencedEntities.next();                   
                     // Add dc:subject to the patent for each referenced entity
-                    targetGraph.add(new TripleImpl(itemRef, DC.subject, entity));
+                    enhancedGraph.add(new TripleImpl(itemRef, DC.subject, entity));
                     entities.add(entity);
                 }
             }
@@ -1401,13 +1410,13 @@ public class SourcingAdmin {
         for (UriRef uriRef : entities) {
             // We don't get the entity description directly from metadata
             // as the context there would include
-            addResourceDescription(uriRef, targetGraph);
+            addResourceDescription(uriRef, enhancedGraph);
         }
     }
     /** 
      * Add a description of the entities extracted from the text by NLP engines in the default chain
      */
-    private void addResourceDescription(UriRef iri, MGraph mGraph) {
+    private void addResourceDescription(UriRef iri, LockableMGraph mGraph) {
         final Entity entity = siteManager.getEntity(iri.getUnicodeString());
         if (entity != null) {
             final RdfValueFactory valueFactory = new RdfValueFactory(mGraph);
@@ -1423,13 +1432,14 @@ public class SourcingAdmin {
      * two graphs must be coherent, i.e. the same. Before publishing the current
      * smushed data must be compared with the last published data. New triples
      * in the smushed graph not in the published graph must be added while
-     * triples in the published graph absent in the smushed graph must be
+     * triples in the published graph not in the smushed graph must be
      * removed. The algorithm is as follows 1) make all URIs in smush.graph http
      * dereferencable (uri canonicalization) 2) find triples in smush.graph not
      * in publish.graph (new triples) 3) find triples in publish.graph not in
      * smush.graph (old triples) 4) add new triples to content.graph 5) remove
      * old triples from content.graph 6) delete all triples in publish.graph 7)
-     * copy triples from smush.graph to publish.graph
+     * copy triples from smush.graph to publish.graph. URIs that are of the urn: type 
+     * will be canonicalized replacing the urn: prefix with the base URI.
      */
     private void publishData(DataSet dataSet, PrintWriter messageWriter) {
 
@@ -1438,7 +1448,7 @@ public class SourcingAdmin {
         // remove these triples from the content.graph
         MGraph triplesToRemove = new SimpleMGraph();
 
-        // make all URIs in smush graph dereferencable
+        // make all URIs in smush graph canonical (http dereferencable URIs)
         canonicalizeResources(dataSet, dataSet.getSmushGraph());
 
         // triples to add to the content.graph
@@ -1566,7 +1576,7 @@ public class SourcingAdmin {
         dataSet.getDigestGraph().addAll(digestedTriples);
         messageWriter.println("Added " + digestedTriples.size() + " digested triples to " + dataSet.getDigestGraphRef().getUnicodeString());
         MGraph enhancedTriples = new IndexedMGraph();
-        computeEnhancements(dataSet.getDigestGraph(), enhancedTriples, messageWriter);
+        computeEnhancements(dataSet, messageWriter);
         dataSet.getEnhancedGraph().addAll(enhancedTriples);
         messageWriter.println("Added " + enhancedTriples.size() + " enahnced triples to " + dataSet.getEnhancedGraphRef().getUnicodeString());
         // Interlink (self)
@@ -1622,11 +1632,13 @@ public class SourcingAdmin {
             UriRef subject = (UriRef) triple.getSubject();
             Resource object = triple.getObject();
             // generate an http URI for both subject and object and add an equivalence link into the interlinking graph
-            if (subject.getUnicodeString().startsWith(URN_SCHEME)) {
+            for(int i = 0; i < URN_SCHEMES.length; i++){
+              if (subject.getUnicodeString().startsWith(URN_SCHEMES[i])) {
                 subject = generateNewHttpUri(dataSet, Collections.singleton(subject));
-            }
-            if (object.toString().startsWith("<" + URN_SCHEME)) {
+              }
+              if (object.toString().startsWith("<" + URN_SCHEMES[i])) {
                 object = generateNewHttpUri(dataSet, Collections.singleton((UriRef) object));
+              }
             }
 
             // add the triple with the http uris to the canonic graph
@@ -1754,11 +1766,17 @@ public class SourcingAdmin {
     private UriRef generateNewHttpUri(DataSet dataSet, Set<UriRef> uriRefs) {
         UriRef bestNonHttp = chooseBest(uriRefs);
         String nonHttpString = bestNonHttp.getUnicodeString();
-        if (!nonHttpString.startsWith(URN_SCHEME)) {
-            throw new RuntimeException("Sorry we current assume all non-http "
-                    + "URIs to be canonicalized to be urn:x-temp, cannot handle: " + nonHttpString);
+        String URN_SCHEME = null;
+        for(int i = 0; i < URN_SCHEMES.length; i++){
+            if(nonHttpString.startsWith(URN_SCHEMES[i]))
+                URN_SCHEME = URN_SCHEMES[i];
         }
-        String httpUriString = nonHttpString.replaceFirst(URN_SCHEME, baseUri);
+        
+        if ( URN_SCHEME == null) {
+            throw new RuntimeException("Sorry this non-hhtp URI cannot handled: " + nonHttpString);
+        }
+        
+        String httpUriString = nonHttpString.replaceFirst(URN_SCHEME, baseUri + "/");
         //TODO check that this URI is in fact new
         UriRef httpUriRef = new UriRef(httpUriString);
         // add an owl:sameAs statement in the interlinking graph 
@@ -1833,23 +1851,19 @@ public class SourcingAdmin {
         *
         * @return the graph containing the digested content to be used for enhancements and indexing
         */
-       public LockableMGraph getDigestGraph() {
+        public LockableMGraph getDigestGraph() {
            try {
                return tcManager.getMGraph(getDigestGraphRef());
            } catch (NoSuchEntityException e) {
                return tcManager.createMGraph(getDigestGraphRef());
            }
-       }
+        }
 
-       public UriRef getDigestGraphRef() {
+        public UriRef getDigestGraphRef() {
            return new UriRef(dataSetUri.getUnicodeString() + DIGEST_GRAPH_URN_SUFFIX);
 
-       }
+        }
 
-        /**
-         *
-         * @return the graph containing the interlinks (owl:sameAs triples)
-         */
         public LockableMGraph getInterlinksGraph() {
             return tcManager.getMGraph(getInterlinksGraphRef());
         }
@@ -1866,11 +1880,6 @@ public class SourcingAdmin {
         public LockableMGraph getSourceGraph() {
             return tcManager.getMGraph(getSourceGraphRef());
         }
-
-        public LockableMGraph getEnhanceGraph() {
-            return tcManager.getMGraph(new UriRef(dataSetUri.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX));
-        }
-
 
         public LockableMGraph getSmushGraph() {
             return tcManager.getMGraph(new UriRef(dataSetUri.getUnicodeString() + SMUSH_GRAPH_URN_SUFFIX));
