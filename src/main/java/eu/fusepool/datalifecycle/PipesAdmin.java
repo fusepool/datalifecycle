@@ -73,6 +73,12 @@ public class PipesAdmin {
     @Reference
     private Serializer serializer;
     
+    @Reference
+    private DataSetFactory dataSetFactory;
+    
+    @Reference
+    private DlcGraphProvider dlcGraphProvider;
+    
     /**
      * Using slf4j for normal logging
      */
@@ -113,7 +119,7 @@ public class PipesAdmin {
         }
         
         //This GraphNode represents the service within our result graph
-        final GraphNode node = new GraphNode(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE, responseGraph);
+        final GraphNode node = new GraphNode(DlcGraphProvider.DATA_LIFECYCLE_GRAPH_REFERENCE, responseGraph);
         
         
         
@@ -124,33 +130,28 @@ public class PipesAdmin {
      * Add the size of the graphs within each dataset/pipe to the rdf data for visualization
      */
     private void addGraphsSize(MGraph responseGraph){
-        Iterator<Triple> datasets = getDlcGraph().filter(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, null);
+        Iterator<Triple> datasets = getDlcGraph().filter(DlcGraphProvider.DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, null);
         while(datasets.hasNext()){
-            UriRef datasetRef = (UriRef) datasets.next().getObject();
+            final UriRef datasetRef = (UriRef) datasets.next().getObject();
+            final DataSet dataSet = new DataSetFactory().getDataSet(datasetRef);
             // add source graph size
-            UriRef sourceGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.SOURCE_GRAPH_URN_SUFFIX );
-            int sourceGraphSize = tcManager.getMGraph( sourceGraphRef ).size();
-            responseGraph.add(new TripleImpl(sourceGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(sourceGraphSize))));
+            int sourceGraphSize = dataSet.getSourceGraph().size();
+            responseGraph.add(new TripleImpl(dataSet.getSourceGraphRef(), Ontology.size, new PlainLiteralImpl(Integer.toString(sourceGraphSize))));
             // add digest graph size
-            UriRef digestGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.DIGEST_GRAPH_URN_SUFFIX );
-            int digestGraphSize = tcManager.getMGraph( digestGraphRef ).size();
-            responseGraph.add(new TripleImpl(digestGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(digestGraphSize))));
+            int digestGraphSize = dataSet.getDigestGraph().size();
+            responseGraph.add(new TripleImpl(dataSet.getDigestGraphRef(), Ontology.size, new PlainLiteralImpl(Integer.toString(digestGraphSize))));
             // add enhance graph size
-            UriRef enhanceGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX );
-            int enhanceGraphSize = tcManager.getMGraph( enhanceGraphRef ).size();
-            responseGraph.add(new TripleImpl(enhanceGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(enhanceGraphSize))));
+            int enhanceGraphSize = dataSet.getEnhanceGraph().size();
+            responseGraph.add(new TripleImpl(dataSet.getEnhanceGraphRef(), Ontology.size, new PlainLiteralImpl(Integer.toString(enhanceGraphSize))));
             // add interlink graph size
-            UriRef interlinkGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.INTERLINK_GRAPH_URN_SUFFIX );
-            int interlinkGraphSize = tcManager.getMGraph( interlinkGraphRef ).size();
-            responseGraph.add(new TripleImpl(interlinkGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(interlinkGraphSize))));
+            int interlinkGraphSize = dataSet.getInterlinksGraph().size();
+            responseGraph.add(new TripleImpl(dataSet.getInterlinksGraphRef(), Ontology.size, new PlainLiteralImpl(Integer.toString(interlinkGraphSize))));
             // add smush graph size
-            UriRef smushGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.SMUSH_GRAPH_URN_SUFFIX );
-            int smushGraphSize = tcManager.getMGraph( smushGraphRef ).size();
-            responseGraph.add(new TripleImpl(smushGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(smushGraphSize))));
+            int smushGraphSize = dataSet.getSmushGraph().size();
+            responseGraph.add(new TripleImpl(dataSet.getSmushGraphRef(), Ontology.size, new PlainLiteralImpl(Integer.toString(smushGraphSize))));
             // add publish graph size
-            UriRef publishGraphRef = new UriRef( datasetRef.getUnicodeString() + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX );
-            int publishGraphSize = tcManager.getMGraph( publishGraphRef ).size();
-            responseGraph.add(new TripleImpl(publishGraphRef, Ontology.size, new PlainLiteralImpl(Integer.toString(publishGraphSize))));
+            int publishGraphSize = dataSet.getPublishGraph().size();
+            responseGraph.add(new TripleImpl(dataSet.getPublishGraphRef(), Ontology.size, new PlainLiteralImpl(Integer.toString(publishGraphSize))));
             
         }
         
@@ -190,9 +191,10 @@ public class PipesAdmin {
     @Path("unpublish_dataset")
     @Produces("text/plain")
     public Response unpublishDataset(@Context final UriInfo uriInfo,  
-                       @FormParam("pipe") final String pipeName) {
+                       @FormParam("pipe") final UriRef pipeRef) {
+        final DataSet dataSet = dataSetFactory.getDataSet(pipeRef);
         String message = "";
-        LockableMGraph publishGraph = tcManager.getMGraph(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
+        LockableMGraph publishGraph = dataSet.getPublishGraph();
         int numberOfTriples = publishGraph.size(); 
         
         if(numberOfTriples > 0) {
@@ -218,11 +220,11 @@ public class PipesAdmin {
             message += "All " + numberOfTriples + " triples have been removed from the content graph.";
         }
         else {
-            message += "There are no triples in " + pipeName;
+            message += "There are no triples in " + pipeRef;
         }
         
         // update the dataset status (unpublished)
-        updateDatasetStatus(pipeName);
+        updateDatasetStatus(pipeRef);
         
         return RedirectUtil.createSeeOtherResponse("./", uriInfo);
         //return message;
@@ -232,7 +234,7 @@ public class PipesAdmin {
      * Deletes all the graphs created with the pipe: rdf.graph, enhance.graph, interlink.graph, smush.graph, publish.graph.
      * Removes from the DLC meta graph all the pipe metadata.
      * @param uriInfo
-     * @param pipeName
+     * @param dataSetUri
      * @return
      * @throws Exception
      */
@@ -240,19 +242,20 @@ public class PipesAdmin {
     @Path("delete_pipe")
     @Produces("text/plain")
     public Response deletePipe(@Context final UriInfo uriInfo,  
-    		@FormParam("pipe") final String pipeName) throws Exception {
+    		@FormParam("pipe") final UriRef dataSetUri) throws Exception {
         AccessController.checkPermission(new AllPermission());
         String message = "";
         
+        final DataSet dataSet = dataSetFactory.getDataSet(dataSetUri);
         // remove graphs
-        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.SOURCE_GRAPH_URN_SUFFIX));
-        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.DIGEST_GRAPH_URN_SUFFIX));
-        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX));
-        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.INTERLINK_GRAPH_URN_SUFFIX));
-        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.SMUSH_GRAPH_URN_SUFFIX));
-        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.LOG_GRAPH_URN_SUFFIX));
+        tcManager.deleteTripleCollection(dataSet.getSourceGraphRef());
+        tcManager.deleteTripleCollection(dataSet.getDigestGraphRef());
+        tcManager.deleteTripleCollection(dataSet.getEnhanceGraphRef());
+        tcManager.deleteTripleCollection(dataSet.getInterlinksGraphRef());
+        tcManager.deleteTripleCollection(dataSet.getSmushGraphRef());
+        tcManager.deleteTripleCollection(dataSet.getLogGraphRef());
         
-        LockableMGraph publishGraph = tcManager.getMGraph(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
+        LockableMGraph publishGraph = dataSet.getPublishGraph();
         MGraph publishedTriples = new IndexedMGraph();
         Lock pl = publishGraph.getLock().readLock();
         pl.lock();
@@ -271,12 +274,12 @@ public class PipesAdmin {
             
         }
         
-        tcManager.deleteTripleCollection(new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX));
+        tcManager.deleteTripleCollection(dataSet.getPublishGraphRef());
         
         // remove pipe metadata
-        removePipeMetaData(pipeName);
+        removePipeMetaData(dataSetUri);
         
-        message += "The dataset: " + pipeName + " has been deleted";
+        message += "The dataset: " + dataSetUri + " has been deleted";
         return RedirectUtil.createSeeOtherResponse("./", uriInfo);
         //return message;
     }
@@ -285,10 +288,9 @@ public class PipesAdmin {
      * Updates the status of a dataset to unpublished
      * @param pipeName
      */
-    private void updateDatasetStatus(String datasetName) {
-        LockableMGraph dlcGraph = tcManager.getMGraph(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE);
-        UriRef datasetRef = new UriRef(datasetName);
-        UriRef statusRef = new UriRef(datasetRef.getUnicodeString() + "/Status");
+    private void updateDatasetStatus(final UriRef datasetUri) {
+        final LockableMGraph dlcGraph = dlcGraphProvider.getDlcGraph();
+        final UriRef statusRef = new UriRef(datasetUri.getUnicodeString() + "/Status");
         dlcGraph.remove(new TripleImpl(statusRef, RDF.type, Ontology.Published));
         dlcGraph.remove(new TripleImpl(statusRef, RDFS.label, new PlainLiteralImpl("Published")));
         dlcGraph.add(new TripleImpl(statusRef, RDF.type, Ontology.Unpublished));
@@ -300,8 +302,10 @@ public class PipesAdmin {
      * and pipe metadata.
      * @param pipeRef
      */
-    private void removePipeMetaData(String pipeName) {    	
+    private void removePipeMetaData(UriRef dataSetUri) {    	
     	
+        final DataSet dataSet = dataSetFactory.getDataSet(dataSetUri);
+        
     	// triple to remove
     	SimpleMGraph pipeGraph = new SimpleMGraph(); 
     	
@@ -311,8 +315,8 @@ public class PipesAdmin {
         try {
     	
 	    	// select source graph and rdf task metadata
-	    	UriRef rdfTaskRef = new UriRef(pipeName + "/rdf");
-	    	UriRef sourceGraphRef = new UriRef(pipeName + SourcingAdmin.SOURCE_GRAPH_URN_SUFFIX);
+	    	UriRef rdfTaskRef = new UriRef(dataSetUri.getUnicodeString() + "/rdf");
+	    	UriRef sourceGraphRef = dataSet.getSmushGraphRef();
 	    	Iterator<Triple> isourceGraph = getDlcGraph().filter(sourceGraphRef, null, null);
 	    	while(isourceGraph.hasNext()) {
 	    		pipeGraph.add(isourceGraph.next());
@@ -323,8 +327,8 @@ public class PipesAdmin {
 	    	}
 	    	
 	    	// select digest graph and task metadata 
-            UriRef digestTaskRef = new UriRef(pipeName + "/digest");
-            UriRef digestGraphRef = new UriRef(pipeName + SourcingAdmin.DIGEST_GRAPH_URN_SUFFIX);
+            UriRef digestTaskRef = new UriRef(dataSetUri.getUnicodeString() + "/digest");
+            UriRef digestGraphRef = dataSet.getDigestGraphRef();
             Iterator<Triple> idigestGraph = getDlcGraph().filter(digestGraphRef, null, null);
             while(idigestGraph.hasNext()) {
                 pipeGraph.add(idigestGraph.next());
@@ -335,8 +339,8 @@ public class PipesAdmin {
             }
 	    	
 	    	// select enhance graph and task metadata 
-	    	UriRef enhanceTaskRef = new UriRef(pipeName + "/enhance");
-	    	UriRef enhanceGraphRef = new UriRef(pipeName + SourcingAdmin.ENHANCE_GRAPH_URN_SUFFIX);
+	    	UriRef enhanceTaskRef = new UriRef(dataSetUri.getUnicodeString() + "/enhance");
+	    	UriRef enhanceGraphRef = dataSet.getEnhanceGraphRef();
 	    	Iterator<Triple> ienhanceGraph = getDlcGraph().filter(enhanceGraphRef, null, null);
 	    	while(ienhanceGraph.hasNext()) {
 	    		pipeGraph.add(ienhanceGraph.next());
@@ -347,8 +351,8 @@ public class PipesAdmin {
 	    	}
 	    	    	
 	    	// select interlink graph and task metadata
-	    	UriRef interlinkTaskRef = new UriRef(pipeName + "/interlink");
-	    	UriRef interlinkGraphRef = new UriRef(pipeName + SourcingAdmin.INTERLINK_GRAPH_URN_SUFFIX);
+	    	UriRef interlinkTaskRef = new UriRef(dataSetUri.getUnicodeString() + "/interlink");
+	    	UriRef interlinkGraphRef = dataSet.getInterlinksGraphRef();
 	    	Iterator<Triple> iinterlinkGraph = getDlcGraph().filter(interlinkGraphRef, null, null);
 	    	while(iinterlinkGraph.hasNext()) {
 	    		pipeGraph.add(iinterlinkGraph.next());
@@ -360,8 +364,8 @@ public class PipesAdmin {
 	    
 	    	
 	    	// select smush graph and task metadata
-	    	UriRef smushTaskRef = new UriRef(pipeName + "/smush");
-	    	UriRef smushGraphRef = new UriRef(pipeName + SourcingAdmin.SMUSH_GRAPH_URN_SUFFIX);
+	    	UriRef smushTaskRef = new UriRef(dataSetUri.getUnicodeString() + "/smush");
+	    	UriRef smushGraphRef = dataSet.getSmushGraphRef();
 	    	Iterator<Triple> ismushGraph = getDlcGraph().filter(smushGraphRef, null, null);
 	    	while(ismushGraph.hasNext()) {
 	    		pipeGraph.add(ismushGraph.next());
@@ -372,8 +376,8 @@ public class PipesAdmin {
 	    	}
 	    	
 	    	// select publish graph and task metadata
-            UriRef publishTaskRef = new UriRef(pipeName + "/publish");
-            UriRef publishGraphRef = new UriRef(pipeName + SourcingAdmin.PUBLISH_GRAPH_URN_SUFFIX);
+            UriRef publishTaskRef = new UriRef(dataSetUri.getUnicodeString()  + "/publish");
+            UriRef publishGraphRef = dataSet.getPublishGraphRef();
             Iterator<Triple> ipublishGraph = getDlcGraph().filter(publishGraphRef, null, null);
             while(ipublishGraph.hasNext()) {
                 pipeGraph.add(ipublishGraph.next());
@@ -384,15 +388,14 @@ public class PipesAdmin {
             }
             
             // select dataset status
-            UriRef datasetStatusRef = new UriRef(pipeName + "/Status");
+            UriRef datasetStatusRef = new UriRef(dataSetUri.getUnicodeString()  + "/Status");
             Iterator<Triple> idatasetStatus = getDlcGraph().filter(datasetStatusRef, null, null);
             while(idatasetStatus.hasNext()) {
                 pipeGraph.add(idatasetStatus.next());
             }
 	    	
 	    	// select pipe metadata
-	    	UriRef pipeRef = new UriRef(pipeName);
-	    	Iterator<Triple> ipipe = getDlcGraph().filter(pipeRef, null, null);
+	    	Iterator<Triple> ipipe = getDlcGraph().filter(dataSetUri, null, null);
 	    	while(ipipe.hasNext()) {
 	    		pipeGraph.add(ipipe.next());
 	    	}
@@ -404,9 +407,8 @@ public class PipesAdmin {
         
         getDlcGraph().removeAll(pipeGraph);
         
-        UriRef pipeRef = new UriRef(pipeName);
-        getDlcGraph().remove(new TripleImpl(pipeRef, RDF.type, Ontology.Pipe));
-        getDlcGraph().remove(new TripleImpl(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, pipeRef));
+        getDlcGraph().remove(new TripleImpl(dataSetUri, RDF.type, Ontology.Pipe));
+        getDlcGraph().remove(new TripleImpl(DlcGraphProvider.DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, dataSetUri));
         
     }
     
@@ -439,7 +441,7 @@ public class PipesAdmin {
      * @return
      */
     private LockableMGraph getDlcGraph() {
-        return tcManager.getMGraph(SourcingAdmin.DATA_LIFECYCLE_GRAPH_REFERENCE);
+        return tcManager.getMGraph(DlcGraphProvider.DATA_LIFECYCLE_GRAPH_REFERENCE);
     }
     
     
