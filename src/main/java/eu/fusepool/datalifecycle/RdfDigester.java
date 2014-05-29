@@ -3,12 +3,10 @@ package eu.fusepool.datalifecycle;
 import org.apache.clerezza.rdf.core.MGraph;
 
 /**
- * This interface defines the method signature that must be implemented by components to provide the following
- * services:
- * - extraction of text from RDF properties values to be included in a sioc:content property for indexing purposes
- * - addition of dc:subject properties to link entities found by NLP components (stanbol enhancements).
- * 
- * @author luigi
+ * Services implementing this interface transform a Graph so that it becomes
+ * processable following DLC and ECS conventions. Most notably a textual 
+ * representation of a resource (that will be used forn enhancement as well as 
+ * for full text search) shall be the value of a sioc:content property.
  *
  */
 
