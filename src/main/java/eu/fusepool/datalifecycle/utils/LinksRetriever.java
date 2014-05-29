@@ -41,6 +41,12 @@ public class LinksRetriever {
     }
     
     public static void processLinks(URL url, boolean recurse, LinkProcessor processor) throws IOException {
+        interruptibleProcessLinks(url, recurse, processor);
+    }
+    /**
+     * @return true if the processing shall continue, false otherwise
+     */
+    private static boolean interruptibleProcessLinks(URL url, boolean recurse, LinkProcessor processor) throws IOException {
         //InputStream in = url.openStream();
         String html = IOUtils.toString(url);
         //ByteArrayOutputStream baos 
@@ -57,15 +63,18 @@ public class LinksRetriever {
                 if (processor.process(targetUrl)) {
                     continue;
                 } else {
-                    break;
+                    return false;
                 }
             }
             if (recurse && linkTarget.endsWith("/") 
                     && (targetUrl.toString().startsWith(url.toString()))
                     && (!targetUrl.equals(url))) {
-                processLinks(targetUrl, recurse, processor);
+                if (!interruptibleProcessLinks(targetUrl, recurse, processor)) {
+                    return false;
+                }
             }
         }
+        return true;
     }
 
     public static interface LinkProcessor {
@@ -73,7 +82,7 @@ public class LinksRetriever {
         /**
          * Process an URI  
          * @param url the URI to process
-         * @return true if the processin shall continue, false otherwise
+         * @return true if the processing shall continue, false otherwise
          */
         boolean process(URL url);
     }
