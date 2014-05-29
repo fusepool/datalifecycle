@@ -1036,16 +1036,10 @@ public class SourcingAdmin {
      */
     private void smush(DataSet dataSet, PrintWriter messageWriter) {
         messageWriter.println("Smushing task.");
+        LockableMGraph smushedGraph = smushCommand(dataSet);
 
-        if (dataSet.getSourceGraph().size() > 0) {
-
-            LockableMGraph smushedGraph = smushCommand(dataSet);
-
-            messageWriter.println("Smushing of " + dataSet.getEnhanceGraphRef().getUnicodeString()
-                    + "Smushed graph size = " + smushedGraph.size());
-        } else {
-            messageWriter.println("The source graph " + dataSet.getSourceGraphRef().getUnicodeString() + " is empty.");
-        }
+        messageWriter.println("Smushing of " + dataSet.getEnhanceGraphRef().getUnicodeString()
+                + "Smushed graph size = " + smushedGraph.size());
 
     }
 
@@ -1082,7 +1076,7 @@ public class SourcingAdmin {
             dataSet.getSmushGraph().clear();
         }
 
-        LockableMGraph unionGraph = new UnionMGraph(dataSet.getSourceGraph(), dataSet.getDigestGraph(), dataSet.getEnhanceGraph());
+        LockableMGraph unionGraph = new UnionMGraph(dataSet.getDigestGraph(), dataSet.getEnhanceGraph());
         Lock erl = unionGraph.getLock().readLock();
         erl.lock();
         try {
