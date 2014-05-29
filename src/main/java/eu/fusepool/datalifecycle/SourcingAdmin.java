@@ -71,12 +71,10 @@ import org.apache.clerezza.rdf.core.impl.SimpleMGraph;
 import org.apache.clerezza.rdf.core.impl.TripleImpl;
 import org.apache.clerezza.rdf.core.serializedform.Parser;
 import org.apache.clerezza.rdf.ontologies.DC;
-import org.apache.clerezza.rdf.ontologies.OWL;
 import org.apache.clerezza.rdf.ontologies.RDF;
 import org.apache.clerezza.rdf.ontologies.RDFS;
 import org.apache.clerezza.rdf.ontologies.SIOC;
 import org.apache.clerezza.rdf.utils.GraphNode;
-import org.apache.clerezza.rdf.utils.UnionMGraph;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.ConfigurationPolicy;
@@ -105,7 +103,6 @@ import org.osgi.framework.Constants;
 import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.clerezza.rdf.utils.smushing.SameAsSmusher;
 
 /**
  * This is the controller class of the fusepool data life cycle component. The
@@ -134,7 +131,7 @@ public class SourcingAdmin {
     @Property(label = BASE_URI_LABEL, value = DEFAULT_BASE_URI, description = BASE_URI_DESCRIPTION)
     public static final String BASE_URI = "baseUri";
     // base uri updated at service activation from the service property in the osgi console
-    private String baseUri;
+    private UriRef baseUri;
 
     // Confidence threshold for enhencements attributes. This property is used to set the minimum value of acceptance of
     // computed enhancements
@@ -146,8 +143,6 @@ public class SourcingAdmin {
     // confidence threshold value updated at service activation from the service property in the osgi console
     private double confidenceThreshold = 0.5;
 
-    // Scheme of non-http URI used
-    public static final String URN_SCHEME = "urn:x-temp:";
 
     /**
      * Using slf4j for normal logging
@@ -242,16 +237,17 @@ public class SourcingAdmin {
         // Get the value of the base uri from the service property set in the Felix console
         Dictionary<String, Object> dict = context.getProperties();
         Object baseUriObj = dict.get(BASE_URI);
-        baseUri = baseUriObj.toString();
-        if ((!"".equals(baseUri)) && (baseUri.startsWith("http://"))) {
-            if (baseUri.endsWith("/")) {
-                baseUri = baseUri.substring(0, baseUri.length() - 1);
+        String baseUriString = baseUriObj.toString();
+        if ((!"".equals(baseUriString)) && (baseUriString.startsWith("http://"))) {
+            if (baseUriString.endsWith("/")) {
+                baseUriString = baseUriString.substring(0, baseUriString.length() - 1);
             }
             isValidBaseUri = true;
-            log.info("Base URI: {}", baseUri);
+            log.info("Base URI: {}", baseUriString);
         } else {
             isValidBaseUri = false;
         }
+        baseUri = new UriRef((baseUriString));
         // Get the value of the confidence threshold from the service property set in the Felix console
         Object confidenceObj = dict.get(CONFIDENCE_THRESHOLD);
         if (confidenceObj != null) {
@@ -716,7 +712,7 @@ public class SourcingAdmin {
                         log.println("No interlinker selected, proceding.");
                     }
                     // Smush
-                    smush(dataSet, log);
+                    SmushingJob.perform(dataSet, log, baseUri);
                     // Publish
                     publishData(dataSet, log);
                 } catch (Exception ex) {
@@ -790,7 +786,7 @@ public class SourcingAdmin {
                     reconcile(dataSet, interlinker, messageWriter);
                     break;
                 case SMUSH_GRAPH_OPERATION:
-                    smush(dataSet, messageWriter);
+                    SmushingJob.perform(dataSet, messageWriter, baseUri);
                     break;
                 case PUBLISH_DATA:
                     publishData(dataSet, messageWriter);
@@ -1024,98 +1020,6 @@ public class SourcingAdmin {
 
     }
 
-    /**
-     * Smush the union of the source, digest and enhancements graphs using the
-     * interlinking graph. More precisely collates URIs coming from different
-     * equivalent resources in a single one chosen among them. All the triples
-     * in the union graph are copied in the smush graph that is then smushed
-     * using the interlinking graph. URIs are canonicalized to http://
-     *
-     * @param graphToSmushRef
-     * @return
-     */
-    private void smush(DataSet dataSet, PrintWriter messageWriter) {
-        messageWriter.println("Smushing task.");
-        LockableMGraph smushedGraph = smushCommand(dataSet);
-
-        messageWriter.println("Smushing of " + dataSet.getEnhanceGraphRef().getUnicodeString()
-                + "Smushed graph size = " + smushedGraph.size());
-
-    }
-
-    private LockableMGraph smushCommand(final DataSet dataSet) {
-
-        final SameAsSmusher smusher = new SameAsSmusher() {
-
-            @Override
-            protected UriRef getPreferedIri(Set<UriRef> uriRefs
-            ) {
-                Set<UriRef> httpUri = new HashSet<UriRef>();
-                for (UriRef uriRef : uriRefs) {
-                    if (uriRef.getUnicodeString().startsWith("http")) {
-                        httpUri.add(uriRef);
-                    }
-                }
-                if (httpUri.size() == 1) {
-                    return httpUri.iterator().next();
-                }
-                // There is no http URI in the set of equivalent resource. The entity was unknown. 
-                // A new representation of the entity with http URI will be created. 
-                if (httpUri.size() == 0) {
-                    return generateNewHttpUri(dataSet, uriRefs);
-                }
-                if (httpUri.size() > 1) {
-                    return chooseBest(httpUri);
-                }
-                throw new Error("Negative size set.");
-            }
-
-        };
-
-        if (dataSet.getSmushGraph().size() > 0) {
-            dataSet.getSmushGraph().clear();
-        }
-
-        LockableMGraph unionGraph = new UnionMGraph(dataSet.getDigestGraph(), dataSet.getEnhanceGraph());
-        Lock erl = unionGraph.getLock().readLock();
-        erl.lock();
-        try {
-            // add triples from enhance graph to smush graph
-            dataSet.getSmushGraph().addAll(unionGraph);
-            log.info("Copied " + unionGraph.size() + " triples from the union of source, digest and enhancements graph into the smush graph.");
-            MGraph tempEquivalenceSet = new IndexedMGraph();
-            tempEquivalenceSet.addAll(dataSet.getInterlinksGraph());
-            log.info("Smush task started.");
-            smusher.smush(dataSet.getSmushGraph(), tempEquivalenceSet, true);
-            log.info("Smush task completed.");
-        } finally {
-            erl.unlock();
-        }
-
-        // Remove from smush graph equivalences between temporary uri (urn:x-temp) and http uri that are added by the clerezza smusher.
-        // These equivalences must be removed as only equivalences between known entities (http uri) must be maintained and then published
-        MGraph equivToRemove = new SimpleMGraph();
-        Lock srl = dataSet.getSmushGraph().getLock().readLock();
-        srl.lock();
-        try {
-            Iterator<Triple> isameas = dataSet.getSmushGraph().filter(null, OWL.sameAs, null);
-            while (isameas.hasNext()) {
-                Triple sameas = isameas.next();
-                NonLiteral subject = sameas.getSubject();
-                Resource object = sameas.getObject();
-                if (subject.toString().startsWith("<" + URN_SCHEME) || object.toString().startsWith("<" + URN_SCHEME)) {
-                    equivToRemove.add(sameas);
-                }
-            }
-        } finally {
-            srl.unlock();
-        }
-
-        dataSet.getSmushGraph().removeAll(equivToRemove);
-
-        return dataSet.getSmushGraph();
-
-    }
 
     /**
      * Extract text from dcterms:title and dcterms:abstract fields in the source
@@ -1276,9 +1180,6 @@ public class SourcingAdmin {
         // remove these triples from the content.graph
         MGraph triplesToRemove = new SimpleMGraph();
 
-        // make all URIs in smush graph dereferencable
-        canonicalizeResources(dataSet, dataSet.getSmushGraph());
-
         // triples to add to the content.graph
         Lock ls = dataSet.getSmushGraph().getLock().readLock();
         ls.lock();
@@ -1373,7 +1274,7 @@ public class SourcingAdmin {
         // Interlink (against itself and content.graph)
         reconcile(dataSet, interlinkerName, messageWriter);
         // Smush
-        smush(dataSet, messageWriter);
+        SmushingJob.perform(dataSet, messageWriter, baseUri);
         // Publish
         publishData(dataSet, messageWriter);
 
@@ -1421,7 +1322,7 @@ public class SourcingAdmin {
         }
         if (smushAndPublish) {
             // Smush
-            smush(dataSet, messageWriter);
+            SmushingJob.perform(dataSet, messageWriter, baseUri);
             // Publish
             publishData(dataSet, messageWriter);
         }
@@ -1432,54 +1333,7 @@ public class SourcingAdmin {
 
     }
 
-    /**
-     * All the resources in the smush graph must be http dereferencable when
-     * published. All the triples in the smush graph are copied into a temporary
-     * graph. For each triple the subject and the object that have a non-http
-     * URI are changed in http uri and an equivalence link is added in the
-     * interlinking graph for each resource (subject and object) that has been
-     * changed.
-     */
-    private void canonicalizeResources(DataSet dataSet, LockableMGraph graph) {
-
-        MGraph graphCopy = new SimpleMGraph();
-        // graph containing the same triple with the http URI for each subject and object
-        MGraph canonicGraph = new SimpleMGraph();
-        Lock rl = graph.getLock().readLock();
-        rl.lock();
-        try {
-            graphCopy.addAll(graph);
-        } finally {
-            rl.unlock();
-        }
-
-        Iterator<Triple> ismushTriples = graphCopy.iterator();
-        while (ismushTriples.hasNext()) {
-            Triple triple = ismushTriples.next();
-            UriRef subject = (UriRef) triple.getSubject();
-            Resource object = triple.getObject();
-            // generate an http URI for both subject and object and add an equivalence link into the interlinking graph
-            if (subject.getUnicodeString().startsWith(URN_SCHEME)) {
-                subject = generateNewHttpUri(dataSet, Collections.singleton(subject));
-            }
-            if (object.toString().startsWith("<" + URN_SCHEME)) {
-                object = generateNewHttpUri(dataSet, Collections.singleton((UriRef) object));
-            }
-
-            // add the triple with the http uris to the canonic graph
-            canonicGraph.add(new TripleImpl(subject, triple.getPredicate(), object));
-        }
-
-        Lock wl = graph.getLock().writeLock();
-        wl.lock();
-        try {
-            graph.clear();
-            graph.addAll(canonicGraph);
-        } finally {
-            wl.unlock();
-        }
-
-    }
+    
 
     /**
      * Validate URL A valid URL must start with file:/// or http://
@@ -1557,42 +1411,6 @@ public class SourcingAdmin {
 
     }
 
-    
-
-    /**
-     * Generates a new http URI that will be used as the canonical one in place
-     * of a set of equivalent non-http URIs. An owl:sameAs statement is added to
-     * the interlinking graph stating that the canonical http URI is equivalent
-     * to one of the non-http URI in the set of equivalent URIs.
-     *
-     * @param uriRefs
-     * @return
-     */
-    private UriRef generateNewHttpUri(DataSet dataSet, Set<UriRef> uriRefs) {
-        UriRef bestNonHttp = chooseBest(uriRefs);
-        String nonHttpString = bestNonHttp.getUnicodeString();
-        if (!nonHttpString.startsWith(URN_SCHEME)) {
-            throw new RuntimeException("Sorry we current assume all non-http "
-                    + "URIs to be canonicalized to be urn:x-temp, cannot handle: " + nonHttpString);
-        }
-        String httpUriString = nonHttpString.replaceFirst(URN_SCHEME, baseUri);
-        //TODO check that this URI is in fact new
-        UriRef httpUriRef = new UriRef(httpUriString);
-        // add an owl:sameAs statement in the interlinking graph 
-        dataSet.getInterlinksGraph().add(new TripleImpl(bestNonHttp, OWL.sameAs, httpUriRef));
-        return httpUriRef;
-    }
-
-    private UriRef chooseBest(Set<UriRef> httpUri) {
-        Iterator<UriRef> iter = httpUri.iterator();
-        UriRef best = iter.next();
-        while (iter.hasNext()) {
-            UriRef next = iter.next();
-            if (next.getUnicodeString().compareTo(best.getUnicodeString()) < 0) {
-                best = next;
-            }
-        }
-        return best;
-    }
+   
 
 }
