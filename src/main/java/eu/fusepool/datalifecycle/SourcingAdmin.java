@@ -1057,22 +1057,17 @@ public class SourcingAdmin {
      */
     private void computeEnhancements(DataSet dataSet, PrintWriter messageWriter) {
         LockableMGraph digestGraph = dataSet.getDigestGraph();
-        computeEnhancements(digestGraph, dataSet.getEnhanceGraph(), messageWriter);
-    }
-
-    private void computeEnhancements(LockableMGraph sourceGraph, MGraph targetGraph, PrintWriter messageWriter) {
-
-        Lock digestLock = sourceGraph.getLock().readLock();
+        Lock digestLock = digestGraph.getLock().readLock();
         digestLock.lock();
         try {
-            Iterator<Triple> isiocStmt = sourceGraph.filter(null, SIOC.content, null);
+            Iterator<Triple> isiocStmt = digestGraph.filter(null, SIOC.content, null);
             while (isiocStmt.hasNext()) {
                 Triple stmt = isiocStmt.next();
                 UriRef itemRef = (UriRef) stmt.getSubject();
                 String content = ((PlainLiteralImpl) stmt.getObject()).getLexicalForm();
                 if (!"".equals(content) && content != null) {
                     try {
-                        enhance(targetGraph, content, itemRef);
+                        enhance(dataSet, content, itemRef);
                     } catch (IOException e) {
                         throw new RuntimeException();
                     } catch (EnhancementException e) {
@@ -1095,15 +1090,24 @@ public class SourcingAdmin {
      * enhancement found with a confidence value above a threshold is then added
      * as a dc:subject to the node
      */
-    private void enhance(MGraph targetGraph, String content, UriRef itemRef) throws IOException, EnhancementException {
+    private void enhance(DataSet dataSet, String content, UriRef itemRef) throws IOException, EnhancementException {
         final ContentSource contentSource = new ByteArraySource(
                 content.getBytes(), "text/plain");
-        final ContentItem contentItem = contentItemFactory.createContentItem(
-                itemRef, contentSource);
+        final ContentItem contentItem = contentItemFactory.createContentItem(itemRef, contentSource);
         enhancementJobManager.enhanceContent(contentItem);
         // this contains the enhancement results
         final MGraph contentMetadata = contentItem.getMetadata();
-        addSubjects(targetGraph, itemRef, contentMetadata);
+        LockableMGraph enhancedGraph = dataSet.getEnhanceGraph();
+        Lock enhanceLock = enhancedGraph.getLock().readLock();
+        enhanceLock.lock();
+        try {
+            addSubjects(enhancedGraph, itemRef, contentMetadata);    
+        }
+        finally {
+            enhanceLock.unlock();
+        }
+        
+        
     }
 
     /**
@@ -1116,7 +1120,7 @@ public class SourcingAdmin {
      * @param node
      * @param metadata
      */
-    private void addSubjects(MGraph targetGraph, UriRef itemRef, TripleCollection metadata) {
+    private void addSubjects(LockableMGraph enhancedGraph, UriRef itemRef, TripleCollection metadata) {
         final GraphNode enhancementType = new GraphNode(TechnicalClasses.ENHANCER_ENHANCEMENT, metadata);
         final Set<UriRef> entities = new HashSet<UriRef>();
         // get all the enhancements
@@ -1132,7 +1136,7 @@ public class SourcingAdmin {
                 while (referencedEntities.hasNext()) {
                     final UriRef entity = (UriRef) referencedEntities.next();
                     // Add dc:subject to the patent for each referenced entity
-                    targetGraph.add(new TripleImpl(itemRef, DC.subject, entity));
+                    enhancedGraph.add(new TripleImpl(itemRef, DC.subject, entity));
                     entities.add(entity);
                 }
             }
@@ -1141,7 +1145,7 @@ public class SourcingAdmin {
         for (UriRef uriRef : entities) {
             // We don't get the entity description directly from metadata
             // as the context there would include
-            addResourceDescription(uriRef, targetGraph);
+            addResourceDescription(uriRef, enhancedGraph);
         }
     }
 
@@ -1306,7 +1310,7 @@ public class SourcingAdmin {
         dataSet.getDigestGraph().addAll(digestedTriples);
         messageWriter.println("Added " + digestedTriples.size() + " digested triples to " + dataSet.getDigestGraphRef().getUnicodeString());
         MGraph enhancedTriples = new IndexedMGraph();
-        computeEnhancements(dataSet.getDigestGraph(), enhancedTriples, messageWriter);
+        computeEnhancements(dataSet, messageWriter);
         dataSet.getEnhanceGraph().addAll(enhancedTriples);
         messageWriter.println("Added " + enhancedTriples.size() + " enahnced triples to " + dataSet.getEnhanceGraphRef().getUnicodeString());
         // Interlink (self)
