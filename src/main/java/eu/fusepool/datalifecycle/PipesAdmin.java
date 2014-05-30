@@ -130,10 +130,11 @@ public class PipesAdmin {
      * Add the size of the graphs within each dataset/pipe to the rdf data for visualization
      */
     private void addGraphsSize(MGraph responseGraph){
-        Iterator<Triple> datasets = getDlcGraph().filter(DlcGraphProvider.DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, null);
+        
+        Iterator<Triple> datasets = getDlcGraph().filter(DlcGraphProvider.DATA_LIFECYCLE_GRAPH_REFERENCE, Ontology.pipe, null);        
         while(datasets.hasNext()){
             final UriRef datasetRef = (UriRef) datasets.next().getObject();
-            final DataSet dataSet = new DataSetFactory().getDataSet(datasetRef);
+            final DataSet dataSet = dataSetFactory.getDataSet(datasetRef);
             // add source graph size
             int sourceGraphSize = dataSet.getSourceGraph().size();
             responseGraph.add(new TripleImpl(dataSet.getSourceGraphRef(), Ontology.size, new PlainLiteralImpl(Integer.toString(sourceGraphSize))));
@@ -154,6 +155,7 @@ public class PipesAdmin {
             responseGraph.add(new TripleImpl(dataSet.getPublishGraphRef(), Ontology.size, new PlainLiteralImpl(Integer.toString(publishGraphSize))));
             
         }
+        
         
     }
     /**
