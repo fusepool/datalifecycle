@@ -47,7 +47,7 @@ else return true;
     </div><!-- top ends here -->
     <div id="mainColumn">
 	
-	<@ldpath path="wf:pipe">
+	<@ldpath path="ont:graph/wf:pipe">
 	        <div id="dataset">
 			<h2>Dataset: <@ldpath path="rdfs:label"/></h2>
 			<h2> Status: <span id="status"><@ldpath path="wf:status/rdfs:label"/></span> </h2>
