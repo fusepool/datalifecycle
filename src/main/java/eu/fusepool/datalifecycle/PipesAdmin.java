@@ -119,9 +119,8 @@ public class PipesAdmin {
         }
         
         //This GraphNode represents the service within our result graph
-        final GraphNode node = new GraphNode(DlcGraphProvider.DATA_LIFECYCLE_GRAPH_REFERENCE, responseGraph);
-        
-        
+        final GraphNode node = new GraphNode(serviceUri, responseGraph);
+        node.addProperty(Ontology.graph, DlcGraphProvider.DATA_LIFECYCLE_GRAPH_REFERENCE);
         
         //What we return is the GraphNode to the template with the same path and name 
         return new RdfViewable("PipesAdmin", node, PipesAdmin.class);
