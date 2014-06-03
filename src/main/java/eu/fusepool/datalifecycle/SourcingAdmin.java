@@ -354,7 +354,7 @@ public class SourcingAdmin {
     public RdfViewable serviceEntry(@Context final UriInfo uriInfo,
             @QueryParam("url") final UriRef url,
             @HeaderParam("user-agent") String userAgent) {
-        //this makes sure we are nt invoked with a trailing slash which would affect
+        //this makes sure this service is not invoked with a trailing slash which would affect
         //relative resolution of links (e.g. css)
         TrailingSlash.enforcePresent(uriInfo);
 
