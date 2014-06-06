@@ -7,6 +7,6 @@ target/
 .classpath
 .project
 .settings/
-nbaction.xml
+nbactions.xml
 .gitattributes
 
