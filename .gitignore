@@ -7,5 +7,6 @@ target/
 .classpath
 .project
 .settings/
-
+nbaction.xml
+.gitattributes
 
