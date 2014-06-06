@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-    
-    <parent>
-        <groupId>eu.fusepool</groupId>
-        <artifactId>parent</artifactId>
-        <version>0.1-SNAPSHOT</version>
-        <relativePath>../parent</relativePath>
-    </parent>
-    
-    <artifactId>datalifecycle</artifactId>
-    <version>1.0-SNAPSHOT</version>
-  
-    <packaging>bundle</packaging>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+	<modelVersion>4.0.0</modelVersion>
 
-    <name>Fusepool Data Lifecycle</name>
-    <description>Allows uploading data sources to various graphs. On upload the 
+	<parent>
+		<groupId>eu.fusepool</groupId>
+		<artifactId>parent</artifactId>
+		<version>0.1-SNAPSHOT</version>
+		<relativePath>../parent</relativePath>
+	</parent>
+
+	<artifactId>datalifecycle</artifactId>
+	<version>1.0-SNAPSHOT</version>
+	<packaging>pom</packaging>
+
+	<name>Fusepool Data Lifecycle</name>
+	<description>Allows uploading data sources to various graphs. On upload the 
         uploaded resources are interlinked within the uploaded data and against 
         existing data. A timed job regularly smushes the resources and provides
         the smushed graph to the content graph. For the content graph the 
@@ -23,98 +23,105 @@
         to the content graph except when two previously published IRIs turn out
         to be the same.</description>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
+	<build>
+		<!-- make it an OSGi bundle -->
+		<plugins>
+			<plugin>
+				<groupId>org.apache.felix</groupId>
+				<artifactId>maven-scr-plugin</artifactId>
+				<version>1.9.0</version>
+				<executions>
+					<execution>
+						<id>generate-scr-scrdescriptor</id>
+						<goals>
+							<goal>scr</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
 
-    <build>
-        <!-- make it an OSGi bundle -->
-        <plugins>
-            <plugin>
-                <groupId>org.apache.felix</groupId>
-                <artifactId>maven-scr-plugin</artifactId>
-                <version>1.9.0</version>
-                <executions>
-                    <execution>
-                        <id>generate-scr-scrdescriptor</id>
-                        <goals>
-                            <goal>scr</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            
-            <plugin>
-                <groupId>org.apache.felix</groupId>
-                <artifactId>maven-bundle-plugin</artifactId>
-                <extensions>true</extensions>
-                <version>2.3.7</version>
-            </plugin>
-            
-        </plugins>
-    </build>
+			<plugin>
+				<groupId>org.apache.felix</groupId>
+				<artifactId>maven-bundle-plugin</artifactId>
+				<extensions>true</extensions>
+				<version>2.3.7</version>
+			</plugin>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.apache.stanbol</groupId>
-            <artifactId>org.apache.stanbol.commons.web.base</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.stanbol</groupId>
-            <artifactId>org.apache.stanbol.entityhub.model.clerezza</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.stanbol</groupId>
-            <artifactId>org.apache.stanbol.commons.web.viewable</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.stanbol</groupId>
-            <artifactId>org.apache.stanbol.entityhub.core</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
-        </dependency>
-            <dependency>
-            <groupId>org.apache.stanbol</groupId>
-            <artifactId>org.apache.stanbol.entityhub.servicesapi</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>1.6.6</version>
-        </dependency>
-        <dependency>
+		</plugins>
+	</build>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.apache.stanbol</groupId>
+			<artifactId>org.apache.stanbol.commons.web.base</artifactId>
+			<version>1.0.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.stanbol</groupId>
+			<artifactId>org.apache.stanbol.entityhub.model.clerezza</artifactId>
+			<version>1.0.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.stanbol</groupId>
+			<artifactId>org.apache.stanbol.commons.web.viewable</artifactId>
+			<version>1.0.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.stanbol</groupId>
+			<artifactId>org.apache.stanbol.entityhub.core</artifactId>
+			<version>1.0.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.stanbol</groupId>
+			<artifactId>org.apache.stanbol.entityhub.servicesapi</artifactId>
+			<version>1.0.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>1.6.6</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.clerezza</groupId>
+			<artifactId>rdf.ontologies</artifactId>
+			<version>0.11-incubating</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.clerezza</groupId>
+			<artifactId>rdf.utils</artifactId>
+			<version>0.14-SNAPSHOT</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.clerezza</groupId>
+			<artifactId>jaxrs.utils</artifactId>
+			<version>0.8</version>
+		</dependency>
+		<dependency>
+			<groupId>org.osgi</groupId>
+			<artifactId>org.osgi.core</artifactId>
+			<version>4.3.1</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.felix</groupId>
+			<artifactId>org.apache.felix.scr.annotations</artifactId>
+			<version>1.9.6</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.stanbol</groupId>
+			<artifactId>org.apache.stanbol.enhancer.core</artifactId>
+			<version>1.0.0-SNAPSHOT</version>
+		</dependency>
+		<dependency>
             <groupId>org.apache.clerezza</groupId>
-            <artifactId>rdf.ontologies</artifactId>
-            <version>0.11-incubating</version>
+            <artifactId>rdf.core</artifactId>
+            <version>0.12-incubating</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.clerezza</groupId>
-            <artifactId>rdf.utils</artifactId>
-            <version>0.14-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.clerezza</groupId>
-            <artifactId>jaxrs.utils</artifactId>
-            <version>0.8</version>
-        </dependency>
-        <dependency>
-            <groupId>org.osgi</groupId>
-            <artifactId>org.osgi.core</artifactId>
-            <version>4.3.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.felix</groupId>
-            <artifactId>org.apache.felix.scr.annotations</artifactId>
-            <version>1.9.6</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.stanbol</groupId>
-            <artifactId>org.apache.stanbol.enhancer.core</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
-        </dependency>
-    </dependencies>
-    
+	</dependencies>
+
+	<modules>
+		<module>dlc-api</module>
+		<module>dlc-ontologies</module>
+		<module>dlc-core</module>
+		
+	</modules>
 </project>
