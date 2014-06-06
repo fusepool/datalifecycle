@@ -1,0 +1,293 @@
+@prefix : <http://fusepool.eu/ontologies/dlc#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix xml: <http://www.w3.org/XML/1998/namespace> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@base <http://fusepool.eu/ontologies/dlc#> .
+
+<http://fusepool.eu/ontologies/dlc#> rdf:type owl:Ontology .
+
+
+#################################################################
+#
+#    Object Properties
+#
+#################################################################
+
+
+###  http://fusepool.eu/ontologies/dlc#activeTask
+
+:activeTask rdf:type owl:ObjectProperty ;
+            
+            rdfs:label "active task" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#creates
+
+:creates rdf:type owl:ObjectProperty ;
+         
+         rdfs:label "creates" ;
+         
+         rdfs:comment "a pipe creates one or more tasks" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#deliverable
+
+:deliverable rdf:type owl:ObjectProperty ;
+             
+             rdfs:label "deliverable" ;
+             
+             rdfs:comment "a task delivers a product" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#enhanceService
+
+:enhanceService rdf:type owl:ObjectProperty ;
+                
+                rdfs:label "enhance service" ;
+                
+                rdfs:comment "Service component to extract information from text." .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#graph
+
+:graph rdf:type owl:ObjectProperty ;
+       
+       rdfs:label "graph" ;
+       
+       rdfs:comment "a graph returned by a service for visualization." .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#interlinkService
+
+:interlinkService rdf:type owl:ObjectProperty ;
+                  
+                  rdfs:label "interlink service" ;
+                  
+                  rdfs:comment "Service component to deduplicate and interlink entities." .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#linkPredicate
+
+:linkPredicate rdf:type owl:ObjectProperty ;
+               
+               rdfs:comment "same as VOID linkPredicate" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#objectsTarget
+
+:objectsTarget rdf:type owl:ObjectProperty ;
+               
+               rdfs:label "has objects target" ;
+               
+               rdfs:comment "Same meaning as VOID objects target." .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#pipe
+
+:pipe rdf:type owl:ObjectProperty ;
+      
+      rdfs:label "pipe" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#rdfizeService
+
+:rdfizeService rdf:type owl:ObjectProperty ;
+               
+               rdfs:label "rdfize service" ;
+               
+               rdfs:comment "Service component to transformation a data set into RDf" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#retrievedURI
+
+:retrievedURI rdf:type owl:ObjectProperty ;
+              
+              rdfs:label "retrieved URI" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#status
+
+:status rdf:type owl:ObjectProperty ;
+        
+        rdfs:label "status" ;
+        
+        rdfs:comment "status of the dataset (unpublished/published)" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#subjectsTarget
+
+:subjectsTarget rdf:type owl:ObjectProperty ;
+                
+                rdfs:label "has subjects target" ;
+                
+                rdfs:comment "Same meaning as VOID subjects target." .
+
+
+
+
+
+#################################################################
+#
+#    Data properties
+#
+#################################################################
+
+
+###  http://fusepool.eu/ontologies/dlc#endDate
+
+:endDate rdf:type owl:DatatypeProperty ;
+         
+         rdfs:label "end date" ;
+         
+         rdfs:comment "a task end date" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#size
+
+:size rdf:type owl:DatatypeProperty ;
+      
+      rdfs:label "size" ;
+      
+      rdfs:comment "number of triples in a graph" .
+
+
+
+
+
+#################################################################
+#
+#    Classes
+#
+#################################################################
+
+
+###  http://fusepool.eu/ontologies/dlc#Dataset
+
+:Dataset rdf:type owl:Class ;
+         
+         rdfs:label "Data set" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#DigestTask
+
+:DigestTask rdf:type owl:Class ;
+            
+            rdfs:label "Digest task" ;
+            
+            rdfs:comment "Adapt the RDF data to the following phases or use (like indexing)" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#EnhanceTask
+
+:EnhanceTask rdf:type owl:Class ;
+             
+             rdfs:label "Enhance task" ;
+             
+             rdfs:comment "Extracts named entities from text." .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#InterlinkTask
+
+:InterlinkTask rdf:type owl:Class ;
+               
+               rdfs:label "Interlink task" ;
+               
+               rdfs:comment "Deduplicates and interlink entities with the knowledge base" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#Linkset
+
+:Linkset rdf:type owl:Class ;
+         
+         rdfs:comment "same as VOID Linkset" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#LogEntry
+
+:LogEntry rdf:type owl:Class ;
+          
+          rdfs:label "Log entry" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#Pipe
+
+:Pipe rdf:type owl:Class ;
+      
+      rdfs:label "Pipe" ;
+      
+      rdfs:comment "A data set with the source graph and other data extracted from it in one or more task." .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#PublishTask
+
+:PublishTask rdf:type owl:Class ;
+             
+             rdfs:label "Publish task" ;
+             
+             rdfs:comment "Publish RDF data. The publisher commits to mantain the dataset." .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#Published
+
+:Published rdf:type owl:Class ;
+           
+           rdfs:label "Published" ;
+           
+           rdfs:comment "A dataset can be in one of the following status (member of one of the following disjoint classes): Unpublished, Published" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#RdfTask
+
+:RdfTask rdf:type owl:Class ;
+         
+         rdfs:label "Rdfize task" ;
+         
+         rdfs:comment "Transform a data set into RDF" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#SmushTask
+
+:SmushTask rdf:type owl:Class ;
+           
+           rdfs:label "Smush task" .
+
+
+
+###  http://fusepool.eu/ontologies/dlc#Unpublished
+
+:Unpublished rdf:type owl:Class ;
+             
+             rdfs:label "Unpublished" ;
+             
+             rdfs:comment "A dataset can be in one of the following status (member of one of the following disjoint classes): Unpublished, Published" .
+
+
+
+
+###  Generated by the OWL API (version 3.4.2) http://owlapi.sourceforge.net
+
