@@ -668,6 +668,7 @@ public class SourcingAdmin {
                                         return false;
                                     }
                                     try {
+                                        log.println("Starting batch process");
                                         rdfUploadPublish(dataSet, dataUrl, rdfizer, digester, interlinker, smushAndPublish, log);
                                     } catch (Exception e) {
                                         log.println("Exception processing " + dataUrl);
@@ -817,7 +818,7 @@ public class SourcingAdmin {
 
         if (pipeExists(pipeRef)) {
             DataSet dataSet = dataSetFactory.getDataSet(pipeRef);
-            performAllTasks(dataSet, digester, interlinker, messageWriter);
+            performDigest2InterlinkTasks(dataSet, digester, interlinker, messageWriter);
 
         } else {
             messageWriter.println("The dataset does not exist.");
@@ -1170,7 +1171,7 @@ public class SourcingAdmin {
      * two graphs must be coherent, i.e. the same. Before publishing the current
      * smushed data must be compared with the last published data. New triples
      * in the smushed graph not in the published graph must be added while
-     * triples in the published graph absent in the smushed graph must be
+     * triples in the published graph not in the smushed graph must be
      * removed. The algorithm is as follows 1) make all URIs in smush.graph http
      * dereferencable (uri canonicalization) 2) find triples in smush.graph not
      * in publish.graph (new triples) 3) find triples in publish.graph not in
@@ -1262,7 +1263,7 @@ public class SourcingAdmin {
     }
 
     /**
-     * Performs the following tasks in sequence - Enhance - Interlink - Smush -
+     * Performs the following tasks in sequence -Digest - Enhance - Interlink - Smush -
      * Publish
      *
      * @param pipeRef
@@ -1271,17 +1272,22 @@ public class SourcingAdmin {
      * @param mediaType
      * @return
      */
-    private void performAllTasks(DataSet dataSet, String digesterName, String interlinkerName, PrintWriter messageWriter) throws IOException {
+    private void performDigest2InterlinkTasks(DataSet dataSet, String digesterName, String interlinkerName, PrintWriter messageWriter) throws IOException {
         // Digest RDF data
         extractTextFromRdf(dataSet, digesterName, messageWriter);
+        log.info("Added " + dataSet.getDigestGraph().size() + " triples to " + dataSet.getDigestGraphRef().getUnicodeString());
         //compute enhacements
         computeEnhancements(dataSet, messageWriter);
+        log.info("Added " + dataSet.getEnhanceGraph().size() + " triples to " + dataSet.getEnhanceGraphRef().getUnicodeString());
         // Interlink (against itself and content.graph)
         reconcile(dataSet, interlinkerName, messageWriter);
+        log.info("Added " + dataSet.getInterlinksGraph().size() + " triples to " + dataSet.getInterlinksGraphRef().getUnicodeString());
         // Smush
-        SmushingJob.perform(dataSet, messageWriter, baseUri);
+        //SmushingJob.perform(dataSet, messageWriter, baseUri);
+        //log.info("Added " + dataSet.getSmushGraph().size() + " triples to " + dataSet.getSmushGraphRef().getUnicodeString());
         // Publish
-        publishData(dataSet, messageWriter);
+        //publishData(dataSet, messageWriter);
+        //log.info("Added " + dataSet.getPublishGraph().size() + " triples to " + dataSet.getPublishGraphRef().getUnicodeString());
 
     }
 
@@ -1298,38 +1304,35 @@ public class SourcingAdmin {
      */
     private void rdfUploadPublish(DataSet dataSet, URL dataUrl, Rdfizer rdfizer, String digesterName, String interlinkerName, boolean smushAndPublish, PrintWriter messageWriter) throws IOException {
 
-        // Transform to RDF
-        TripleCollection addedTriples = rdfizer == null
-                ? addTriples(dataSet, dataUrl, messageWriter)
-                : transformXml(dataSet, dataUrl, rdfizer, messageWriter);
-
-        // Digest. Add sioc:content and dc:subject predicates
-        MGraph digestedTriples = new IndexedMGraph();
-        digestedTriples.addAll(addedTriples);
-        RdfDigester digester = digesters.get(digesterName);
-        digester.extractText(digestedTriples);
-        dataSet.getDigestGraph().addAll(digestedTriples);
-        messageWriter.println("Added " + digestedTriples.size() + " digested triples to " + dataSet.getDigestGraphRef().getUnicodeString());
-        MGraph enhancedTriples = new IndexedMGraph();
-        computeEnhancements(dataSet, messageWriter);
-        dataSet.getEnhanceGraph().addAll(enhancedTriples);
-        messageWriter.println("Added " + enhancedTriples.size() + " enahnced triples to " + dataSet.getEnhanceGraphRef().getUnicodeString());
-        // Interlink (self)
-        if (!interlinkerName.equals("none")) {
-            Interlinker interlinker = interlinkers.get(interlinkerName);
-            final TripleCollection dataSetInterlinks = interlinker.interlink(enhancedTriples, dataSet.getEnhanceGraphRef());
-            dataSet.getInterlinksGraph().addAll(dataSetInterlinks);
-            messageWriter.println("Added " + dataSetInterlinks.size() + " data-set interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
-            // Interlink (content.graph)
-            final TripleCollection contentGraphInterlinks = interlinker.interlink(enhancedTriples, CONTENT_GRAPH_REF);
-            dataSet.getInterlinksGraph().addAll(contentGraphInterlinks);
-            messageWriter.println("Added " + contentGraphInterlinks.size() + " content-graph interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
+        TripleCollection addedTriples = new IndexedMGraph();
+        
+        // Upload data
+        log.info("Started data upload");
+        if(rdfizer == null )
+            uploadRdf(dataSet, dataUrl, messageWriter);
+        else
+            uploadXml(dataSet, dataUrl, rdfizer.getName(), messageWriter);
+            
+        Lock ls = dataSet.getSourceGraph().getLock().readLock();
+        ls.lock();
+        try {
+            addedTriples.addAll(dataSet.getSourceGraph());
         }
+        finally {
+            ls.unlock();
+        }
+        
+        log.info("Uploaded " + addedTriples.size() + " triples.");
+        
+        performDigest2InterlinkTasks(dataSet, digesterName, interlinkerName, messageWriter);
+        
         if (smushAndPublish) {
             // Smush
             SmushingJob.perform(dataSet, messageWriter, baseUri);
+            log.info("Added " + dataSet.getSmushGraph().size() + " triples to " + dataSet.getSmushGraphRef().getUnicodeString());
             // Publish
             publishData(dataSet, messageWriter);
+            log.info("Added " + dataSet.getSmushGraph().size() + " triples to " + dataSet.getPublishGraphRef().getUnicodeString());
         }
 
         GraphNode logEntry = new GraphNode(new BNode(), dataSet.getLogGraph());
