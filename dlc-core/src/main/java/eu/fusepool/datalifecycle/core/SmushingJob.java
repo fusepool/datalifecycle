@@ -121,7 +121,7 @@ class SmushingJob {
             dataSet.getSmushGraph().clear();
         }
 
-        LockableMGraph unionGraph = new UnionMGraph(dataSet.getDigestGraph(), dataSet.getEnhanceGraph());
+        LockableMGraph unionGraph = new UnionMGraph(dataSet.getSourceGraph(), dataSet.getDigestGraph(), dataSet.getEnhanceGraph());
         Lock erl = unionGraph.getLock().readLock();
         erl.lock();
         try {
