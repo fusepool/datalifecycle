@@ -30,20 +30,21 @@ public class FileUtil {
         String path = url.getPath();
         String ref = url.toString();
         
-        boolean isFile = false;
+        boolean isRdfFile = false;
         for(int i = 0; i < fileNameExtensions.length; i++){
             if(ref.endsWith(fileNameExtensions[i]))
-                isFile = true;
+                isRdfFile = true;
         }
         
        
-        if(isFile){
+        if(isRdfFile){
             fileList.add(ref);
         }
         else {
             if("file".equals(scheme)) {
                 File dir = new File(fileName);
                 if(dir.isDirectory()) {
+                    if(! path.endsWith("/")) path = path + "/";
                     String [] files = dir.list();
                     for(int i = 0; i < files.length; i++ ) {
                         for(int j = 0; j < fileNameExtensions.length; j++)
