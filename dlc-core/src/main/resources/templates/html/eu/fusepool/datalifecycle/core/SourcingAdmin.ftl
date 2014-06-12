@@ -110,7 +110,7 @@
        
        <div class="panel"> 
         <form action="runsequence" method="post">
-        <h2>Select a task sequence (digest -> publish)</h2>
+        <h2>Select a task sequence (digest -> interlink)</h2>
             Select dataset 
         	<select name="pipe">
             <@ldpath path="dlc:pipe">
@@ -138,7 +138,7 @@
     <div class="panel">
     <form action="processBatch/" method="post">
             <h2>Batch process</h2>
-            Load RDF data, enhance and interlink. Select dataset 
+            Load data, digest, enhance and interlink. Select dataset 
         	<select name="dataSet">     
               <@ldpath path="dlc:pipe">
                 <option value="<@ldpath path="."/>"><@ldpath path="rdfs:label"/></option>
