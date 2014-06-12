@@ -10,7 +10,7 @@
 	</parent>
 	<artifactId>dlc-ontologies</artifactId>
 	<name>DLC  Ontologies</name>
-        <packaging>bundle</packaging>
+    <packaging>bundle</packaging>
 	<build>
         <plugins>
             <plugin>
