@@ -269,13 +269,6 @@ public class PipesAdmin {
             pl.unlock();
         }
         
-        // Unpublish data. Removes published data from content graph.  
-        if(publishedTriples.size() > 0){
-            LockableMGraph contentGraph = tcManager.getMGraph(new UriRef(SourcingAdmin.CONTENT_GRAPH_NAME));
-            contentGraph.removeAll(publishedTriples);
-            
-        }
-        
         tcManager.deleteTripleCollection(dataSet.getPublishGraphRef());
         
         // remove pipe metadata
