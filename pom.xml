@@ -84,7 +84,7 @@
 		<dependency>
 			<groupId>org.apache.clerezza</groupId>
 			<artifactId>rdf.ontologies</artifactId>
-			<version>0.11-incubating</version>
+			<version>0.12</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.clerezza</groupId>
@@ -94,7 +94,7 @@
 		<dependency>
 			<groupId>org.apache.clerezza</groupId>
 			<artifactId>jaxrs.utils</artifactId>
-			<version>0.8</version>
+			<version>0.9</version>
 		</dependency>
 		<dependency>
 			<groupId>org.osgi</groupId>
@@ -114,7 +114,7 @@
 		<dependency>
             <groupId>org.apache.clerezza</groupId>
             <artifactId>rdf.core</artifactId>
-            <version>0.12-incubating</version>
+            <version>0.14</version>
         </dependency>
 	</dependencies>
 
