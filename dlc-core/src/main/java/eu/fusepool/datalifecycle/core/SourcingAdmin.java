@@ -103,6 +103,7 @@ import eu.fusepool.datalifecycle.Rdfizer;
 import eu.fusepool.datalifecycle.utils.FileUtil;
 import eu.fusepool.datalifecycle.utils.LinksRetriever;
 import eu.fusepool.datalifecycle.ontologies.DLC;
+import org.apache.clerezza.rdf.core.Literal;
 
 
 /**
@@ -1124,9 +1125,11 @@ public class SourcingAdmin {
         final Iterator<GraphNode> enhancements = enhancementType.getSubjectNodes(RDF.type);
         while (enhancements.hasNext()) {
             final GraphNode enhhancement = enhancements.next();
+            final Iterator<Literal> confidenceLiterals = enhhancement.getLiterals(org.apache.stanbol.enhancer.servicesapi.rdf.Properties.ENHANCER_CONFIDENCE);
             //look the confidence value for each enhancement
-            double enhancementConfidence = LiteralFactory.getInstance().createObject(Double.class,
-                    (TypedLiteral) enhhancement.getLiterals(org.apache.stanbol.enhancer.servicesapi.rdf.Properties.ENHANCER_CONFIDENCE).next());
+            double enhancementConfidence = confidenceLiterals.hasNext() ? 
+                    LiteralFactory.getInstance().createObject(Double.class,
+                    (TypedLiteral) confidenceLiterals.next())  : 1;
             if (enhancementConfidence >= confidenceThreshold) {
                 // get entities referenced in the enhancement 
                 final Iterator<Resource> referencedEntities = enhhancement.getObjects(org.apache.stanbol.enhancer.servicesapi.rdf.Properties.ENHANCER_ENTITY_REFERENCE);
