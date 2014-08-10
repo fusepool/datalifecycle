@@ -1,4 +1,4 @@
-<@namespace ont="http://fusepool.com/ontologies/interlinking#" />
+<@namespace ont="http://fusepool.eu/ontologies/dlc#" />
 <@namespace cc="http://creativecommons.org/ns#" />
 <@namespace dcterms="http://purl.org/dc/terms/" />
 <@namespace rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" />
