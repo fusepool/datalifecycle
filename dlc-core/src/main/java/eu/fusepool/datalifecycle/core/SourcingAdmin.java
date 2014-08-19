@@ -104,6 +104,7 @@ import eu.fusepool.datalifecycle.utils.FileUtil;
 import eu.fusepool.datalifecycle.utils.LinksRetriever;
 import eu.fusepool.datalifecycle.ontologies.DLC;
 import org.apache.clerezza.rdf.core.Literal;
+import org.apache.clerezza.rdf.core.access.LockableMGraphWrapper;
 
 
 /**
@@ -1303,14 +1304,14 @@ public class SourcingAdmin {
                 : transformXml(dataSet, dataUrl, rdfizer, messageWriter);
 
         // Digest. Add sioc:content and dc:subject predicates
-        MGraph digestedTriples = new IndexedMGraph();
+        LockableMGraph digestedTriples = new LockableMGraphWrapper(new IndexedMGraph());
         digestedTriples.addAll(addedTriples);
         RdfDigester digester = digesters.get(digesterName);
         digester.extractText(digestedTriples);
         dataSet.getDigestGraph().addAll(digestedTriples);
         messageWriter.println("Added " + digestedTriples.size() + " digested triples to " + dataSet.getDigestGraphRef().getUnicodeString());
         MGraph enhancedTriples = new IndexedMGraph();
-        computeEnhancements(dataSet.getDigestGraph(), enhancedTriples, messageWriter);
+        computeEnhancements(digestedTriples, enhancedTriples, messageWriter);
         dataSet.getEnhanceGraph().addAll(enhancedTriples);
         messageWriter.println("Added " + enhancedTriples.size() + " enahnced triples to " + dataSet.getEnhanceGraphRef().getUnicodeString());
         // Interlink (self)
