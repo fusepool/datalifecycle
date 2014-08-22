@@ -35,12 +35,15 @@ public interface DataSet {
     UriRef getDigestGraphRef();
 
     /**
-     *
-     * @return the graph containing the enhanced data
+     * Some triples are not contained in the original source graph nor in the
+     * digest graph but I added by mean such as natural language processing,
+     * these triple enhance the underlying graph.
+     * 
+     * @return the graph containing triples enhancing the digested graph
      */
-    LockableMGraph getEnhanceGraph();
+    LockableMGraph getEnhancementsGraph();
 
-    UriRef getEnhanceGraphRef();
+    UriRef getEnhancementsGraphRef();
 
     /**
      *

@@ -708,7 +708,7 @@ public class SourcingAdmin {
                 try {
                     if (interlinker != null) {
                         log.println("Interlinking with: " + interlinker);
-                        final TripleCollection dataSetInterlinks = interlinker.interlink(dataSet.getEnhanceGraph(), dataSet.getEnhanceGraph());
+                        final TripleCollection dataSetInterlinks = interlinker.interlink(dataSet.getDigestGraph(), dataSet.getDigestGraph());
                         dataSet.getInterlinksGraph().addAll(dataSetInterlinks);
                         log.println("Added " + dataSetInterlinks.size() + " data-set interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
                     } else {
@@ -1060,7 +1060,7 @@ public class SourcingAdmin {
      */
     private void computeEnhancements(DataSet dataSet, PrintWriter messageWriter) {
         LockableMGraph digestGraph = dataSet.getDigestGraph();
-        computeEnhancements(digestGraph, dataSet.getEnhanceGraph(), messageWriter);
+        computeEnhancements(digestGraph, dataSet.getEnhancementsGraph(), messageWriter);
     }
 
     private void computeEnhancements(LockableMGraph sourceGraph, MGraph targetGraph, PrintWriter messageWriter) {
@@ -1312,16 +1312,16 @@ public class SourcingAdmin {
         messageWriter.println("Added " + digestedTriples.size() + " digested triples to " + dataSet.getDigestGraphRef().getUnicodeString());
         MGraph enhancedTriples = new IndexedMGraph();
         computeEnhancements(digestedTriples, enhancedTriples, messageWriter);
-        dataSet.getEnhanceGraph().addAll(enhancedTriples);
-        messageWriter.println("Added " + enhancedTriples.size() + " enahnced triples to " + dataSet.getEnhanceGraphRef().getUnicodeString());
+        dataSet.getEnhancementsGraph().addAll(enhancedTriples);
+        messageWriter.println("Added " + enhancedTriples.size() + " enahnced triples to " + dataSet.getEnhancementsGraphRef().getUnicodeString());
         // Interlink (self)
         if (!interlinkerName.equals("none")) {
             Interlinker interlinker = interlinkers.get(interlinkerName);
-            final TripleCollection dataSetInterlinks = interlinker.interlink(enhancedTriples, dataSet.getEnhanceGraphRef());
+            final TripleCollection dataSetInterlinks = interlinker.interlink(digestedTriples, dataSet.getDigestGraphRef());
             dataSet.getInterlinksGraph().addAll(dataSetInterlinks);
             messageWriter.println("Added " + dataSetInterlinks.size() + " data-set interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
             // Interlink (content.graph)
-            final TripleCollection contentGraphInterlinks = interlinker.interlink(enhancedTriples, CONTENT_GRAPH_REF);
+            final TripleCollection contentGraphInterlinks = interlinker.interlink(digestedTriples, CONTENT_GRAPH_REF);
             dataSet.getInterlinksGraph().addAll(contentGraphInterlinks);
             messageWriter.println("Added " + contentGraphInterlinks.size() + " content-graph interlinks to " + dataSet.getInterlinksGraphRef().getUnicodeString());
         }

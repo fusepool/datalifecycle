@@ -142,8 +142,8 @@ public class PipesAdmin {
             int digestGraphSize = dataSet.getDigestGraph().size();
             responseGraph.add(new TripleImpl(dataSet.getDigestGraphRef(), DLC.size, new PlainLiteralImpl(Integer.toString(digestGraphSize))));
             // add enhance graph size
-            int enhanceGraphSize = dataSet.getEnhanceGraph().size();
-            responseGraph.add(new TripleImpl(dataSet.getEnhanceGraphRef(), DLC.size, new PlainLiteralImpl(Integer.toString(enhanceGraphSize))));
+            int enhanceGraphSize = dataSet.getEnhancementsGraph().size();
+            responseGraph.add(new TripleImpl(dataSet.getEnhancementsGraphRef(), DLC.size, new PlainLiteralImpl(Integer.toString(enhanceGraphSize))));
             // add interlink graph size
             int interlinkGraphSize = dataSet.getInterlinksGraph().size();
             responseGraph.add(new TripleImpl(dataSet.getInterlinksGraphRef(), DLC.size, new PlainLiteralImpl(Integer.toString(interlinkGraphSize))));
@@ -252,7 +252,7 @@ public class PipesAdmin {
         // remove graphs
         tcManager.deleteTripleCollection(dataSet.getSourceGraphRef());
         tcManager.deleteTripleCollection(dataSet.getDigestGraphRef());
-        tcManager.deleteTripleCollection(dataSet.getEnhanceGraphRef());
+        tcManager.deleteTripleCollection(dataSet.getEnhancementsGraphRef());
         tcManager.deleteTripleCollection(dataSet.getInterlinksGraphRef());
         tcManager.deleteTripleCollection(dataSet.getSmushGraphRef());
         tcManager.deleteTripleCollection(dataSet.getLogGraphRef());
@@ -335,7 +335,7 @@ public class PipesAdmin {
 	    	
 	    	// select enhance graph and task metadata 
 	    	UriRef enhanceTaskRef = new UriRef(dataSetUri.getUnicodeString() + "/enhance");
-	    	UriRef enhanceGraphRef = dataSet.getEnhanceGraphRef();
+	    	UriRef enhanceGraphRef = dataSet.getEnhancementsGraphRef();
 	    	Iterator<Triple> ienhanceGraph = getDlcGraph().filter(enhanceGraphRef, null, null);
 	    	while(ienhanceGraph.hasNext()) {
 	    		pipeGraph.add(ienhanceGraph.next());

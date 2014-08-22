@@ -97,16 +97,16 @@ public class DataSetFactory {
          * @return the graph containing the enhanced data
          */
         @Override
-        public LockableMGraph getEnhanceGraph() {
+        public LockableMGraph getEnhancementsGraph() {
             try {
-                return tcManager.getMGraph(getEnhanceGraphRef());
+                return tcManager.getMGraph(getEnhancementsGraphRef());
             } catch (NoSuchEntityException e) {
                 return tcManager.createMGraph(getLogGraphRef());
             }
         }
 
         @Override
-        public UriRef getEnhanceGraphRef() {
+        public UriRef getEnhancementsGraphRef() {
             return new UriRef(dataSetUri.getUnicodeString() + ENHANCE_GRAPH_URN_SUFFIX);
         }
 
@@ -236,9 +236,9 @@ public class DataSetFactory {
             dlcGraphProvider.getDlcGraph().add(new TripleImpl(enhanceTaskRef, DLC.deliverable, getDigestGraphRef()));
             dlcGraphProvider.getDlcGraph().add(new TripleImpl(getDigestGraphRef(), RDFS.label, new PlainLiteralImpl("Contains a sioc:content property with text " + "for indexing and references to entities found in the text by NLP enhancement engines")));
             // create the graph to store enhancements found by NLP engines in the digest
-            tcManager.createMGraph(getEnhanceGraphRef());
-            dlcGraphProvider.getDlcGraph().add(new TripleImpl(enhanceTaskRef, DLC.deliverable, getEnhanceGraphRef()));
-            dlcGraphProvider.getDlcGraph().add(new TripleImpl(getEnhanceGraphRef(), RDFS.label, new PlainLiteralImpl("Contains  entities found " + "in digest by NLP enhancement engines")));
+            tcManager.createMGraph(getEnhancementsGraphRef());
+            dlcGraphProvider.getDlcGraph().add(new TripleImpl(enhanceTaskRef, DLC.deliverable, getEnhancementsGraphRef()));
+            dlcGraphProvider.getDlcGraph().add(new TripleImpl(getEnhancementsGraphRef(), RDFS.label, new PlainLiteralImpl("Contains  entities found " + "in digest by NLP enhancement engines")));
             // create the graph to store the result of the interlinking task
             tcManager.createMGraph(getInterlinksGraphRef());
             dlcGraphProvider.getDlcGraph().add(new TripleImpl(interlinkTaskRef, DLC.deliverable, getInterlinksGraphRef()));
