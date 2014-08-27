@@ -121,21 +121,12 @@ class SmushingJob {
             dataSet.getSmushGraph().clear();
         }
 
-        LockableMGraph unionGraph = new UnionMGraph(dataSet.getSourceGraph(), dataSet.getDigestGraph(), dataSet.getEnhancementsGraph());
-        Lock erl = unionGraph.getLock().readLock();
-        erl.lock();
-        try {
-            // add triples from enhance graph to smush graph
-            dataSet.getSmushGraph().addAll(unionGraph);
-            log.info("Copied " + unionGraph.size() + " triples from the union of source, digest and enhancements graph into the smush graph.");
-            MGraph tempEquivalenceSet = new IndexedMGraph();
-            tempEquivalenceSet.addAll(dataSet.getInterlinksGraph());
-            log.info("Smush task started.");
-            smusher.smush(dataSet.getSmushGraph(), tempEquivalenceSet, true);
-            log.info("Smush task completed.");
-        } finally {
-            erl.unlock();
-        }
+        dataSet.getSmushGraph().addAll(dataSet.getDigestGraph());
+        dataSet.getSmushGraph().addAll(dataSet.getEnhancementsGraph());
+        log.info("All triples from the union of digest and enhancements graph are now in the smush graph.");
+        log.info("Starting smushing.");
+        smusher.smush(dataSet.getSmushGraph(), dataSet.getInterlinksGraph(), true);
+        log.info("Smush task completed.");
 
         // Remove from smush graph equivalences between temporary uri (urn:x-temp) and http uri that are added by the clerezza smusher.
         // These equivalences must be removed as only equivalences between known entities (http uri) must be maintained and then published
